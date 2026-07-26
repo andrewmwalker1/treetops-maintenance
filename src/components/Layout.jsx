@@ -65,6 +65,7 @@ export default function Layout({ children }) {
           <NavLink to="/" end style={navLinkStyle}>Jobs</NavLink>
           <NavLink to="/equipment" style={navLinkStyle}>Equipment</NavLink>
           <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
+          <NavLink to="/safety" style={navLinkStyle}>Safety</NavLink>
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>

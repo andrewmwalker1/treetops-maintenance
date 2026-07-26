@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
@@ -9,7 +9,7 @@ import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyl
 const JOB_SELECT = `
   id, description, priority, due_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id,
   job_status:job_statuses(id, name, is_completed),
-  job_type:job_types(id, name, requires_completion_photo),
+  job_type:job_types(id, name, requires_completion_photo, task_type:task_types(id, name)),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
   assignee_group:groups(id, name)
 `;
@@ -210,6 +210,15 @@ export default function JobDetail() {
           )}
         </div>
       </div>
+
+      {job.job_type?.task_type && (
+        <Link
+          to={`/safety#task-${job.job_type.task_type.id}`}
+          style={{ ...cardStyle, display: "block", padding: "12px 16px", marginBottom: "16px", textDecoration: "none", color: colors.mossDark, fontWeight: 600, fontSize: "14px" }}
+        >
+          ⚠ View safety info for {job.job_type.task_type.name}
+        </Link>
+      )}
 
       {subtasks.length > 0 && (
         <Section title="Checklist">
