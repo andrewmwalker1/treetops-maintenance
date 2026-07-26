@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import { queueJob } from "../platform/syncQueue.js";
+import { capturePhoto } from "../platform/camera.js";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 const fieldStyle = {
@@ -39,6 +40,9 @@ export default function NewJob() {
   const [locationId, setLocationId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [queuedNotice, setQueuedNotice] = useState(false);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
+  const [photoError, setPhotoError] = useState(null);
 
   useEffect(() => {
     if (!org || !activeSite) return;
@@ -49,6 +53,35 @@ export default function NewJob() {
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
     supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
   }, [org, activeSite]);
+
+  async function handleAddPhoto() {
+    setPhotoError(null);
+    try {
+      const file = await capturePhoto();
+      setPhotoFile(file);
+      setPhotoPreviewUrl(URL.createObjectURL(file));
+    } catch (err) {
+      if (err.message !== "Photo capture cancelled.") setPhotoError(err.message);
+    }
+  }
+
+  function handleRemovePhoto() {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
+    setPhotoFile(null);
+    setPhotoPreviewUrl(null);
+  }
+
+  async function uploadPhotoForJob(jobId) {
+    const path = `${jobId}/${crypto.randomUUID()}-${photoFile.name}`;
+    const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, photoFile);
+    if (uploadError) throw uploadError;
+    const { error: insertError } = await supabase.from("job_photos").insert({
+      job_id: jobId,
+      storage_path: path,
+      uploaded_by: profile.id,
+    });
+    if (insertError) throw insertError;
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -73,8 +106,17 @@ export default function NewJob() {
 
     try {
       if (navigator.onLine) {
-        const { error } = await supabase.from("jobs").insert(jobData);
+        const { data: newJob, error } = await supabase.from("jobs").insert(jobData).select().single();
         if (error) throw error;
+        if (photoFile) {
+          try {
+            await uploadPhotoForJob(newJob.id);
+          } catch (photoErr) {
+            // The job itself was created successfully — a failed photo
+            // upload shouldn't block that or stop navigation.
+            console.error("Failed to attach photo to new job", photoErr);
+          }
+        }
       } else {
         await queueJob(jobData);
         setQueuedNotice(true);
@@ -145,7 +187,23 @@ export default function NewJob() {
           </select>
         )}
 
-        {queuedNotice && <p style={{ color: colors.gold }}>You're offline — this job will save once you're back online.</p>}
+        <label style={labelStyle}>Photo (optional)</label>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+          {photoPreviewUrl && (
+            <img src={photoPreviewUrl} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8 }} />
+          )}
+          <button type="button" onClick={photoFile ? handleRemovePhoto : handleAddPhoto} style={buttonStyle.secondary}>
+            {photoFile ? "Remove photo" : "Add photo"}
+          </button>
+        </div>
+        {photoError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{photoError}</p>}
+
+        {queuedNotice && (
+          <p style={{ color: colors.gold }}>
+            You're offline — this job will save once you're back online.
+            {photoFile && " The photo wasn't queued — add it from the job's detail screen after it syncs."}
+          </p>
+        )}
 
         <button type="submit" disabled={submitting} style={{ ...buttonStyle.primary, width: "100%" }}>
           {submitting ? "Saving…" : "Create job"}
