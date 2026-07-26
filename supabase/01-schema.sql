@@ -150,7 +150,8 @@ create table if not exists public.pitches (
   id uuid primary key default gen_random_uuid(),
   site_id uuid not null references public.sites(id) on delete cascade,
   pitch_number_or_name text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (site_id, pitch_number_or_name)
 );
 
 create table if not exists public.areas (
