@@ -252,7 +252,9 @@ create table if not exists public.jobs (
   -- job from a recurring schedule; null for manually created jobs.
   schedule_id uuid references public.schedules(id) on delete set null,
   closed_by uuid references public.profiles(id) on delete set null,
-  created_by uuid not null references public.profiles(id),
+  -- Nullable: Section 3 doesn't mark this nullable, but the scheduling
+  -- Edge Function (Section 5) creates jobs with no human creator.
+  created_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   -- For offline creation dedup (Section 5) — the client generates this
   -- the moment the user saves, before the row exists server-side.

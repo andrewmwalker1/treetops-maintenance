@@ -1,0 +1,39 @@
+import { Link } from "react-router-dom";
+import { colors, fonts, cardStyle, priorityBarStyle, statusPillStyle } from "../lib/theme.js";
+
+export default function JobCard({ job, terminology = {} }) {
+  const location = job.pitch
+    ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}`
+    : job.area
+    ? job.area.name
+    : null;
+
+  return (
+    <Link
+      to={`/jobs/${job.id}`}
+      style={{
+        ...cardStyle,
+        display: "flex",
+        gap: "12px",
+        padding: "14px 16px",
+        marginBottom: "10px",
+        textDecoration: "none",
+        color: colors.ink,
+      }}
+    >
+      <div style={priorityBarStyle(job.priority)} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+          <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{job.description}</div>
+          <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
+        </div>
+        <div style={{ fontSize: "13px", color: colors.inkSoft, marginTop: "4px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+          {location && <span>{location}</span>}
+          {job.assignee && <span>{job.assignee.display_name}</span>}
+          {job.assignee_group && <span>{job.assignee_group.name}</span>}
+          {job.due_date && <span style={{ fontFamily: fonts.mono }}>Due {job.due_date}</span>}
+        </div>
+      </div>
+    </Link>
+  );
+}

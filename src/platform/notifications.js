@@ -33,9 +33,17 @@ export async function subscribeToPush() {
     });
   }
 
-  const { error } = await supabase.rpc("upsert_push_subscription", {
-    subscription: subscription.toJSON(),
-  });
+  const { data: userData } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from("push_subscriptions")
+    .upsert(
+      {
+        profile_id: userData.user.id,
+        endpoint: subscription.endpoint,
+        subscription: subscription.toJSON(),
+      },
+      { onConflict: "endpoint" }
+    );
   if (error) {
     console.error("Failed to save push subscription", error);
     throw error;
@@ -55,13 +63,37 @@ export async function sendNotification(payload) {
 }
 
 export async function isDNDEnabled() {
+  const { data: userData } = await supabase.auth.getUser();
   const { data, error } = await supabase
     .from("profiles")
     .select("dnd_enabled")
+    .eq("id", userData.user.id)
     .single();
   if (error) {
     console.error("Failed to read dnd_enabled", error);
     return false;
   }
   return Boolean(data?.dnd_enabled);
+}
+
+// Not one of Section 2's three required exports, but the natural home
+// for this: flipping DND off must trigger delivery of whatever
+// operational notifications queued up while it was on (Section 7).
+export async function setDNDEnabled(enabled) {
+  const { data: userData } = await supabase.auth.getUser();
+  const { error } = await supabase
+    .from("profiles")
+    .update({ dnd_enabled: enabled })
+    .eq("id", userData.user.id);
+  if (error) {
+    console.error("Failed to update dnd_enabled", error);
+    throw error;
+  }
+
+  if (!enabled) {
+    const { error: flushError } = await supabase.functions.invoke("flush-dnd-notifications", {
+      body: { profileId: userData.user.id },
+    });
+    if (flushError) console.error("Failed to flush queued notifications", flushError);
+  }
 }

@@ -1,49 +1,107 @@
-// Placeholder screen — proves the scaffold (React, router, Supabase client,
-// design tokens) is wired up. Real job list/filtering lands in a later
-// build-order step (Section 10, step 4 of the brief).
-
-const tokens = {
-  bg: "#E7E2CC",
-  paper: "#FBF9F1",
-  ink: "#31382D",
-  inkSoft: "#78806E",
-  mossDark: "#3F5837",
-  line: "#DDD6BC",
-};
+import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { useAuth } from "../lib/AuthContext.jsx";
+import { queryJobs } from "../lib/jobsQuery.js";
+import { supabase } from "../lib/supabaseClient.js";
+import JobCard from "../components/JobCard.jsx";
+import { colors, fonts, buttonStyle } from "../lib/theme.js";
 
 export default function JobsList() {
+  const { activeSite, terminology } = useAuth();
+  const [jobs, setJobs] = useState([]);
+  const [statuses, setStatuses] = useState([]);
+  const [activeStatusId, setActiveStatusId] = useState(null);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!activeSite) return;
+    supabase
+      .from("job_statuses")
+      .select("id, name, is_completed, sort_order")
+      .order("sort_order")
+      .then(({ data, error: err }) => {
+        if (err) console.error(err);
+        else setStatuses(data);
+      });
+  }, [activeSite]);
+
+  const refresh = useCallback(() => {
+    if (!activeSite) return;
+    setLoading(true);
+    const filters = { search: search || undefined };
+    if (activeStatusId) filters.statusIds = [activeStatusId];
+    queryJobs(activeSite.id, filters)
+      .then(setJobs)
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [activeSite, activeStatusId, search]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  if (!activeSite) return <p style={{ color: colors.inkSoft }}>Loading your site…</p>;
+
   return (
-    <div
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
+        <Link to="/jobs/new" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
+          + New job
+        </Link>
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+        <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
+        {statuses.map((s) => (
+          <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
+        ))}
+      </div>
+
+      <input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search jobs…"
+        style={{
+          width: "100%",
+          boxSizing: "border-box",
+          padding: "10px 14px",
+          borderRadius: "10px",
+          border: `1px solid ${colors.lineStrong}`,
+          fontFamily: fonts.body,
+          marginBottom: "16px",
+        }}
+      />
+
+      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
+      {error && <p style={{ color: colors.immediate }}>{error}</p>}
+      {!loading && !error && jobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs match this view.</p>}
+
+      {jobs.map((job) => (
+        <JobCard key={job.id} job={job} terminology={terminology} />
+      ))}
+    </div>
+  );
+}
+
+function FilterChip({ active, onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
       style={{
-        minHeight: "100vh",
-        background: tokens.bg,
-        color: tokens.ink,
-        fontFamily: "'Work Sans', sans-serif",
-        padding: "24px",
+        border: `1px solid ${active ? colors.mossDark : colors.lineStrong}`,
+        background: active ? colors.mossDark : "transparent",
+        color: active ? "#FFFFFF" : colors.inkSoft,
+        borderRadius: "999px",
+        padding: "6px 14px",
+        fontFamily: fonts.body,
+        fontSize: "13px",
+        cursor: "pointer",
       }}
     >
-      <div
-        style={{
-          background: tokens.paper,
-          border: `1px solid ${tokens.line}`,
-          borderRadius: "16px",
-          padding: "24px",
-          maxWidth: "480px",
-          margin: "0 auto",
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: "'Lora', serif",
-            fontWeight: 700,
-            color: tokens.mossDark,
-            margin: 0,
-          }}
-        >
-          Tree Tops Maintenance
-        </h1>
-        <p style={{ color: tokens.inkSoft }}>Scaffold running. Jobs list lands next.</p>
-      </div>
-    </div>
+      {label}
+    </button>
   );
 }
