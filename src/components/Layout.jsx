@@ -98,6 +98,11 @@ export default function Layout({ children }) {
         </div>
       </header>
       <main style={{ padding: "20px" }}>{children}</main>
+      <footer style={{ padding: "10px 20px", textAlign: "center" }}>
+        <span style={{ fontFamily: fonts.mono, fontSize: "11px", color: colors.inkSoft }}>
+          v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
+        </span>
+      </footer>
     </div>
   );
 }
