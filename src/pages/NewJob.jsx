@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { queueJob } from "../platform/syncQueue.js";
 import { capturePhoto } from "../platform/camera.js";
+import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 const fieldStyle = {
@@ -21,7 +23,9 @@ const labelStyle = { display: "block", fontWeight: 600, marginBottom: "6px", fon
 
 export default function NewJob() {
   const { profile, org, activeSite, terminology } = useAuth();
+  const permissions = usePermissions();
   const navigate = useNavigate();
+  const canEditChecklist = permissions.has("can_edit_job_checklist");
 
   const [jobTypes, setJobTypes] = useState([]);
   const [statuses, setStatuses] = useState([]);
@@ -29,6 +33,7 @@ export default function NewJob() {
   const [groups, setGroups] = useState([]);
   const [pitches, setPitches] = useState([]);
   const [areas, setAreas] = useState([]);
+  const [activityTypes, setActivityTypes] = useState([]);
 
   const [description, setDescription] = useState("");
   const [jobTypeId, setJobTypeId] = useState("");
@@ -38,6 +43,8 @@ export default function NewJob() {
   const [assigneeId, setAssigneeId] = useState("");
   const [locationKind, setLocationKind] = useState("pitch"); // pitch | area | none
   const [locationId, setLocationId] = useState("");
+  const [activityTypeIds, setActivityTypeIds] = useState([]);
+  const [checklistItems, setChecklistItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [queuedNotice, setQueuedNotice] = useState(false);
   const [photoFile, setPhotoFile] = useState(null);
@@ -46,13 +53,24 @@ export default function NewJob() {
 
   useEffect(() => {
     if (!org || !activeSite) return;
-    supabase.from("job_types").select("id, name").eq("org_id", org.id).then(({ data }) => setJobTypes(data || []));
+    supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).then(({ data }) => setJobTypes(data || []));
     supabase.from("job_statuses").select("id, name, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
     supabase.from("profiles").select("id, display_name").eq("org_id", org.id).then(({ data }) => setPeople(data || []));
     supabase.from("groups").select("id, name").eq("org_id", org.id).then(({ data }) => setGroups(data || []));
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
     supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
+    supabase.from("task_types").select("id, name").eq("org_id", org.id).then(({ data }) => setActivityTypes(data || []));
   }, [org, activeSite]);
+
+  function handleJobTypeChange(newJobTypeId) {
+    setJobTypeId(newJobTypeId);
+    const jobType = jobTypes.find((jt) => jt.id === newJobTypeId);
+    setChecklistItems(jobType?.template_schema || []);
+  }
+
+  function toggleActivityType(id) {
+    setActivityTypeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
 
   async function handleAddPhoto() {
     setPhotoError(null);
@@ -108,14 +126,27 @@ export default function NewJob() {
       if (navigator.onLine) {
         const { data: newJob, error } = await supabase.from("jobs").insert(jobData).select().single();
         if (error) throw error;
+
+        // Best-effort follow-up writes — the job itself is already
+        // created, so a failure here shouldn't block navigation.
         if (photoFile) {
           try {
             await uploadPhotoForJob(newJob.id);
           } catch (photoErr) {
-            // The job itself was created successfully — a failed photo
-            // upload shouldn't block that or stop navigation.
             console.error("Failed to attach photo to new job", photoErr);
           }
+        }
+        if (activityTypeIds.length > 0) {
+          const { error: activityError } = await supabase
+            .from("job_activity_types")
+            .insert(activityTypeIds.map((task_type_id) => ({ job_id: newJob.id, task_type_id })));
+          if (activityError) console.error("Failed to attach activity types to new job", activityError);
+        }
+        if (checklistItems.length > 0) {
+          const { error: checklistError } = await supabase
+            .from("job_subtasks")
+            .insert(checklistItems.map((label, i) => ({ job_id: newJob.id, label, sort_order: i })));
+          if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
         }
       } else {
         await queueJob(jobData);
@@ -141,13 +172,32 @@ export default function NewJob() {
         <label style={labelStyle}>Description</label>
         <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: "vertical" }} />
 
-        <label style={labelStyle}>Job type (optional)</label>
-        <select value={jobTypeId} onChange={(e) => setJobTypeId(e.target.value)} style={fieldStyle}>
+        <label style={labelStyle}>Job template (optional)</label>
+        <select value={jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={fieldStyle}>
           <option value="">—</option>
           {jobTypes.map((jt) => (
             <option key={jt.id} value={jt.id}>{jt.name}</option>
           ))}
         </select>
+
+        <label style={labelStyle}>Activity types (optional)</label>
+        <div style={{ ...fieldStyle, height: "auto", padding: "10px 14px" }}>
+          {activityTypes.length === 0 && <span style={{ color: colors.inkSoft, fontSize: "14px" }}>None set up yet.</span>}
+          {activityTypes.map((a) => (
+            <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
+              <input type="checkbox" checked={activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
+              {a.name}
+            </label>
+          ))}
+        </div>
+
+        <label style={labelStyle}>Checklist</label>
+        <div style={{ ...cardStyle, padding: "12px 14px", marginBottom: "14px" }}>
+          <ChecklistBuilder items={checklistItems} onChange={setChecklistItems} readOnly={!canEditChecklist} />
+          {!canEditChecklist && checklistItems.length === 0 && (
+            <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Pick a job template above to attach its checklist.</p>
+          )}
+        </div>
 
         <label style={labelStyle}>Priority</label>
         <select value={priority} onChange={(e) => setPriority(e.target.value)} style={fieldStyle}>

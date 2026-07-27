@@ -1,32 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
-
-function RiskAssessmentContent({ content }) {
-  if (content == null) return <p style={{ color: colors.inkSoft, fontStyle: "italic" }}>No risk assessment content added yet.</p>;
-
-  if (typeof content === "string") {
-    return content.split("\n").filter(Boolean).map((line, i) => <p key={i}>{line}</p>);
-  }
-
-  if (Array.isArray(content)) {
-    return content.map((section, i) => (
-      <div key={i} style={{ marginBottom: "10px" }}>
-        {section.heading && <div style={{ fontWeight: 600 }}>{section.heading}</div>}
-        {section.body && <p style={{ margin: "2px 0" }}>{section.body}</p>}
-        {typeof section === "string" && <p style={{ margin: "2px 0" }}>{section}</p>}
-      </div>
-    ));
-  }
-
-  return <pre style={{ whiteSpace: "pre-wrap", fontFamily: fonts.mono, fontSize: "13px" }}>{JSON.stringify(content, null, 2)}</pre>;
-}
+import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
+import { colors, fonts, cardStyle } from "../lib/theme.js";
 
 export default function HealthAndSafety() {
   const { org } = useAuth();
-  const [taskTypes, setTaskTypes] = useState([]);
-  const [videosByTaskType, setVideosByTaskType] = useState({});
+  const [activityTypes, setActivityTypes] = useState([]);
+  const [documentsByActivityType, setDocumentsByActivityType] = useState({});
+  const [videosByActivityType, setVideosByActivityType] = useState({});
   const [equipmentOnlyVideos, setEquipmentOnlyVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,28 +16,38 @@ export default function HealthAndSafety() {
     if (!org) return;
 
     Promise.all([
-      supabase
-        .from("task_types")
-        .select("id, name, equipment_category, risk_assessment:risk_assessments!task_types_risk_assessment_id_fkey(id, content, updated_at)")
-        .eq("org_id", org.id),
+      supabase.from("task_types").select("id, name, equipment_category").eq("org_id", org.id),
       supabase.from("training_videos").select("id, title, youtube_url, task_type_id, equipment_category").eq("org_id", org.id),
-    ]).then(([{ data: taskTypeRows, error: ttErr }, { data: videoRows, error: vErr }]) => {
+    ]).then(async ([{ data: activityTypeRows, error: ttErr }, { data: videoRows, error: vErr }]) => {
       if (ttErr) console.error(ttErr);
       if (vErr) console.error(vErr);
 
-      setTaskTypes(taskTypeRows || []);
+      setActivityTypes(activityTypeRows || []);
 
-      const byTaskType = {};
+      const videosByType = {};
       const equipmentOnly = [];
       for (const video of videoRows || []) {
         if (video.task_type_id) {
-          byTaskType[video.task_type_id] = [...(byTaskType[video.task_type_id] || []), video];
+          videosByType[video.task_type_id] = [...(videosByType[video.task_type_id] || []), video];
         } else if (video.equipment_category) {
           equipmentOnly.push(video);
         }
       }
-      setVideosByTaskType(byTaskType);
+      setVideosByActivityType(videosByType);
       setEquipmentOnlyVideos(equipmentOnly);
+
+      if ((activityTypeRows || []).length > 0) {
+        const { data: docLinks } = await supabase
+          .from("activity_type_documents")
+          .select("task_type_id, document:ra_ms_documents(id, type, title, description, pdf_storage_path)")
+          .in("task_type_id", activityTypeRows.map((t) => t.id));
+        const grouped = {};
+        for (const link of docLinks || []) {
+          grouped[link.task_type_id] = [...(grouped[link.task_type_id] || []), link.document];
+        }
+        setDocumentsByActivityType(grouped);
+      }
+
       setLoading(false);
     });
   }, [org]);
@@ -75,24 +67,29 @@ export default function HealthAndSafety() {
     <div style={{ maxWidth: "700px" }}>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Health &amp; Safety</h1>
 
-      {taskTypes.length === 0 && (
-        <p style={{ color: colors.inkSoft }}>No task types have been set up yet — risk assessments and training videos are attached to task types.</p>
+      {activityTypes.length === 0 && (
+        <p style={{ color: colors.inkSoft }}>No activity types have been set up yet — manage these, and their RA/MS documents, from Admin → Activity Types.</p>
       )}
 
-      {taskTypes.map((tt) => (
-        <div key={tt.id} id={`task-${tt.id}`} style={{ ...cardStyle, padding: "18px", marginBottom: "16px", scrollMarginTop: "20px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>{tt.name}</h2>
-          {tt.equipment_category && (
-            <div style={{ fontSize: "12px", color: colors.inkSoft, marginBottom: "10px" }}>Equipment category: {tt.equipment_category}</div>
+      {activityTypes.map((t) => (
+        <div key={t.id} id={`task-${t.id}`} style={{ ...cardStyle, padding: "18px", marginBottom: "16px", scrollMarginTop: "20px" }}>
+          <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>{t.name}</h2>
+          {t.equipment_category && (
+            <div style={{ fontSize: "12px", color: colors.inkSoft, marginBottom: "10px" }}>Equipment category: {t.equipment_category}</div>
           )}
 
-          <div style={{ fontWeight: 600, fontSize: "13px", color: colors.inkSoft, marginTop: "10px" }}>Risk assessment</div>
-          <RiskAssessmentContent content={tt.risk_assessment?.content} />
+          <div style={{ fontWeight: 600, fontSize: "13px", color: colors.inkSoft, marginTop: "10px" }}>Risk assessments / method statements</div>
+          {(documentsByActivityType[t.id] || []).length === 0 && (
+            <p style={{ color: colors.inkSoft, fontSize: "13px" }}>None linked yet.</p>
+          )}
+          {(documentsByActivityType[t.id] || []).map((doc) => (
+            <SafetyDocumentLink key={doc.id} doc={doc} />
+          ))}
 
-          {(videosByTaskType[tt.id] || []).length > 0 && (
+          {(videosByActivityType[t.id] || []).length > 0 && (
             <>
               <div style={{ fontWeight: 600, fontSize: "13px", color: colors.inkSoft, marginTop: "14px" }}>Training videos</div>
-              {videosByTaskType[tt.id].map((v) => (
+              {videosByActivityType[t.id].map((v) => (
                 <div key={v.id} style={{ padding: "4px 0" }}>
                   <a href={v.youtube_url} target="_blank" rel="noreferrer" style={{ color: colors.moss }}>
                     ▶ {v.title}

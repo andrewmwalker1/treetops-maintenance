@@ -175,7 +175,6 @@ alter table public.admin_access_log enable row level security;
 alter table public.pitches enable row level security;
 alter table public.areas enable row level security;
 alter table public.task_types enable row level security;
-alter table public.risk_assessments enable row level security;
 alter table public.training_videos enable row level security;
 alter table public.job_statuses enable row level security;
 alter table public.job_types enable row level security;
@@ -292,10 +291,6 @@ create policy areas_insert on public.areas
 
 drop policy if exists task_types_select on public.task_types;
 create policy task_types_select on public.task_types
-  for select using (org_id = public.current_org_id());
-
-drop policy if exists risk_assessments_select on public.risk_assessments;
-create policy risk_assessments_select on public.risk_assessments
   for select using (org_id = public.current_org_id());
 
 drop policy if exists training_videos_select on public.training_videos;

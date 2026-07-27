@@ -163,36 +163,20 @@ create table if not exists public.areas (
 );
 
 -- ---------------------------------------------------------------------
--- Task types & risk assessments (cross-referencing — see header note)
+-- Task types ("activity types" in the UI)
 -- ---------------------------------------------------------------------
+--
+-- Originally had a 1:1 risk_assessment_id link, replaced by the
+-- many-to-many ra_ms_documents/activity_type_documents/job_activity_types
+-- tables in 06-activity-types-and-safety-library.sql — that file is the
+-- source of truth for the H&S library; run it after this one.
 
 create table if not exists public.task_types (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organisations(id) on delete cascade,
   name text not null,
-  risk_assessment_id uuid,
   equipment_category text
 );
-
-create table if not exists public.risk_assessments (
-  id uuid primary key default gen_random_uuid(),
-  org_id uuid not null references public.organisations(id) on delete cascade,
-  task_type_id uuid,
-  content jsonb,
-  updated_at timestamptz not null default now()
-);
-
-do $$ begin
-  alter table public.task_types
-    add constraint task_types_risk_assessment_id_fkey
-    foreign key (risk_assessment_id) references public.risk_assessments(id) on delete set null;
-exception when duplicate_object then null; end $$;
-
-do $$ begin
-  alter table public.risk_assessments
-    add constraint risk_assessments_task_type_id_fkey
-    foreign key (task_type_id) references public.task_types(id) on delete set null;
-exception when duplicate_object then null; end $$;
 
 create table if not exists public.training_videos (
   id uuid primary key default gen_random_uuid(),
@@ -220,8 +204,11 @@ create table if not exists public.job_types (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references public.organisations(id) on delete cascade,
   name text not null,
+  -- Ordered array of default checklist item labels, e.g.
+  -- ["Straighten on the pitch", "Put on stands", ...]. Loaded as a
+  -- starting point when this template is picked on a new job, then
+  -- freely edited (subject to can_edit_job_checklist) before saving.
   template_schema jsonb,
-  task_type_id uuid references public.task_types(id) on delete set null,
   requires_completion_photo boolean not null default false
 );
 

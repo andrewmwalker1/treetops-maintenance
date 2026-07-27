@@ -1,15 +1,16 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
+import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle } from "../lib/theme.js";
 
 const JOB_SELECT = `
   id, description, priority, due_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id,
   job_status:job_statuses(id, name, is_completed),
-  job_type:job_types(id, name, requires_completion_photo, task_type:task_types(id, name)),
+  job_type:job_types(id, name, requires_completion_photo),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
   assignee_group:groups(id, name)
 `;
@@ -24,10 +25,13 @@ export default function JobDetail() {
   const [subtasks, setSubtasks] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [activity, setActivity] = useState([]);
+  const [activityTypes, setActivityTypes] = useState([]);
+  const [documentsByActivityType, setDocumentsByActivityType] = useState({});
   const [statuses, setStatuses] = useState([]);
   const [people, setPeople] = useState([]);
   const [groups, setGroups] = useState([]);
   const [comment, setComment] = useState("");
+  const [newChecklistItem, setNewChecklistItem] = useState("");
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
 
@@ -39,7 +43,7 @@ export default function JobDetail() {
     }
     setJob(jobRow);
 
-    const [{ data: subtaskRows }, { data: photoRows }, { data: activityRows }] = await Promise.all([
+    const [{ data: subtaskRows }, { data: photoRows }, { data: activityRows }, { data: activityTypeLinks }] = await Promise.all([
       supabase.from("job_subtasks").select("id, label, is_checked, sort_order").eq("job_id", id).order("sort_order"),
       supabase.from("job_photos").select("id, storage_path, uploaded_at").eq("job_id", id).order("uploaded_at"),
       supabase
@@ -47,10 +51,28 @@ export default function JobDetail() {
         .select("id, event_type, previous_value, new_value, created_at, actor:profiles(display_name)")
         .eq("job_id", id)
         .order("created_at", { ascending: false }),
+      supabase.from("job_activity_types").select("task_type:task_types(id, name)").eq("job_id", id),
     ]);
     setSubtasks(subtaskRows || []);
     setPhotos(photoRows || []);
     setActivity(activityRows || []);
+
+    const types = (activityTypeLinks || []).map((l) => l.task_type).filter(Boolean);
+    setActivityTypes(types);
+
+    if (types.length > 0) {
+      const { data: docLinks } = await supabase
+        .from("activity_type_documents")
+        .select("task_type_id, document:ra_ms_documents(id, type, title, description, pdf_storage_path)")
+        .in("task_type_id", types.map((t) => t.id));
+      const grouped = {};
+      for (const link of docLinks || []) {
+        grouped[link.task_type_id] = [...(grouped[link.task_type_id] || []), link.document];
+      }
+      setDocumentsByActivityType(grouped);
+    } else {
+      setDocumentsByActivityType({});
+    }
   }, [id]);
 
   useEffect(() => {
@@ -67,6 +89,38 @@ export default function JobDetail() {
   async function toggleSubtask(subtask) {
     const { error: err } = await supabase.from("job_subtasks").update({ is_checked: !subtask.is_checked }).eq("id", subtask.id);
     if (err) console.error(err);
+    else loadAll();
+  }
+
+  async function addSubtask(e) {
+    e.preventDefault();
+    const label = newChecklistItem.trim();
+    if (!label) return;
+    const nextSortOrder = subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
+    const { error: err } = await supabase.from("job_subtasks").insert({ job_id: job.id, label, sort_order: nextSortOrder });
+    if (err) setError(err.message);
+    else {
+      setNewChecklistItem("");
+      loadAll();
+    }
+  }
+
+  async function removeSubtask(subtaskId) {
+    const { error: err } = await supabase.from("job_subtasks").delete().eq("id", subtaskId);
+    if (err) setError(err.message);
+    else loadAll();
+  }
+
+  async function moveSubtask(index, direction) {
+    const target = index + direction;
+    if (target < 0 || target >= subtasks.length) return;
+    const a = subtasks[index];
+    const b = subtasks[target];
+    const [{ error: err1 }, { error: err2 }] = await Promise.all([
+      supabase.from("job_subtasks").update({ sort_order: b.sort_order }).eq("id", a.id),
+      supabase.from("job_subtasks").update({ sort_order: a.sort_order }).eq("id", b.id),
+    ]);
+    if (err1 || err2) setError((err1 || err2).message);
     else loadAll();
   }
 
@@ -211,23 +265,50 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {job.job_type?.task_type && (
-        <Link
-          to={`/safety#task-${job.job_type.task_type.id}`}
-          style={{ ...cardStyle, display: "block", padding: "12px 16px", marginBottom: "16px", textDecoration: "none", color: colors.mossDark, fontWeight: 600, fontSize: "14px" }}
-        >
-          ⚠ View safety info for {job.job_type.task_type.name}
-        </Link>
+      {activityTypes.length > 0 && (
+        <Section title="⚠ Safety">
+          {activityTypes.map((t) => (
+            <div key={t.id} style={{ marginBottom: "10px" }}>
+              <div style={{ fontWeight: 600, fontSize: "14px" }}>{t.name}</div>
+              {(documentsByActivityType[t.id] || []).length === 0 && (
+                <p style={{ color: colors.inkSoft, fontSize: "13px", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
+              )}
+              {(documentsByActivityType[t.id] || []).map((doc) => (
+                <SafetyDocumentLink key={doc.id} doc={doc} />
+              ))}
+            </div>
+          ))}
+        </Section>
       )}
 
-      {subtasks.length > 0 && (
+      {(subtasks.length > 0 || permissions.has("can_edit_job_checklist")) && (
         <Section title="Checklist">
-          {subtasks.map((s) => (
-            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
-              <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-              <span style={{ textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
-            </label>
+          {subtasks.map((s, i) => (
+            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
+                <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+                <span style={{ textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
+              </label>
+              {permissions.has("can_edit_job_checklist") && (
+                <>
+                  <button type="button" onClick={() => moveSubtask(i, -1)} disabled={i === 0} style={checklistIconStyle}>↑</button>
+                  <button type="button" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1} style={checklistIconStyle}>↓</button>
+                  <button type="button" onClick={() => removeSubtask(s.id)} style={{ ...checklistIconStyle, color: colors.immediate }}>✕</button>
+                </>
+              )}
+            </div>
           ))}
+          {permissions.has("can_edit_job_checklist") && (
+            <form onSubmit={addSubtask} style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+              <input
+                value={newChecklistItem}
+                onChange={(e) => setNewChecklistItem(e.target.value)}
+                placeholder="Add an item…"
+                style={{ ...selectStyle, flex: 1, marginBottom: 0 }}
+              />
+              <button type="submit" style={buttonStyle.secondary}>Add</button>
+            </form>
+          )}
         </Section>
       )}
 
@@ -269,6 +350,18 @@ const selectStyle = {
   fontFamily: fonts.body,
   marginBottom: "14px",
 };
+
+const checklistIconStyle = {
+  background: "transparent",
+  border: `1px solid ${colors.lineStrong}`,
+  borderRadius: "6px",
+  width: "28px",
+  height: "28px",
+  cursor: "pointer",
+  color: colors.inkSoft,
+  fontSize: "13px",
+};
+
 
 function Section({ title, children }) {
   return (

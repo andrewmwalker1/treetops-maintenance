@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { usePermissions } from "../lib/permissions.js";
 import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
 
@@ -15,6 +16,7 @@ const navLinkStyle = ({ isActive }) => ({
 
 export default function Layout({ children }) {
   const { profile, org, activeSite, signOut } = useAuth();
+  const permissions = usePermissions();
   const [dnd, setDnd] = useState(Boolean(profile?.dnd_enabled));
   const [pushStatus, setPushStatus] = useState("idle"); // idle | subscribing | on | error
 
@@ -66,6 +68,9 @@ export default function Layout({ children }) {
           <NavLink to="/equipment" style={navLinkStyle}>Equipment</NavLink>
           <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
           <NavLink to="/safety" style={navLinkStyle}>Safety</NavLink>
+          {permissions.has("can_manage_reference_data") && (
+            <NavLink to="/admin" style={navLinkStyle}>Admin</NavLink>
+          )}
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
