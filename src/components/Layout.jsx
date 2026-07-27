@@ -68,7 +68,7 @@ export default function Layout({ children }) {
           <NavLink to="/equipment" style={navLinkStyle}>Equipment</NavLink>
           <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
           <NavLink to="/safety" style={navLinkStyle}>Safety</NavLink>
-          {permissions.has("can_manage_reference_data") && (
+          {(permissions.has("can_manage_reference_data") || permissions.has("can_manage_roles_and_permissions")) && (
             <NavLink to="/admin" style={navLinkStyle}>Admin</NavLink>
           )}
         </nav>
