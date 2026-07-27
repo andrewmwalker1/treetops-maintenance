@@ -92,6 +92,15 @@ export default function JobDetail() {
     else loadAll();
   }
 
+  function editSubtaskLabelLocal(index, text) {
+    setSubtasks((prev) => prev.map((s, i) => (i === index ? { ...s, label: text } : s)));
+  }
+
+  async function persistSubtaskLabel(subtask) {
+    const { error: err } = await supabase.from("job_subtasks").update({ label: subtask.label }).eq("id", subtask.id);
+    if (err) setError(err.message);
+  }
+
   async function addSubtask(e) {
     e.preventDefault();
     const label = newChecklistItem.trim();
@@ -285,10 +294,26 @@ export default function JobDetail() {
         <Section title="Checklist">
           {subtasks.map((s, i) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", flex: 1 }}>
-                <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-                <span style={{ textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
-              </label>
+              <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+              {permissions.has("can_edit_job_checklist") ? (
+                <input
+                  value={s.label}
+                  onChange={(e) => editSubtaskLabelLocal(i, e.target.value)}
+                  onBlur={() => persistSubtaskLabel(subtasks[i])}
+                  style={{
+                    flex: 1,
+                    padding: "4px 8px",
+                    borderRadius: "6px",
+                    border: `1px solid ${colors.lineStrong}`,
+                    fontFamily: fonts.body,
+                    fontSize: "14px",
+                    textDecoration: s.is_checked ? "line-through" : "none",
+                    color: s.is_checked ? colors.inkSoft : colors.ink,
+                  }}
+                />
+              ) : (
+                <span style={{ flex: 1, textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
+              )}
               {permissions.has("can_edit_job_checklist") && (
                 <>
                   <button type="button" onClick={() => moveSubtask(i, -1)} disabled={i === 0} style={checklistIconStyle}>↑</button>

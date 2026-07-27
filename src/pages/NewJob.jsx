@@ -47,6 +47,7 @@ export default function NewJob() {
   const [checklistItems, setChecklistItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [queuedNotice, setQueuedNotice] = useState(false);
+  const [submitError, setSubmitError] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
   const [photoError, setPhotoError] = useState(null);
@@ -103,9 +104,23 @@ export default function NewJob() {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setSubmitting(true);
+    setSubmitError(null);
 
+    // job_statuses hasn't finished loading yet — submitting now would send
+    // a request with no status_id (a required column) and fail. Rather
+    // than let that happen silently, stop and ask the user to wait a
+    // moment rather than mask it as a queued/offline save.
+    if (statuses.length === 0) {
+      setSubmitError("Still loading — please wait a moment and try again.");
+      return;
+    }
     const openStatus = statuses.find((s) => s.sort_order === Math.min(...statuses.map((x) => x.sort_order)));
+    if (!openStatus) {
+      setSubmitError("Couldn't determine the default status for a new job. Try again, or contact support.");
+      return;
+    }
+
+    setSubmitting(true);
 
     const jobData = {
       org_id: org.id,
@@ -113,7 +128,7 @@ export default function NewJob() {
       job_type_id: jobTypeId || null,
       description,
       priority,
-      status_id: openStatus?.id,
+      status_id: openStatus.id,
       due_date: dueDate || null,
       assignee_profile_id: assigneeKind === "person" && assigneeId ? assigneeId : null,
       assignee_group_id: assigneeKind === "group" && assigneeId ? assigneeId : null,
@@ -122,42 +137,54 @@ export default function NewJob() {
       created_by: profile.id,
     };
 
-    try {
-      if (navigator.onLine) {
-        const { data: newJob, error } = await supabase.from("jobs").insert(jobData).select().single();
-        if (error) throw error;
-
-        // Best-effort follow-up writes — the job itself is already
-        // created, so a failure here shouldn't block navigation.
-        if (photoFile) {
-          try {
-            await uploadPhotoForJob(newJob.id);
-          } catch (photoErr) {
-            console.error("Failed to attach photo to new job", photoErr);
-          }
-        }
-        if (activityTypeIds.length > 0) {
-          const { error: activityError } = await supabase
-            .from("job_activity_types")
-            .insert(activityTypeIds.map((task_type_id) => ({ job_id: newJob.id, task_type_id })));
-          if (activityError) console.error("Failed to attach activity types to new job", activityError);
-        }
-        if (checklistItems.length > 0) {
-          const { error: checklistError } = await supabase
-            .from("job_subtasks")
-            .insert(checklistItems.map((label, i) => ({ job_id: newJob.id, label, sort_order: i })));
-          if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
-        }
-      } else {
-        await queueJob(jobData);
-        setQueuedNotice(true);
-      }
-      navigate("/");
-    } catch (err) {
-      console.error("Failed to create job, queueing for later sync", err);
+    if (!navigator.onLine) {
       await queueJob(jobData);
       setQueuedNotice(true);
       navigate("/");
+      setSubmitting(false);
+      return;
+    }
+
+    try {
+      const { data: newJob, error } = await supabase.from("jobs").insert(jobData).select().single();
+      if (error) throw error;
+
+      // Best-effort follow-up writes — the job itself is already
+      // created, so a failure here shouldn't block navigation.
+      if (photoFile) {
+        try {
+          await uploadPhotoForJob(newJob.id);
+        } catch (photoErr) {
+          console.error("Failed to attach photo to new job", photoErr);
+        }
+      }
+      if (activityTypeIds.length > 0) {
+        const { error: activityError } = await supabase
+          .from("job_activity_types")
+          .insert(activityTypeIds.map((task_type_id) => ({ job_id: newJob.id, task_type_id })));
+        if (activityError) console.error("Failed to attach activity types to new job", activityError);
+      }
+      if (checklistItems.length > 0) {
+        const { error: checklistError } = await supabase
+          .from("job_subtasks")
+          .insert(checklistItems.map((label, i) => ({ job_id: newJob.id, label, sort_order: i })));
+        if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
+      }
+      navigate("/");
+    } catch (err) {
+      // Only genuine network failures get queued for later sync — a real
+      // rejection from the server (permission denied, bad data, etc.)
+      // would just fail the same way on retry, so surface it instead of
+      // hiding it behind a misleading "queued" message.
+      if (err instanceof TypeError) {
+        console.error("Network error creating job, queueing for later sync", err);
+        await queueJob(jobData);
+        setQueuedNotice(true);
+        navigate("/");
+      } else {
+        console.error("Failed to create job", err);
+        setSubmitError(err.message || "Failed to create job.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -254,6 +281,8 @@ export default function NewJob() {
             {photoFile && " The photo wasn't queued — add it from the job's detail screen after it syncs."}
           </p>
         )}
+
+        {submitError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{submitError}</p>}
 
         <button type="submit" disabled={submitting} style={{ ...buttonStyle.primary, width: "100%" }}>
           {submitting ? "Saving…" : "Create job"}

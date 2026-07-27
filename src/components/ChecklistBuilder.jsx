@@ -19,6 +19,12 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false }) 
     onChange(items.filter((_, i) => i !== index));
   }
 
+  function editItem(index, text) {
+    const next = [...items];
+    next[index] = text;
+    onChange(next);
+  }
+
   function moveItem(index, direction) {
     const target = index + direction;
     if (target < 0 || target >= items.length) return;
@@ -32,7 +38,22 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false }) 
       {items.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No checklist items.</p>}
       {items.map((label, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
-          <span style={{ flex: 1, fontSize: "14px" }}>{label}</span>
+          {readOnly ? (
+            <span style={{ flex: 1, fontSize: "14px" }}>{label}</span>
+          ) : (
+            <input
+              value={label}
+              onChange={(e) => editItem(i, e.target.value)}
+              style={{
+                flex: 1,
+                padding: "6px 10px",
+                borderRadius: "6px",
+                border: `1px solid ${colors.lineStrong}`,
+                fontFamily: fonts.body,
+                fontSize: "14px",
+              }}
+            />
+          )}
           {!readOnly && (
             <>
               <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={iconButtonStyle}>↑</button>
