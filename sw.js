@@ -1,4 +1,12 @@
 import { precacheAndRoute } from "workbox-precaching";
+import { clientsClaim } from "workbox-core";
+
+// Without these, a newly-installed service worker sits "waiting" until
+// every open tab of the app is closed -- for a PWA people leave open all
+// day, that means deployed fixes never actually reach them. Activate a
+// new version immediately instead.
+self.skipWaiting();
+clientsClaim();
 
 precacheAndRoute(self.__WB_MANIFEST);
 
