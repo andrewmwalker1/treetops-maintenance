@@ -16,6 +16,7 @@ export default function EquipmentDetail() {
   const canManage = permissions.has("can_manage_equipment_status");
 
   const [equipment, setEquipment] = useState(null);
+  const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [checks, setChecks] = useState([]);
   const [faultReports, setFaultReports] = useState([]);
   const [repairs, setRepairs] = useState([]);
@@ -26,21 +27,29 @@ export default function EquipmentDetail() {
   const [error, setError] = useState(null);
 
   const loadAll = useCallback(async () => {
-    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }] = await Promise.all([
-      supabase.from("equipment").select("id, name, status, check_frequency_days").eq("id", id).single(),
+    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }, { data: types }] = await Promise.all([
+      supabase.from("equipment").select("id, name, status, check_frequency_days, equipment_type_id, equipment_type:equipment_types(name)").eq("id", id).single(),
       supabase.from("equipment_checks").select("id, checked_at, passed, checked_by:profiles(display_name)").eq("equipment_id", id).order("checked_at", { ascending: false }),
       supabase.from("fault_reports").select("id, description, created_at, reported_by:profiles!fault_reports_reported_by_fkey(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
       supabase.from("repair_records").select("id, note, cost, vendor, repaired_at").eq("equipment_id", id).order("repaired_at", { ascending: false }),
+      supabase.from("equipment_types").select("id, name").order("name"),
     ]);
     setEquipment(eq || null);
     setChecks(checkRows || []);
     setFaultReports(faultRows || []);
     setRepairs(repairRows || []);
+    setEquipmentTypes(types || []);
   }, [id]);
 
   useEffect(() => {
     loadAll();
   }, [loadAll]);
+
+  async function handleTypeChange(equipment_type_id) {
+    const { error: err } = await supabase.from("equipment").update({ equipment_type_id: equipment_type_id || null }).eq("id", id);
+    if (err) setError(err.message);
+    else loadAll();
+  }
 
   async function logCheck(passed) {
     const { error: err } = await supabase.from("equipment_checks").insert({ equipment_id: id, checked_by: profile.id, passed });
@@ -111,7 +120,17 @@ export default function EquipmentDetail() {
       {error && <p style={{ color: colors.immediate }}>{error}</p>}
 
       <div style={{ ...cardStyle, padding: "20px", marginBottom: "20px" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{equipment.name}</h1>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0, marginBottom: "4px" }}>{equipment.name}</h1>
+        {canManage ? (
+          <select value={equipment.equipment_type_id || ""} onChange={(e) => handleTypeChange(e.target.value)} style={selectStyle}>
+            <option value="">No type set</option>
+            {equipmentTypes.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        ) : (
+          equipment.equipment_type && <p style={{ color: colors.inkSoft, marginTop: 0 }}>{equipment.equipment_type.name}</p>
+        )}
         {canManage ? (
           <select value={equipment.status} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
             {Object.entries(statusLabels).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
