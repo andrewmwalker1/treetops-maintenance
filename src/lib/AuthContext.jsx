@@ -12,11 +12,13 @@ export function AuthProvider({ children }) {
   const [activeSite, setActiveSite] = useState(null);
   const [terminology, setTerminology] = useState({});
   const [loading, setLoading] = useState(true);
+  const [deactivated, setDeactivated] = useState(false);
 
   const loadProfileAndScope = useCallback(async (userId) => {
+    setDeactivated(false);
     const { data: profileRow, error: profileError } = await supabase
       .from("profiles")
-      .select("id, org_id, role_id, display_name, is_contractor, dnd_enabled, roles(name)")
+      .select("id, org_id, role_id, display_name, is_contractor, dnd_enabled, is_active, roles(name)")
       .eq("id", userId)
       .single();
     if (profileError) {
@@ -24,6 +26,17 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
+
+    // Belt-and-braces on top of the hard ban set by manage-users: an
+    // access token issued before deactivation is still technically
+    // valid until it expires, so check is_active on every load too.
+    if (profileRow.is_active === false) {
+      setDeactivated(true);
+      setLoading(false);
+      await supabase.auth.signOut();
+      return;
+    }
+
     setProfile(profileRow);
 
     const { data: orgRow, error: orgError } = await supabase
@@ -91,6 +104,7 @@ export function AuthProvider({ children }) {
     setActiveSite,
     terminology,
     loading,
+    deactivated,
     signOut,
   };
 

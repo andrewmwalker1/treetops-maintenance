@@ -34,6 +34,7 @@ export default function NewJob() {
   const [pitches, setPitches] = useState([]);
   const [areas, setAreas] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
+  const [defaultActivitiesByType, setDefaultActivitiesByType] = useState({}); // job_type_id -> [task_type_id]
 
   const [description, setDescription] = useState("");
   const [jobTypeId, setJobTypeId] = useState("");
@@ -61,12 +62,21 @@ export default function NewJob() {
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
     supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
     supabase.from("task_types").select("id, name").eq("org_id", org.id).then(({ data }) => setActivityTypes(data || []));
+    supabase.from("job_type_task_types").select("job_type_id, task_type_id").then(({ data }) => {
+      const grouped = {};
+      for (const link of data || []) {
+        grouped[link.job_type_id] = [...(grouped[link.job_type_id] || []), link.task_type_id];
+      }
+      setDefaultActivitiesByType(grouped);
+    });
   }, [org, activeSite]);
 
   function handleJobTypeChange(newJobTypeId) {
     setJobTypeId(newJobTypeId);
     const jobType = jobTypes.find((jt) => jt.id === newJobTypeId);
+    setDescription(jobType?.name || "");
     setChecklistItems(jobType?.template_schema || []);
+    setActivityTypeIds(defaultActivitiesByType[newJobTypeId] || []);
   }
 
   function toggleActivityType(id) {

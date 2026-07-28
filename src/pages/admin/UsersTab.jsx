@@ -1,0 +1,237 @@
+import { useEffect, useState } from "react";
+import { useAuth } from "../../lib/AuthContext.jsx";
+import { supabase } from "../../lib/supabaseClient.js";
+import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+
+const fieldStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "8px 12px",
+  borderRadius: "8px",
+  border: `1px solid ${colors.lineStrong}`,
+  fontFamily: fonts.body,
+  marginBottom: "10px",
+};
+
+const blankInvite = { email: "", displayName: "", roleId: "", isContractor: false, siteIds: [] };
+
+export default function UsersTab() {
+  const { org } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [sites, setSites] = useState([]);
+  const [invite, setInvite] = useState(blankInvite);
+  const [inviteStatus, setInviteStatus] = useState("idle"); // idle | sending | sent | error
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [error, setError] = useState(null);
+
+  function refresh() {
+    Promise.all([
+      supabase.rpc("list_org_users"),
+      supabase.from("roles").select("id, name").eq("org_id", org.id).order("name"),
+      supabase.from("sites").select("id, name").eq("org_id", org.id).order("name"),
+    ]).then(([{ data: u, error: err }, { data: r }, { data: s }]) => {
+      if (err) setError(err.message);
+      else setUsers(u || []);
+      setRoles(r || []);
+      setSites(s || []);
+    });
+  }
+
+  useEffect(refresh, [org]);
+
+  async function handleInvite(e) {
+    e.preventDefault();
+    setError(null);
+    setInviteStatus("sending");
+    const { error: err } = await supabase.functions.invoke("manage-users", {
+      body: {
+        action: "invite",
+        email: invite.email,
+        displayName: invite.displayName,
+        roleId: invite.roleId,
+        isContractor: invite.isContractor,
+        siteIds: invite.siteIds,
+      },
+    });
+    if (err) {
+      setInviteStatus("error");
+      setError(err.message);
+      return;
+    }
+    setInviteStatus("sent");
+    setInvite(blankInvite);
+    refresh();
+  }
+
+  function startEdit(u) {
+    setEditingId(u.id);
+    setEditForm({
+      display_name: u.display_name,
+      role_id: u.role_id || "",
+      is_contractor: u.is_contractor,
+      siteIds: u.site_ids || [],
+    });
+  }
+
+  function toggleEditSite(id) {
+    setEditForm((f) => ({
+      ...f,
+      siteIds: f.siteIds.includes(id) ? f.siteIds.filter((s) => s !== id) : [...f.siteIds, id],
+    }));
+  }
+
+  async function handleSaveEdit(e) {
+    e.preventDefault();
+    setError(null);
+
+    const { error: profileErr } = await supabase
+      .from("profiles")
+      .update({
+        display_name: editForm.display_name,
+        role_id: editForm.role_id,
+        is_contractor: editForm.is_contractor,
+      })
+      .eq("id", editingId);
+    if (profileErr) {
+      setError(profileErr.message);
+      return;
+    }
+
+    const user = users.find((u) => u.id === editingId);
+    const previousSites = user?.site_ids || [];
+    const toAdd = editForm.siteIds.filter((id) => !previousSites.includes(id));
+    const toRemove = previousSites.filter((id) => !editForm.siteIds.includes(id));
+
+    if (toAdd.length > 0) {
+      await supabase.from("site_scope").insert(toAdd.map((site_id) => ({ profile_id: editingId, site_id })));
+    }
+    for (const site_id of toRemove) {
+      await supabase.from("site_scope").delete().eq("profile_id", editingId).eq("site_id", site_id);
+    }
+
+    setEditingId(null);
+    setEditForm(null);
+    refresh();
+  }
+
+  async function handleDeactivate(userId) {
+    setError(null);
+    const { error: err } = await supabase.functions.invoke("manage-users", { body: { action: "deactivate", userId } });
+    if (err) setError(err.message);
+    else refresh();
+  }
+
+  async function handleReactivate(userId) {
+    setError(null);
+    const { error: err } = await supabase.functions.invoke("manage-users", { body: { action: "reactivate", userId } });
+    if (err) setError(err.message);
+    else refresh();
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div>
+        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Users</h2>
+        {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+        {users.map((u) => (
+          <div key={u.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px" }}>
+            {editingId === u.id ? (
+              <form onSubmit={handleSaveEdit}>
+                <input required value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} style={fieldStyle} />
+                <select required value={editForm.role_id} onChange={(e) => setEditForm({ ...editForm, role_id: e.target.value })} style={fieldStyle}>
+                  <option value="">Select a role</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "10px" }}>
+                  <input type="checkbox" checked={editForm.is_contractor} onChange={(e) => setEditForm({ ...editForm, is_contractor: e.target.checked })} />
+                  Contractor
+                </label>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Site access</label>
+                {sites.map((s) => (
+                  <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
+                    <input type="checkbox" checked={editForm.siteIds.includes(s.id)} onChange={() => toggleEditSite(s.id)} />
+                    {s.name}
+                  </label>
+                ))}
+                <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+                  <button type="submit" style={buttonStyle.primary}>Save</button>
+                  <button type="button" onClick={() => { setEditingId(null); setEditForm(null); }} style={buttonStyle.secondary}>Cancel</button>
+                </div>
+              </form>
+            ) : (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontWeight: 600 }}>
+                    {u.display_name}
+                    {u.is_active === false && (
+                      <span style={{ marginLeft: "8px", fontSize: "11px", color: colors.immediate, fontWeight: 600 }}>DEACTIVATED</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+                    {u.email} · {u.role_name || "No role"}{u.is_contractor ? " · Contractor" : ""}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={() => startEdit(u)} style={buttonStyle.secondary}>Edit</button>
+                  {u.is_active === false ? (
+                    <button onClick={() => handleReactivate(u.id)} style={buttonStyle.secondary}>Reactivate</button>
+                  ) : (
+                    <button onClick={() => handleDeactivate(u.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Deactivate</button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {users.length === 0 && <p style={{ color: colors.inkSoft }}>No users yet.</p>}
+      </div>
+
+      <div>
+        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Invite a user</h2>
+        <p style={{ fontSize: "13px", color: colors.inkSoft }}>Only people invited here can sign in — there's no public sign-up.</p>
+        <form onSubmit={handleInvite} style={{ ...cardStyle, padding: "16px" }}>
+          <input required type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} placeholder="Work email" style={fieldStyle} />
+          <input required value={invite.displayName} onChange={(e) => setInvite({ ...invite, displayName: e.target.value })} placeholder="Display name" style={fieldStyle} />
+          <select required value={invite.roleId} onChange={(e) => setInvite({ ...invite, roleId: e.target.value })} style={fieldStyle}>
+            <option value="">Select a role</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "10px" }}>
+            <input type="checkbox" checked={invite.isContractor} onChange={(e) => setInvite({ ...invite, isContractor: e.target.checked })} />
+            Contractor
+          </label>
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Site access</label>
+          {sites.map((s) => (
+            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
+              <input
+                type="checkbox"
+                checked={invite.siteIds.includes(s.id)}
+                onChange={() =>
+                  setInvite((f) => ({
+                    ...f,
+                    siteIds: f.siteIds.includes(s.id) ? f.siteIds.filter((id) => id !== s.id) : [...f.siteIds, s.id],
+                  }))
+                }
+              />
+              {s.name}
+            </label>
+          ))}
+
+          {inviteStatus === "sent" && <p style={{ color: colors.moss, fontSize: "13px" }}>Invite sent.</p>}
+          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+
+          <button type="submit" disabled={inviteStatus === "sending"} style={{ ...buttonStyle.primary, width: "100%", marginTop: "10px" }}>
+            {inviteStatus === "sending" ? "Sending…" : "Send invite"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}

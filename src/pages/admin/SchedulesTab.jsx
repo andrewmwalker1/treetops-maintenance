@@ -1,0 +1,256 @@
+import { useEffect, useState } from "react";
+import { RRule } from "rrule";
+import { useAuth } from "../../lib/AuthContext.jsx";
+import { supabase } from "../../lib/supabaseClient.js";
+import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+
+const fieldStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "8px 12px",
+  borderRadius: "8px",
+  border: `1px solid ${colors.lineStrong}`,
+  fontFamily: fonts.body,
+  marginBottom: "10px",
+};
+
+const labelInline = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
+
+const WEEKDAYS = [
+  { code: "MO", label: "Mon" },
+  { code: "TU", label: "Tue" },
+  { code: "WE", label: "Wed" },
+  { code: "TH", label: "Thu" },
+  { code: "FR", label: "Fri" },
+  { code: "SA", label: "Sat" },
+  { code: "SU", label: "Sun" },
+];
+
+const FREQ_BY_NAME = { daily: RRule.DAILY, weekly: RRule.WEEKLY, monthly: RRule.MONTHLY };
+const NAME_BY_FREQ = { [RRule.DAILY]: "daily", [RRule.WEEKLY]: "weekly", [RRule.MONTHLY]: "monthly" };
+
+const blank = {
+  id: null,
+  jobTypeId: "",
+  siteId: "",
+  frequency: "weekly",
+  interval: 1,
+  weekdays: [],
+  monthday: "",
+  startDate: new Date().toISOString().slice(0, 10),
+  leadInDays: 0,
+};
+
+function buildRule(form) {
+  const options = {
+    freq: FREQ_BY_NAME[form.frequency],
+    interval: Number(form.interval) || 1,
+    dtstart: new Date(`${form.startDate}T00:00:00Z`),
+  };
+  if (form.frequency === "weekly" && form.weekdays.length > 0) {
+    options.byweekday = form.weekdays.map((code) => RRule[code]);
+  }
+  if (form.frequency === "monthly" && form.monthday) {
+    options.bymonthday = [Number(form.monthday)];
+  }
+  return new RRule(options).toString();
+}
+
+function parseRule(rruleText) {
+  const { options } = RRule.fromString(rruleText);
+  return {
+    frequency: NAME_BY_FREQ[options.freq] || "weekly",
+    interval: options.interval || 1,
+    startDate: options.dtstart.toISOString().slice(0, 10),
+    weekdays: (options.byweekday || []).map((wd) => WEEKDAYS[typeof wd === "number" ? wd : wd.weekday].code),
+    monthday: (options.bymonthday || [])[0] || "",
+  };
+}
+
+function describeRule(rruleText) {
+  try {
+    return RRule.fromString(rruleText).toText();
+  } catch {
+    return rruleText;
+  }
+}
+
+export default function SchedulesTab() {
+  const { org } = useAuth();
+  const [schedules, setSchedules] = useState([]);
+  const [jobTypes, setJobTypes] = useState([]);
+  const [sites, setSites] = useState([]);
+  const [form, setForm] = useState(blank);
+  const [error, setError] = useState(null);
+
+  function refresh() {
+    Promise.all([
+      supabase.from("schedules").select("id, job_type_id, site_id, rrule, lead_in_days, last_generated_date, job_types(name)").eq("org_id", org.id),
+      supabase.from("job_types").select("id, name").eq("org_id", org.id),
+      supabase.from("sites").select("id, name").eq("org_id", org.id),
+    ]).then(([{ data: s, error: err }, { data: jt }, { data: st }]) => {
+      if (err) setError(err.message);
+      else setSchedules(s || []);
+      setJobTypes(jt || []);
+      setSites(st || []);
+      setForm((f) => (f.siteId ? f : { ...f, siteId: st?.[0]?.id || "" }));
+    });
+  }
+
+  useEffect(refresh, [org]);
+
+  function toggleWeekday(code) {
+    setForm((f) => ({
+      ...f,
+      weekdays: f.weekdays.includes(code) ? f.weekdays.filter((c) => c !== code) : [...f.weekdays, code],
+    }));
+  }
+
+  function editSchedule(s) {
+    setForm({
+      id: s.id,
+      jobTypeId: s.job_type_id,
+      siteId: s.site_id,
+      leadInDays: s.lead_in_days,
+      ...parseRule(s.rrule),
+    });
+  }
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setError(null);
+
+    if (form.frequency === "weekly" && form.weekdays.length === 0) {
+      setError("Pick at least one day of the week.");
+      return;
+    }
+    if (form.frequency === "monthly" && !form.monthday) {
+      setError("Pick a day of the month.");
+      return;
+    }
+
+    const payload = {
+      org_id: org.id,
+      site_id: form.siteId,
+      job_type_id: form.jobTypeId,
+      rrule: buildRule(form),
+      lead_in_days: Number(form.leadInDays) || 0,
+    };
+    const { error: err } = form.id
+      ? await supabase.from("schedules").update(payload).eq("id", form.id)
+      : await supabase.from("schedules").insert(payload);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setForm(blank);
+    refresh();
+  }
+
+  async function handleDelete(id) {
+    const { error: err } = await supabase.from("schedules").delete().eq("id", id);
+    if (err) setError(err.message);
+    else refresh();
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+      <div>
+        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Recurring jobs</h2>
+        {schedules.map((s) => (
+          <div key={s.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>{s.job_types?.name || "Untitled job type"}</div>
+              <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+                {describeRule(s.rrule)} · {s.lead_in_days} day lead-in
+                {s.last_generated_date ? ` · last created ${s.last_generated_date}` : " · never generated yet"}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => editSchedule(s)} style={buttonStyle.secondary}>Edit</button>
+              <button onClick={() => handleDelete(s.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+            </div>
+          </div>
+        ))}
+        {schedules.length === 0 && <p style={{ color: colors.inkSoft }}>No recurring jobs set up yet.</p>}
+      </div>
+
+      <div>
+        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>{form.id ? "Edit recurring job" : "New recurring job"}</h2>
+        <form onSubmit={handleSave} style={{ ...cardStyle, padding: "16px" }}>
+          <select required value={form.jobTypeId} onChange={(e) => setForm({ ...form, jobTypeId: e.target.value })} style={fieldStyle}>
+            <option value="">Job template</option>
+            {jobTypes.map((jt) => (
+              <option key={jt.id} value={jt.id}>{jt.name}</option>
+            ))}
+          </select>
+
+          {sites.length > 1 && (
+            <select required value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} style={fieldStyle}>
+              <option value="">Site</option>
+              {sites.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Repeats</label>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+            <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap", fontSize: "13px", color: colors.inkSoft }}>
+              every
+              <input
+                type="number"
+                min="1"
+                value={form.interval}
+                onChange={(e) => setForm({ ...form, interval: e.target.value })}
+                style={{ ...fieldStyle, marginBottom: 0, width: "56px" }}
+              />
+              {form.frequency === "daily" ? "day(s)" : form.frequency === "weekly" ? "week(s)" : "month(s)"}
+            </div>
+          </div>
+
+          {form.frequency === "weekly" && (
+            <div style={{ display: "flex", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+              {WEEKDAYS.map((wd) => (
+                <label key={wd.code} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px" }}>
+                  <input type="checkbox" checked={form.weekdays.includes(wd.code)} onChange={() => toggleWeekday(wd.code)} />
+                  {wd.label}
+                </label>
+              ))}
+            </div>
+          )}
+
+          {form.frequency === "monthly" && (
+            <input
+              type="number"
+              min="1"
+              max="31"
+              placeholder="Day of month (1-31)"
+              value={form.monthday}
+              onChange={(e) => setForm({ ...form, monthday: e.target.value })}
+              style={fieldStyle}
+            />
+          )}
+
+          <label style={labelInline}>Starts on</label>
+          <input type="date" required value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={fieldStyle} />
+
+          <label style={labelInline}>Lead-in days (create the job this many days before it's due)</label>
+          <input type="number" min="0" value={form.leadInDays} onChange={(e) => setForm({ ...form, leadInDays: e.target.value })} style={fieldStyle} />
+
+          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+
+          <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
+            <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Create recurring job"}</button>
+            {form.id && <button type="button" onClick={() => setForm({ ...blank, siteId: form.siteId })} style={buttonStyle.secondary}>Cancel</button>}
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

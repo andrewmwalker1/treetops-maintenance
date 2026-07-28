@@ -4,13 +4,17 @@ import JobTemplatesTab from "./admin/JobTemplatesTab.jsx";
 import ActivityTypesTab from "./admin/ActivityTypesTab.jsx";
 import SafetyLibraryTab from "./admin/SafetyLibraryTab.jsx";
 import RolesPermissionsTab from "./admin/RolesPermissionsTab.jsx";
+import UsersTab from "./admin/UsersTab.jsx";
+import SchedulesTab from "./admin/SchedulesTab.jsx";
 import { colors, fonts } from "../lib/theme.js";
 
 const ALL_TABS = [
   { key: "templates", label: "Job Templates", Component: JobTemplatesTab, permission: "can_manage_reference_data" },
   { key: "activities", label: "Activity Types", Component: ActivityTypesTab, permission: "can_manage_reference_data" },
   { key: "library", label: "Safety Library", Component: SafetyLibraryTab, permission: "can_manage_reference_data" },
+  { key: "schedules", label: "Recurring Jobs", Component: SchedulesTab, permission: "can_manage_reference_data" },
   { key: "roles", label: "Roles & Permissions", Component: RolesPermissionsTab, permission: "can_manage_roles_and_permissions" },
+  { key: "users", label: "Users", Component: UsersTab, permission: "can_manage_users" },
 ];
 
 export default function Admin() {

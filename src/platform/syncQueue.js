@@ -63,12 +63,18 @@ export async function flushQueue() {
     const { client_generated_id, queued_at, ...jobFields } = job;
     const { error } = await supabase
       .from("jobs")
-      .upsert(
-        { ...jobFields, client_generated_id },
-        { onConflict: "client_generated_id" }
-      );
+      .insert({ ...jobFields, client_generated_id });
 
-    if (error) {
+    // A unique violation on client_generated_id means a previous flush
+    // attempt already created this job server-side (e.g. the insert
+    // succeeded but the response was lost) -- treat it as synced rather
+    // than retrying forever. Any other error is a genuine failure, so
+    // leave the job queued. (Plain insert, not upsert: an upsert here
+    // requires satisfying the jobs_update RLS policy too, whose USING
+    // clause can never be true for a row that doesn't exist yet -- see
+    // the "new row violates row-level security policy" bug this
+    // replaced.)
+    if (error && error.code !== "23505") {
       console.error("Failed to flush queued job", client_generated_id, error);
       continue;
     }

@@ -13,12 +13,22 @@ import Admin from "./pages/Admin.jsx";
 import { colors, pageStyle } from "./lib/theme.js";
 
 function AppShell() {
-  const { session, loading } = useAuth();
+  const { session, loading, deactivated } = useAuth();
 
   if (loading) {
     return (
       <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ color: colors.inkSoft }}>Loading…</p>
+      </div>
+    );
+  }
+
+  if (deactivated) {
+    return (
+      <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
+          Your account has been deactivated. Contact your admin if you think this is a mistake.
+        </p>
       </div>
     );
   }
