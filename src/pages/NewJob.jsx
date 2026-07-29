@@ -74,7 +74,8 @@ export default function NewJob() {
   function handleJobTypeChange(newJobTypeId) {
     setJobTypeId(newJobTypeId);
     const jobType = jobTypes.find((jt) => jt.id === newJobTypeId);
-    setDescription(jobType?.name || "");
+    // Don't clobber a description the user has already started typing.
+    setDescription((current) => (current.trim() ? current : jobType?.name || ""));
     setChecklistItems(jobType?.template_schema || []);
     setActivityTypeIds(defaultActivitiesByType[newJobTypeId] || []);
   }
@@ -215,9 +216,6 @@ export default function NewJob() {
     <div style={{ maxWidth: "520px" }}>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>New job</h1>
       <form onSubmit={handleSubmit} style={{ ...cardStyle, padding: "20px" }}>
-        <label style={labelStyle}>Description</label>
-        <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: "vertical" }} />
-
         <label style={labelStyle}>Job template (optional)</label>
         <select value={jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={fieldStyle}>
           <option value="">—</option>
@@ -225,6 +223,9 @@ export default function NewJob() {
             <option key={jt.id} value={jt.id}>{jt.name}</option>
           ))}
         </select>
+
+        <label style={labelStyle}>Description</label>
+        <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: "vertical" }} />
 
         <label style={labelStyle}>Activity types (optional)</label>
         <div style={{ ...fieldStyle, height: "auto", padding: "10px 14px" }}>
