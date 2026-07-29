@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "./supabaseClient.js";
 import { loadTerminology } from "./terminology.js";
 
@@ -13,6 +13,7 @@ export function AuthProvider({ children }) {
   const [terminology, setTerminology] = useState({});
   const [loading, setLoading] = useState(true);
   const [deactivated, setDeactivated] = useState(false);
+  const loadedUserIdRef = useRef(null);
 
   const loadProfileAndScope = useCallback(async (userId) => {
     setDeactivated(false);
@@ -38,6 +39,7 @@ export function AuthProvider({ children }) {
     }
 
     setProfile(profileRow);
+    loadedUserIdRef.current = userId;
 
     const { data: orgRow, error: orgError } = await supabase
       .from("organisations")
@@ -78,9 +80,20 @@ export function AuthProvider({ children }) {
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       if (event === "SIGNED_IN") {
-        setLoading(true);
-        loadProfileAndScope(newSession.user.id);
+        // supabase-js re-fires SIGNED_IN (not just TOKEN_REFRESHED) every
+        // time the tab regains focus, as part of its "recover session from
+        // storage" check on visibilitychange -- not just on an actual new
+        // sign-in. Re-running the full profile/org/site load on every one
+        // of those was throwing the app back to the loading screen (and
+        // unmounting whatever page/form was open) every time the user
+        // switched back to the tab. Only treat it as a real sign-in if the
+        // signed-in user has actually changed.
+        if (loadedUserIdRef.current !== newSession.user.id) {
+          setLoading(true);
+          loadProfileAndScope(newSession.user.id);
+        }
       } else if (event === "SIGNED_OUT") {
+        loadedUserIdRef.current = null;
         setProfile(null);
         setOrg(null);
         setSites([]);
@@ -90,11 +103,7 @@ export function AuthProvider({ children }) {
       }
       // Anything else (TOKEN_REFRESHED, INITIAL_SESSION, USER_UPDATED) just
       // swaps in an updated token -- profile/org/site haven't changed, so
-      // don't re-run the full load. Supabase refreshes the session whenever
-      // the tab regains focus, and treating that identically to a fresh
-      // sign-in was throwing the whole app back to the loading screen (and
-      // unmounting whatever page/form was open) every time the user
-      // switched back to the tab.
+      // don't re-run the full load.
     });
 
     return () => listener.subscription.unsubscribe();
