@@ -133,6 +133,7 @@ export default function NewJob() {
     setSubmitting(true);
 
     const jobData = {
+      id: crypto.randomUUID(),
       org_id: org.id,
       site_id: activeSite.id,
       job_type_id: jobTypeId || null,
@@ -156,14 +157,22 @@ export default function NewJob() {
     }
 
     try {
-      const { data: newJob, error } = await supabase.from("jobs").insert(jobData).select().single();
+      // Plain insert with no RETURNING (no .select()) -- with RETURNING,
+      // Postgres re-checks the jobs_select RLS policy (can_see_job, which
+      // re-queries jobs by id) against the row being inserted in the same
+      // statement, and that self-referencing lookup unreliably fails to
+      // see the row within the same command, throwing a spurious
+      // "violates row-level security policy" error even though the row is
+      // written and fully visible to a subsequent query. Generating the id
+      // client-side sidesteps this entirely -- no need to read it back.
+      const { error } = await supabase.from("jobs").insert(jobData);
       if (error) throw error;
 
       // Best-effort follow-up writes — the job itself is already
       // created, so a failure here shouldn't block navigation.
       if (photoFile) {
         try {
-          await uploadPhotoForJob(newJob.id);
+          await uploadPhotoForJob(jobData.id);
         } catch (photoErr) {
           console.error("Failed to attach photo to new job", photoErr);
         }
@@ -171,13 +180,13 @@ export default function NewJob() {
       if (activityTypeIds.length > 0) {
         const { error: activityError } = await supabase
           .from("job_activity_types")
-          .insert(activityTypeIds.map((task_type_id) => ({ job_id: newJob.id, task_type_id })));
+          .insert(activityTypeIds.map((task_type_id) => ({ job_id: jobData.id, task_type_id })));
         if (activityError) console.error("Failed to attach activity types to new job", activityError);
       }
       if (checklistItems.length > 0) {
         const { error: checklistError } = await supabase
           .from("job_subtasks")
-          .insert(checklistItems.map((label, i) => ({ job_id: newJob.id, label, sort_order: i })));
+          .insert(checklistItems.map((label, i) => ({ job_id: jobData.id, label, sort_order: i })));
         if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
       }
       navigate("/");
