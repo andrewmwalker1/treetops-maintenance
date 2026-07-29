@@ -19,7 +19,7 @@ export default function EquipmentTypesTab() {
   const { org } = useAuth();
   const [types, setTypes] = useState([]);
   const [counts, setCounts] = useState({});
-  const [form, setForm] = useState(blank);
+  const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
 
   function refresh() {
@@ -40,6 +40,7 @@ export default function EquipmentTypesTab() {
   useEffect(refresh, [org]);
 
   function editType(t) {
+    setError(null);
     setForm({ id: t.id, name: t.name });
   }
 
@@ -54,7 +55,7 @@ export default function EquipmentTypesTab() {
       setError(err.message);
       return;
     }
-    setForm(blank);
+    setForm(null);
     refresh();
   }
 
@@ -65,40 +66,67 @@ export default function EquipmentTypesTab() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
-      <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Equipment types</h2>
-        <p style={{ fontSize: "13px", color: colors.inkSoft }}>
-          Groups individual equipment items (e.g. ST1, ST2, ST3) under what they actually are (e.g. "Strimmer").
-        </p>
-        {types.map((t) => (
-          <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <div style={{ fontWeight: 600 }}>{t.name}</div>
-              <div style={{ fontSize: "12px", color: colors.inkSoft }}>{counts[t.id] || 0} item(s)</div>
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => editType(t)} style={buttonStyle.secondary}>Edit</button>
-              <button onClick={() => handleDelete(t.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
-            </div>
-          </div>
-        ))}
-        {types.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment types yet.</p>}
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
+        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Equipment types</h2>
+        <button onClick={() => { setError(null); setForm(blank); }} style={buttonStyle.primary}>+ Add equipment type</button>
       </div>
+      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+        Groups individual equipment items (e.g. ST1, ST2, ST3) under what they actually are (e.g. "Strimmer").
+      </p>
 
-      <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>{form.id ? "Edit equipment type" : "New equipment type"}</h2>
-        <form onSubmit={handleSave} style={{ ...cardStyle, padding: "16px" }}>
-          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Strimmer" style={fieldStyle} />
-
-          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
-
+      {types.map((t) => (
+        <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontWeight: 600 }}>{t.name}</div>
+            <div style={{ fontSize: "12px", color: colors.inkSoft }}>{counts[t.id] || 0} item(s)</div>
+          </div>
           <div style={{ display: "flex", gap: "8px" }}>
-            <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Create equipment type"}</button>
-            {form.id && <button type="button" onClick={() => setForm(blank)} style={buttonStyle.secondary}>Cancel</button>}
+            <button onClick={() => editType(t)} style={buttonStyle.secondary}>Edit</button>
+            <button onClick={() => handleDelete(t.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
           </div>
-        </form>
-      </div>
+        </div>
+      ))}
+      {types.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment types yet.</p>}
+
+      {form && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(49, 56, 45, 0.5)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "24px 16px",
+            overflowY: "auto",
+            zIndex: 100,
+          }}
+          onClick={() => setForm(null)}
+        >
+          <div
+            style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>
+                {form.id ? "Edit equipment type" : "New equipment type"}
+              </h2>
+              <button type="button" onClick={() => setForm(null)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+            <form onSubmit={handleSave}>
+              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Strimmer" style={fieldStyle} />
+
+              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Create equipment type"}</button>
+                <button type="button" onClick={() => setForm(null)} style={buttonStyle.secondary}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
