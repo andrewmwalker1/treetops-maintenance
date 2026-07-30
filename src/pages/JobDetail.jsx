@@ -10,12 +10,16 @@ import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyl
 const PRIORITIES = ["immediate", "high", "medium", "low"];
 
 const JOB_SELECT = `
-  id, description, priority, due_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id,
+  id, description, priority, due_date, completed_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id,
   job_status:job_statuses(id, name, is_completed),
   job_type:job_types(id, name, requires_completion_photo),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
   assignee_group:groups(id, name)
 `;
+
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 export default function JobDetail() {
   const { id } = useParams();
@@ -36,6 +40,11 @@ export default function JobDetail() {
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completeDate, setCompleteDate] = useState(today());
+  const [completeComment, setCompleteComment] = useState("");
+  const [reopenTargetStatusId, setReopenTargetStatusId] = useState(null);
+  const [reopenComment, setReopenComment] = useState("");
 
   const loadAll = useCallback(async () => {
     const { data: jobRow, error: jobError } = await supabase.from("jobs").select(JOB_SELECT).eq("id", id).single();
@@ -136,12 +145,40 @@ export default function JobDetail() {
   }
 
   async function handleStatusChange(newStatusId) {
+    if (newStatusId === job.status_id) return;
     const newStatus = statuses.find((s) => s.id === newStatusId);
-    const closingNow = newStatus?.is_completed && !job.job_status?.is_completed;
+    const oldCompleted = job.job_status?.is_completed;
 
+    // Completing now always goes through the Complete button/modal below,
+    // so the completed date, optional comment, and photo can all be
+    // captured together — the plain dropdown just redirects there instead
+    // of applying the change itself.
+    if (newStatus?.name === "Completed" && !oldCompleted) {
+      setError(null);
+      setShowCompleteModal(true);
+      return;
+    }
+
+    // Reopening a completed/cancelled job requires can_reopen_completed_jobs
+    // (also enforced server-side by the jobs_enforce_reopen trigger) and a
+    // mandatory comment explaining why, so it goes through its own modal
+    // rather than committing immediately.
+    if (oldCompleted && !newStatus?.is_completed) {
+      if (!permissions.has("can_reopen_completed_jobs")) {
+        setError("You don't have permission to reopen a completed or cancelled job.");
+        return;
+      }
+      setError(null);
+      setReopenComment("");
+      setReopenTargetStatusId(newStatusId);
+      return;
+    }
+
+    // Any other plain transition (Open <-> In Progress, or -> Cancelled).
     // The confirm dialog only applies when the person closing the job is
     // the assignee — completing on someone else's behalf skips it
     // entirely (Section 5).
+    const closingNow = newStatus?.is_completed && !oldCompleted;
     const closerIsAssignee = job.assignee_profile_id === profile.id;
     if (closingNow && job.job_type?.requires_completion_photo && photos.length === 0 && closerIsAssignee) {
       const proceed = window.confirm("No photo added — complete anyway?");
@@ -163,6 +200,84 @@ export default function JobDetail() {
       previous_value: { status_id: job.status_id },
       new_value: { status_id: newStatusId },
     });
+    loadAll();
+  }
+
+  async function confirmComplete() {
+    const completedStatus = statuses.find((s) => s.name === "Completed");
+    if (!completedStatus) {
+      setError('No "Completed" status is configured for this site.');
+      return;
+    }
+
+    const closerIsAssignee = job.assignee_profile_id === profile.id;
+    if (job.job_type?.requires_completion_photo && photos.length === 0 && closerIsAssignee) {
+      const proceed = window.confirm("No photo added — complete anyway?");
+      if (!proceed) return;
+    }
+
+    const { error: err } = await supabase
+      .from("jobs")
+      .update({ status_id: completedStatus.id, closed_by: profile.id, completed_date: completeDate })
+      .eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "status_change",
+      actor_profile_id: profile.id,
+      previous_value: { status_id: job.status_id },
+      new_value: { status_id: completedStatus.id, completed_date: completeDate },
+    });
+    if (completeComment.trim()) {
+      await supabase.from("job_activity").insert({
+        job_id: job.id,
+        event_type: "comment",
+        actor_profile_id: profile.id,
+        new_value: { text: completeComment.trim() },
+      });
+    }
+
+    setShowCompleteModal(false);
+    setCompleteDate(today());
+    setCompleteComment("");
+    loadAll();
+  }
+
+  async function confirmReopen() {
+    if (!reopenComment.trim()) {
+      setError("A comment is required when reopening a completed or cancelled job.");
+      return;
+    }
+
+    const { error: err } = await supabase
+      .from("jobs")
+      .update({ status_id: reopenTargetStatusId, closed_by: null })
+      .eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "status_change",
+      actor_profile_id: profile.id,
+      previous_value: { status_id: job.status_id },
+      new_value: { status_id: reopenTargetStatusId },
+    });
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "comment",
+      actor_profile_id: profile.id,
+      new_value: { text: reopenComment.trim() },
+    });
+
+    setReopenTargetStatusId(null);
+    setReopenComment("");
     loadAll();
   }
 
@@ -241,14 +356,17 @@ export default function JobDetail() {
     }
   }
 
-  if (error) return <p style={{ color: colors.immediate }}>{error}</p>;
-  if (!job) return <p style={{ color: colors.inkSoft }}>Loading…</p>;
+  if (!job) {
+    return error ? <p style={{ color: colors.immediate }}>{error}</p> : <p style={{ color: colors.inkSoft }}>Loading…</p>;
+  }
 
   return (
     <div style={{ maxWidth: "640px" }}>
       <button onClick={() => navigate(-1)} style={{ ...buttonStyle.secondary, marginBottom: "16px" }}>
         ← Back
       </button>
+
+      {error && <p style={{ color: colors.immediate, fontSize: "14px" }}>{error}</p>}
 
       <div style={{ ...cardStyle, padding: "20px", display: "flex", gap: "14px", marginBottom: "20px" }}>
         <div style={priorityBarStyle(job.priority)} />
@@ -258,6 +376,13 @@ export default function JobDetail() {
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
           </div>
           {job.due_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Due {job.due_date}</p>}
+          {job.completed_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Completed {job.completed_date}</p>}
+
+          {!job.job_status?.is_completed && (
+            <button type="button" onClick={() => setShowCompleteModal(true)} style={{ ...buttonStyle.primary, marginTop: "10px" }}>
+              ✓ Complete
+            </button>
+          )}
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Status</label>
           <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
@@ -394,6 +519,61 @@ export default function JobDetail() {
           </div>
         ))}
       </Section>
+
+      {showCompleteModal && (
+        <Modal title="Complete job" onClose={() => setShowCompleteModal(false)}>
+          <label style={modalLabelStyle}>Completed date</label>
+          <input
+            type="date"
+            value={completeDate}
+            onChange={(e) => setCompleteDate(e.target.value)}
+            style={selectStyle}
+          />
+
+          <label style={modalLabelStyle}>Comment (optional)</label>
+          <textarea
+            value={completeComment}
+            onChange={(e) => setCompleteComment(e.target.value)}
+            rows={3}
+            style={{ ...selectStyle, resize: "vertical" }}
+          />
+
+          <label style={modalLabelStyle}>Photos (optional)</label>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+            {photos.map((p) => (
+              <PhotoThumb key={p.id} path={p.storage_path} />
+            ))}
+          </div>
+          <button type="button" onClick={handleAddPhoto} disabled={uploading} style={{ ...buttonStyle.secondary, marginBottom: "16px" }}>
+            {uploading ? "Uploading…" : "Add photo"}
+          </button>
+
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => setShowCompleteModal(false)} style={buttonStyle.secondary}>Cancel</button>
+            <button type="button" onClick={confirmComplete} style={buttonStyle.primary}>Mark complete</button>
+          </div>
+        </Modal>
+      )}
+
+      {reopenTargetStatusId && (
+        <Modal title="Reopen job" onClose={() => setReopenTargetStatusId(null)}>
+          <p style={{ fontSize: "14px", color: colors.inkSoft, marginTop: 0 }}>
+            This job is {job.job_status?.name}. Say what was found so it's on record — this is required.
+          </p>
+          <label style={modalLabelStyle}>Comment</label>
+          <textarea
+            autoFocus
+            value={reopenComment}
+            onChange={(e) => setReopenComment(e.target.value)}
+            rows={3}
+            style={{ ...selectStyle, resize: "vertical" }}
+          />
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => setReopenTargetStatusId(null)} style={buttonStyle.secondary}>Cancel</button>
+            <button type="button" onClick={confirmReopen} style={buttonStyle.primary}>Reopen</button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -408,6 +588,14 @@ const selectStyle = {
   marginBottom: "14px",
 };
 
+const modalLabelStyle = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: colors.inkSoft,
+  marginBottom: "6px",
+};
+
 const checklistIconStyle = {
   background: "transparent",
   border: `1px solid ${colors.lineStrong}`,
@@ -419,6 +607,33 @@ const checklistIconStyle = {
   fontSize: "13px",
 };
 
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(49, 56, 45, 0.5)",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "24px 16px",
+        overflowY: "auto",
+        zIndex: 100,
+      }}
+      onClick={onClose}
+    >
+      <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>{title}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function Section({ title, children }) {
   return (
