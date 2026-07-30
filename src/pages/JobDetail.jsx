@@ -5,7 +5,9 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
-import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle } from "../lib/theme.js";
+import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
+
+const PRIORITIES = ["immediate", "high", "medium", "low"];
 
 const JOB_SELECT = `
   id, description, priority, due_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id,
@@ -164,6 +166,23 @@ export default function JobDetail() {
     loadAll();
   }
 
+  async function handlePriorityChange(newPriority) {
+    if (newPriority === job.priority) return;
+    const { error: err } = await supabase.from("jobs").update({ priority: newPriority }).eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "edit",
+      actor_profile_id: profile.id,
+      previous_value: { priority: job.priority },
+      new_value: { priority: newPriority },
+    });
+    loadAll();
+  }
+
   async function handleReallocate(kind, newId) {
     const update = {
       assignee_profile_id: kind === "person" ? newId || null : null,
@@ -244,6 +263,19 @@ export default function JobDetail() {
           <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
             {statuses.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Priority</label>
+          <select
+            value={job.priority}
+            onChange={(e) => handlePriorityChange(e.target.value)}
+            style={{ ...selectStyle, color: priorityColor[job.priority], fontWeight: 600 }}
+          >
+            {PRIORITIES.map((p) => (
+              <option key={p} value={p} style={{ color: priorityColor[p] }}>
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </option>
             ))}
           </select>
 
