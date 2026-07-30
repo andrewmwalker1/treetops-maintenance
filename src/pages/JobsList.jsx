@@ -1,13 +1,35 @@
-import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { supabase } from "../lib/supabaseClient.js";
 import JobCard from "../components/JobCard.jsx";
-import { colors, fonts, buttonStyle } from "../lib/theme.js";
+import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+
+// Dashboard stat tiles link here with a query param (?priority=medium,
+// ?overdue=1, ?open=1) so "click a count, see those jobs" works without
+// the two pages' filtering logic drifting apart. Kept separate from the
+// status FilterChips below since it's additive, not a replacement --
+// e.g. arriving via "Overdue" and then picking a status chip narrows
+// further rather than conflicting.
+function quickFilterFromParams(searchParams) {
+  const priority = searchParams.get("priority");
+  if (priority) return { type: "priority", value: priority };
+  if (searchParams.get("overdue")) return { type: "overdue" };
+  if (searchParams.get("open")) return { type: "open" };
+  return null;
+}
+
+function quickFilterLabel(quickFilter) {
+  if (quickFilter.type === "priority") return `${quickFilter.value} priority`;
+  if (quickFilter.type === "overdue") return "Overdue";
+  return "Open jobs";
+}
 
 export default function JobsList() {
   const { activeSite, terminology } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const quickFilter = useMemo(() => quickFilterFromParams(searchParams), [searchParams]);
   const [jobs, setJobs] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [activeStatusId, setActiveStatusId] = useState(null);
@@ -31,12 +53,23 @@ export default function JobsList() {
     if (!activeSite) return;
     setLoading(true);
     const filters = { search: search || undefined };
-    if (activeStatusId) filters.statusIds = [activeStatusId];
+    if (activeStatusId) {
+      filters.statusIds = [activeStatusId];
+    } else if (quickFilter && statuses.length) {
+      // "open"/"overdue"/"priority" tiles on the Dashboard only ever count
+      // non-completed jobs, so match that here or the list wouldn't agree
+      // with the count that was clicked.
+      const openStatusIds = statuses.filter((s) => !s.is_completed).map((s) => s.id);
+      if (openStatusIds.length) filters.statusIds = openStatusIds;
+    }
+    if (quickFilter?.type === "priority") filters.priorities = [quickFilter.value];
+    if (quickFilter?.type === "overdue") filters.dueBefore = new Date().toISOString().slice(0, 10);
+
     queryJobs(activeSite.id, filters)
       .then(setJobs)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [activeSite, activeStatusId, search]);
+  }, [activeSite, activeStatusId, search, quickFilter, statuses]);
 
   useEffect(() => {
     refresh();
@@ -52,6 +85,40 @@ export default function JobsList() {
           + New job
         </Link>
       </div>
+
+      {quickFilter && (
+        <div
+          style={{
+            ...cardStyle,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            padding: "8px 16px",
+            marginBottom: "12px",
+            fontFamily: fonts.body,
+            fontSize: "13px",
+            color: colors.mossDark,
+          }}
+        >
+          <span style={{ textTransform: "capitalize" }}>Showing: {quickFilterLabel(quickFilter)}</span>
+          <button
+            onClick={() => setSearchParams({})}
+            style={{
+              border: "none",
+              background: "none",
+              color: colors.mossDark,
+              textDecoration: "underline",
+              cursor: "pointer",
+              fontFamily: fonts.body,
+              fontSize: "13px",
+              padding: 0,
+            }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
         <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
