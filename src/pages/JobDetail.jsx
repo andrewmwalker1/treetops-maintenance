@@ -55,6 +55,7 @@ export default function JobDetail() {
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState("");
 
   const loadAll = useCallback(async () => {
     const { data: jobRow, error: jobError } = await supabase.from("jobs").select(JOB_SELECT).eq("id", id).single();
@@ -63,6 +64,7 @@ export default function JobDetail() {
       return;
     }
     setJob(jobRow);
+    setDescriptionDraft(jobRow.description);
 
     const [{ data: subtaskRows }, { data: photoRows }, { data: activityRows }, { data: activityTypeLinks }] = await Promise.all([
       supabase.from("job_subtasks").select("id, label, is_checked, sort_order").eq("job_id", id).order("sort_order"),
@@ -323,6 +325,28 @@ export default function JobDetail() {
     loadAll();
   }
 
+  async function persistDescription() {
+    const trimmed = descriptionDraft.trim();
+    if (!trimmed || trimmed === job.description) {
+      setDescriptionDraft(job.description);
+      return;
+    }
+    const { error: err } = await supabase.from("jobs").update({ description: trimmed }).eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      setDescriptionDraft(job.description);
+      return;
+    }
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "edit",
+      actor_profile_id: profile.id,
+      previous_value: { description: job.description },
+      new_value: { description: trimmed },
+    });
+    loadAll();
+  }
+
   async function handlePriorityChange(newPriority) {
     if (newPriority === job.priority) return;
     const { error: err } = await supabase.from("jobs").update({ priority: newPriority }).eq("id", job.id);
@@ -427,17 +451,28 @@ export default function JobDetail() {
         <div style={priorityBarStyle(job.priority)} />
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
-            <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0, fontSize: "22px" }}>{job.description}</h1>
+            <input
+              value={descriptionDraft}
+              onChange={(e) => setDescriptionDraft(e.target.value)}
+              onBlur={persistDescription}
+              style={{
+                fontFamily: fonts.display,
+                color: colors.mossDark,
+                margin: 0,
+                fontSize: "22px",
+                fontWeight: 700,
+                border: "none",
+                borderBottom: `1px solid ${colors.lineStrong}`,
+                background: "transparent",
+                padding: "0 0 2px",
+                flex: 1,
+                minWidth: 0,
+              }}
+            />
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
           </div>
           {job.due_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Due {job.due_date}</p>}
           {job.completed_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Completed {job.completed_date}</p>}
-
-          {!job.job_status?.is_completed && (
-            <button type="button" onClick={() => setShowCompleteModal(true)} style={{ ...buttonStyle.primary, marginTop: "10px" }}>
-              ✓ Complete
-            </button>
-          )}
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Status</label>
           <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
@@ -586,6 +621,12 @@ export default function JobDetail() {
           </div>
         ))}
       </Section>
+
+      {!job.job_status?.is_completed && (
+        <button type="button" onClick={() => setShowCompleteModal(true)} style={{ ...buttonStyle.primary, width: "100%" }}>
+          ✓ Complete
+        </button>
+      )}
 
       {showCompleteModal && (
         <Modal title="Complete job" onClose={() => setShowCompleteModal(false)}>
