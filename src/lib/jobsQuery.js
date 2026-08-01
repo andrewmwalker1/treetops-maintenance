@@ -10,7 +10,7 @@ const JOB_SELECT = `
   id, description, priority, due_date, lead_in_date, created_at, closed_by, client_generated_id,
   job_status:job_statuses(id, name, is_completed, sort_order),
   job_type:job_types(id, name, requires_completion_photo),
-  assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
+  assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name, role:roles(name)),
   assignee_group:groups(id, name),
   pitch:pitches(id, pitch_number_or_name),
   area:areas(id, name)

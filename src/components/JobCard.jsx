@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { colors, fonts, cardStyle, priorityBarStyle, statusPillStyle } from "../lib/theme.js";
 
-export default function JobCard({ job, terminology = {} }) {
+export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect }) {
   const location = job.pitch
     ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}`
     : job.area
@@ -21,6 +21,15 @@ export default function JobCard({ job, terminology = {} }) {
         color: colors.ink,
       }}
     >
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={selected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={() => onToggleSelect?.(job.id)}
+          style={{ alignSelf: "center", width: "18px", height: "18px", flexShrink: 0, cursor: "pointer" }}
+        />
+      )}
       <div style={priorityBarStyle(job.priority)} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>

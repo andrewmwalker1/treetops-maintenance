@@ -4,20 +4,14 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
+import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
+import PhotoThumb from "../components/PhotoThumb.jsx";
+import PrintableJobCard from "../components/PrintableJobCard.jsx";
+import PrintStyles from "../components/PrintStyles.jsx";
 import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
-
-const JOB_SELECT = `
-  id, description, priority, due_date, completed_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id,
-  job_status:job_statuses(id, name, is_completed),
-  job_type:job_types(id, name, requires_completion_photo),
-  assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
-  assignee_group:groups(id, name),
-  pitch:pitches(pitch_number_or_name),
-  area:areas(name)
-`;
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -58,44 +52,20 @@ export default function JobDetail() {
   const [descriptionDraft, setDescriptionDraft] = useState("");
 
   const loadAll = useCallback(async () => {
-    const { data: jobRow, error: jobError } = await supabase.from("jobs").select(JOB_SELECT).eq("id", id).single();
-    if (jobError) {
-      setError(jobError.message);
+    let data;
+    try {
+      data = await loadJobForPrint(id);
+    } catch (err) {
+      setError(err.message);
       return;
     }
-    setJob(jobRow);
-    setDescriptionDraft(jobRow.description);
-
-    const [{ data: subtaskRows }, { data: photoRows }, { data: activityRows }, { data: activityTypeLinks }] = await Promise.all([
-      supabase.from("job_subtasks").select("id, label, is_checked, sort_order").eq("job_id", id).order("sort_order"),
-      supabase.from("job_photos").select("id, storage_path, uploaded_at").eq("job_id", id).order("uploaded_at"),
-      supabase
-        .from("job_activity")
-        .select("id, event_type, previous_value, new_value, created_at, actor:profiles(display_name)")
-        .eq("job_id", id)
-        .order("created_at", { ascending: false }),
-      supabase.from("job_activity_types").select("task_type:task_types(id, name)").eq("job_id", id),
-    ]);
-    setSubtasks(subtaskRows || []);
-    setPhotos(photoRows || []);
-    setActivity(activityRows || []);
-
-    const types = (activityTypeLinks || []).map((l) => l.task_type).filter(Boolean);
-    setActivityTypes(types);
-
-    if (types.length > 0) {
-      const { data: docLinks } = await supabase
-        .from("activity_type_documents")
-        .select("task_type_id, document:ra_ms_documents(id, type, title, description, pdf_storage_path)")
-        .in("task_type_id", types.map((t) => t.id));
-      const grouped = {};
-      for (const link of docLinks || []) {
-        grouped[link.task_type_id] = [...(grouped[link.task_type_id] || []), link.document];
-      }
-      setDocumentsByActivityType(grouped);
-    } else {
-      setDocumentsByActivityType({});
-    }
+    setJob(data.job);
+    setDescriptionDraft(data.job.description);
+    setSubtasks(data.subtasks);
+    setPhotos(data.photos);
+    setActivity(data.activity);
+    setActivityTypes(data.activityTypes);
+    setDocumentsByActivityType(data.documentsByActivityType);
   }, [id]);
 
   useEffect(() => {
@@ -428,17 +398,7 @@ export default function JobDetail() {
 
   return (
     <div style={{ maxWidth: "640px" }}>
-      {/* Print-only rendering: hide everything else and show just
-          .print-job-card, so no per-section "no-print" tagging is needed
-          elsewhere on this page. */}
-      <style>{`
-        .print-job-card { display: none; }
-        @media print {
-          body * { visibility: hidden; }
-          .print-job-card, .print-job-card * { visibility: visible; }
-          .print-job-card { display: block; position: absolute; top: 0; left: 0; width: 100%; }
-        }
-      `}</style>
+      <PrintStyles />
 
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <button onClick={() => navigate(-1)} style={buttonStyle.secondary}>← Back</button>
@@ -702,149 +662,18 @@ export default function JobDetail() {
         </Modal>
       )}
 
-      <PrintableJobCard
-        job={job}
-        subtasks={subtasks}
-        photos={photos}
-        activity={activity}
-        activityTypes={activityTypes}
-        documentsByActivityType={documentsByActivityType}
-        terminology={terminology}
-      />
+      <div className="print-sheet">
+        <PrintableJobCard
+          job={job}
+          subtasks={subtasks}
+          photos={photos}
+          activity={activity}
+          activityTypes={activityTypes}
+          documentsByActivityType={documentsByActivityType}
+          terminology={terminology}
+        />
+      </div>
     </div>
-  );
-}
-
-function PrintRow({ label, value }) {
-  return (
-    <tr>
-      <td style={{ padding: "4px 12px 4px 0", fontWeight: 600, verticalAlign: "top", whiteSpace: "nowrap" }}>{label}</td>
-      <td style={{ padding: "4px 0" }}>{value}</td>
-    </tr>
-  );
-}
-
-const printSectionHeading = { fontFamily: "'Lora', serif", fontSize: "15px", margin: "18px 0 6px", borderBottom: "1px solid #999", paddingBottom: "4px" };
-
-function PrintableJobCard({ job, subtasks, photos, activity, activityTypes, documentsByActivityType, terminology }) {
-  return (
-    <div className="print-job-card" style={{ padding: "24px", fontFamily: "'Work Sans', sans-serif", color: "#000", fontSize: "13px" }}>
-      <img src="/logo.png" alt="Tree Tops Caravan Park" style={{ width: "89px", height: "79px", marginBottom: "8px" }} />
-      <h1 style={{ fontFamily: "'Lora', serif", fontSize: "20px", margin: "0 0 4px" }}>{job.description}</h1>
-      <p style={{ margin: "0 0 12px", color: "#444" }}>Printed {new Date().toLocaleString()}</p>
-
-      <table style={{ borderCollapse: "collapse" }}>
-        <tbody>
-          <PrintRow label="Job type" value={job.job_type?.name || "—"} />
-          <PrintRow label="Status" value={job.job_status?.name || "—"} />
-          <PrintRow label="Priority" value={job.priority.charAt(0).toUpperCase() + job.priority.slice(1)} />
-          <PrintRow label="Due date" value={job.due_date || "—"} />
-          <PrintRow label="Completed date" value={job.completed_date || "—"} />
-          <PrintRow label="Assigned to" value={job.assignee?.display_name || job.assignee_group?.name || "Unassigned"} />
-          <PrintRow label={terminology?.pitch || "Pitch"} value={job.pitch?.pitch_number_or_name || "—"} />
-          <PrintRow label={terminology?.area || "Area"} value={job.area?.name || "—"} />
-        </tbody>
-      </table>
-
-      {activityTypes.length > 0 && (
-        <>
-          <h2 style={printSectionHeading}>Safety</h2>
-          <ul style={{ margin: 0, paddingLeft: "18px" }}>
-            {activityTypes.map((t) => (
-              <li key={t.id} style={{ marginBottom: "4px" }}>
-                {t.name}
-                {(documentsByActivityType[t.id] || []).length > 0 && (
-                  <ul style={{ margin: "2px 0", paddingLeft: "18px" }}>
-                    {documentsByActivityType[t.id].map((d) => (
-                      <li key={d.id}>{d.title}</li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-
-      <h2 style={printSectionHeading}>Checklist</h2>
-      {subtasks.length === 0 ? (
-        <p style={{ margin: 0 }}>No checklist items.</p>
-      ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {subtasks.map((s) => (
-            <li key={s.id} style={{ marginBottom: "4px" }}>
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "13px",
-                  height: "13px",
-                  border: "1px solid #000",
-                  marginRight: "8px",
-                  textAlign: "center",
-                  lineHeight: "13px",
-                  fontSize: "10px",
-                  verticalAlign: "middle",
-                }}
-              >
-                {s.is_checked ? "X" : ""}
-              </span>
-              {s.label}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <h2 style={printSectionHeading}>Photos</h2>
-      {photos.length === 0 ? (
-        <p style={{ margin: 0 }}>No photos attached.</p>
-      ) : (
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          {photos.map((p) => (
-            <PhotoThumb key={p.id} path={p.storage_path} size={140} />
-          ))}
-        </div>
-      )}
-
-      <h2 style={printSectionHeading}>Activity</h2>
-      {activity.length === 0 ? (
-        <p style={{ margin: 0 }}>No activity recorded.</p>
-      ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {activity
-            .slice()
-            .reverse()
-            .map((a) => (
-              <li key={a.id} style={{ marginBottom: "6px" }}>
-                <strong>{a.actor?.display_name}</strong> · {a.event_type} · {new Date(a.created_at).toLocaleString()}
-                {a.event_type === "comment" && <div>{a.new_value?.text}</div>}
-              </li>
-            ))}
-        </ul>
-      )}
-
-      <h2 style={printSectionHeading}>Sign-off</h2>
-      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: "6px" }}>
-        <tbody>
-          <tr>
-            <SignOffField label="Signature" />
-            <SignOffField label="Print name" />
-          </tr>
-          <tr>
-            <SignOffField label="Date completed" />
-            <td />
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function SignOffField({ label }) {
-  return (
-    <td style={{ width: "50%", padding: "22px 16px 6px 0", verticalAlign: "bottom" }}>
-      <div style={{ borderBottom: "1px solid #000", height: "26px" }} />
-      <div style={{ fontSize: "11px", color: "#444", marginTop: "2px" }}>{label}</div>
-    </td>
   );
 }
 
@@ -912,24 +741,4 @@ function Section({ title, children }) {
       {children}
     </div>
   );
-}
-
-function PhotoThumb({ path, size = 80 }) {
-  const [url, setUrl] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase.storage
-      .from("job-photos")
-      .createSignedUrl(path, 3600)
-      .then(({ data }) => {
-        if (!cancelled && data) setUrl(data.signedUrl);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [path]);
-
-  if (!url) return <div style={{ width: size, height: size, background: colors.line, borderRadius: 8 }} />;
-  return <img src={url} alt="" style={{ width: size, height: size, objectFit: "cover", borderRadius: 8 }} />;
 }
