@@ -44,6 +44,7 @@ export default function NewJob() {
   const [assigneeId, setAssigneeId] = useState("");
   const [locationKind, setLocationKind] = useState("pitch"); // pitch | area | none
   const [locationId, setLocationId] = useState("");
+  const [areaName, setAreaName] = useState("");
   const [activityTypeIds, setActivityTypeIds] = useState([]);
   const [checklistItems, setChecklistItems] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -131,6 +132,33 @@ export default function NewJob() {
       return;
     }
 
+    // Areas are free text (see areas table) -- resolve the typed name to an
+    // existing area or create a new one, rather than requiring the user to
+    // pick from a fixed list.
+    let areaId = null;
+    if (locationKind === "area" && areaName.trim()) {
+      const trimmed = areaName.trim();
+      const existing = areas.find((a) => a.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing) {
+        areaId = existing.id;
+      } else if (!navigator.onLine) {
+        setSubmitError("That's a new area and you're offline -- pick an existing one from the list, or try again once you're back online.");
+        return;
+      } else {
+        const { data: newArea, error: areaError } = await supabase
+          .from("areas")
+          .insert({ site_id: activeSite.id, name: trimmed, created_by: profile.id })
+          .select()
+          .single();
+        if (areaError) {
+          setSubmitError("Failed to save the new area: " + areaError.message);
+          return;
+        }
+        areaId = newArea.id;
+        setAreas((prev) => [...prev, newArea]);
+      }
+    }
+
     setSubmitting(true);
 
     const jobData = {
@@ -145,7 +173,7 @@ export default function NewJob() {
       assignee_profile_id: assigneeKind === "person" && assigneeId ? assigneeId : null,
       assignee_group_id: assigneeKind === "group" && assigneeId ? assigneeId : null,
       pitch_id: locationKind === "pitch" && locationId ? locationId : null,
-      area_id: locationKind === "area" && locationId ? locationId : null,
+      area_id: areaId,
       created_by: profile.id,
     };
 
@@ -271,17 +299,33 @@ export default function NewJob() {
 
         <label style={labelStyle}>Location</label>
         <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-          <label><input type="radio" checked={locationKind === "pitch"} onChange={() => { setLocationKind("pitch"); setLocationId(""); }} /> {terminology.pitch || "Pitch"}</label>
-          <label><input type="radio" checked={locationKind === "area"} onChange={() => { setLocationKind("area"); setLocationId(""); }} /> {terminology.area || "Area"}</label>
-          <label><input type="radio" checked={locationKind === "none"} onChange={() => { setLocationKind("none"); setLocationId(""); }} /> None</label>
+          <label><input type="radio" checked={locationKind === "pitch"} onChange={() => { setLocationKind("pitch"); setLocationId(""); setAreaName(""); }} /> {terminology.pitch || "Pitch"}</label>
+          <label><input type="radio" checked={locationKind === "area"} onChange={() => { setLocationKind("area"); setLocationId(""); setAreaName(""); }} /> {terminology.area || "Area"}</label>
+          <label><input type="radio" checked={locationKind === "none"} onChange={() => { setLocationKind("none"); setLocationId(""); setAreaName(""); }} /> None</label>
         </div>
-        {locationKind !== "none" && (
+        {locationKind === "pitch" && (
           <select value={locationId} onChange={(e) => setLocationId(e.target.value)} style={fieldStyle}>
             <option value="">—</option>
-            {(locationKind === "pitch" ? pitches : areas).map((item) => (
-              <option key={item.id} value={item.id}>{item.pitch_number_or_name || item.name}</option>
+            {pitches.map((item) => (
+              <option key={item.id} value={item.id}>{item.pitch_number_or_name}</option>
             ))}
           </select>
+        )}
+        {locationKind === "area" && (
+          <>
+            <input
+              list="area-suggestions"
+              value={areaName}
+              onChange={(e) => setAreaName(e.target.value)}
+              placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
+              style={fieldStyle}
+            />
+            <datalist id="area-suggestions">
+              {areas.map((a) => (
+                <option key={a.id} value={a.name} />
+              ))}
+            </datalist>
+          </>
         )}
 
         <label style={labelStyle}>Photo (optional)</label>
