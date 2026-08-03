@@ -305,6 +305,23 @@ export default function JobDetail() {
     loadAll();
   }
 
+  async function handleDueDateChange(newDueDate) {
+    if (newDueDate === job.due_date) return;
+    const { error: err } = await supabase.from("jobs").update({ due_date: newDueDate }).eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "edit",
+      actor_profile_id: profile.id,
+      previous_value: { due_date: job.due_date },
+      new_value: { due_date: newDueDate },
+    });
+    loadAll();
+  }
+
   async function handlePriorityChange(newPriority) {
     if (newPriority === job.priority) return;
     const { error: err } = await supabase.from("jobs").update({ priority: newPriority }).eq("id", job.id);
@@ -443,8 +460,15 @@ export default function JobDetail() {
             />
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
           </div>
-          {job.due_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Due {job.due_date}</p>}
           {job.completed_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Completed {job.completed_date}</p>}
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Due date</label>
+          <input
+            type="date"
+            value={job.due_date || ""}
+            onChange={(e) => handleDueDateChange(e.target.value || null)}
+            style={selectStyle}
+          />
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Status</label>
           <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
