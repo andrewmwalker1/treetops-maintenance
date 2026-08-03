@@ -33,6 +33,7 @@ export default function EquipmentTypesTab() {
   const [counts, setCounts] = useState({});
   const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
+  const [copyFromId, setCopyFromId] = useState("");
 
   function refresh() {
     Promise.all([
@@ -66,7 +67,16 @@ export default function EquipmentTypesTab() {
 
   function editType(t) {
     setError(null);
+    setCopyFromId("");
     setForm({ id: t.id, name: t.name, pre_use_checklist: t.pre_use_checklist || [] });
+  }
+
+  function copyChecklistFrom(sourceId) {
+    const source = types.find((t) => t.id === sourceId);
+    if (!source) return;
+    const existing = new Set(form.pre_use_checklist);
+    const toAdd = (source.pre_use_checklist || []).filter((item) => !existing.has(item));
+    setForm({ ...form, pre_use_checklist: [...form.pre_use_checklist, ...toAdd] });
   }
 
   async function handleSave(e) {
@@ -97,7 +107,7 @@ export default function EquipmentTypesTab() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
         <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Equipment types</h2>
-        <button onClick={() => { setError(null); setForm(blank); }} style={buttonStyle.primary}>+ Add equipment type</button>
+        <button onClick={() => { setError(null); setCopyFromId(""); setForm(blank); }} style={buttonStyle.primary}>+ Add equipment type</button>
       </div>
       <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
         Groups individual equipment items (e.g. ST1, ST2, ST3) under what they actually are (e.g. "Strimmer").
@@ -150,6 +160,30 @@ export default function EquipmentTypesTab() {
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, margin: "10px 0 6px" }}>
                 Pre-use checklist (shown as a reminder on the workshop kiosk)
               </label>
+
+              {types.filter((t) => t.id !== form.id).length > 0 && (
+                <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+                  <select
+                    value={copyFromId}
+                    onChange={(e) => setCopyFromId(e.target.value)}
+                    style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}
+                  >
+                    <option value="">Copy checklist from…</option>
+                    {types.filter((t) => t.id !== form.id).map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => copyChecklistFrom(copyFromId)}
+                    disabled={!copyFromId}
+                    style={buttonStyle.secondary}
+                  >
+                    Copy
+                  </button>
+                </div>
+              )}
+
               <ChecklistBuilder
                 items={form.pre_use_checklist}
                 onChange={(items) => setForm({ ...form, pre_use_checklist: items })}
