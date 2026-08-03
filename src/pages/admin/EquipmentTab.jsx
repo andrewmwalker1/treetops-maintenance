@@ -35,6 +35,7 @@ export default function EquipmentTab() {
   const [filterTypeId, setFilterTypeId] = useState("");
   const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
+  const [openCheckouts, setOpenCheckouts] = useState({}); // equipment_id -> checkout row
 
   function refresh() {
     Promise.all([
@@ -43,14 +44,25 @@ export default function EquipmentTab() {
         .select("id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, equipment_type:equipment_types(name)")
         .eq("org_id", org?.id),
       supabase.from("equipment_types").select("id, name").eq("org_id", org?.id).order("name"),
-    ]).then(([{ data: eq, error: err }, { data: types }]) => {
+      supabase.from("equipment_checkouts").select("id, equipment_id, profiles(display_name)").is("checked_in_at", null),
+    ]).then(([{ data: eq, error: err }, { data: types }, { data: checkouts }]) => {
       if (err) setError(err.message);
       else setEquipment(eq || []);
       setEquipmentTypes(types || []);
+      const grouped = {};
+      for (const c of checkouts || []) grouped[c.equipment_id] = c;
+      setOpenCheckouts(grouped);
     });
   }
 
   useEffect(refresh, [org]);
+
+  async function handleForceCheckIn(checkoutId) {
+    if (!window.confirm("Force check this item in? Use this if a team member forgot to check it in themselves.")) return;
+    const { error: err } = await supabase.rpc("admin_force_check_in", { p_checkout_id: checkoutId });
+    if (err) setError(err.message);
+    else refresh();
+  }
 
   function editItem(eq) {
     setError(null);
@@ -128,8 +140,16 @@ export default function EquipmentTab() {
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
               {[eq.make, eq.model].filter(Boolean).join(" ") || "No make/model set"} · {statusLabels[eq.status]}
             </div>
+            {openCheckouts[eq.id] && (
+              <div style={{ fontSize: "12px", color: colors.clay, marginTop: "4px" }}>
+                Checked out to {openCheckouts[eq.id].profiles?.display_name || "someone"}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
+            {openCheckouts[eq.id] && (
+              <button onClick={() => handleForceCheckIn(openCheckouts[eq.id].id)} style={buttonStyle.secondary}>Force check-in</button>
+            )}
             <button onClick={() => editItem(eq)} style={buttonStyle.secondary}>Edit</button>
             <button onClick={() => handleDelete(eq.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
           </div>

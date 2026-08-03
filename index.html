@@ -17,6 +17,19 @@
       * { box-sizing: border-box; }
       body { margin: 0; }
     </style>
+    <script>
+      // Other half of the public/404.html GitHub Pages SPA fallback --
+      // restores the originally-requested path before React Router mounts,
+      // so a fresh navigation to e.g. /kiosk (the RFID magic-link redirect
+      // target) or /jobs/:id lands on the right screen instead of "/".
+      (function () {
+        var params = new URLSearchParams(location.search);
+        var redirect = params.get("redirect");
+        if (redirect) {
+          history.replaceState(null, "", redirect);
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import { colors, fonts, cardStyle } from "../lib/theme.js";
@@ -20,26 +20,54 @@ const statusLabels = {
 
 export default function EquipmentList() {
   const { org, activeSite } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get("status");
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
 
   function refresh() {
     setLoading(true);
-    supabase
+    let query = supabase
       .from("equipment")
-      .select("id, name, make, model, status, site_id, held_by_profile_id, equipment_type:equipment_types(name), held_by:profiles!equipment_held_by_profile_id_fkey(display_name)")
-      .then(({ data, error }) => {
-        if (error) console.error(error);
-        setEquipment(data || []);
-        setLoading(false);
-      });
+      .select("id, name, make, model, status, site_id, held_by_profile_id, equipment_type:equipment_types(name), held_by:profiles!equipment_held_by_profile_id_fkey(display_name)");
+    if (statusFilter) query = query.eq("status", statusFilter);
+    query.then(({ data, error }) => {
+      if (error) console.error(error);
+      setEquipment(data || []);
+      setLoading(false);
+    });
   }
 
-  useEffect(refresh, [org, activeSite]);
+  useEffect(refresh, [org, activeSite, statusFilter]);
 
   return (
     <div>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Equipment</h1>
+
+      {statusFilter && (
+        <div
+          style={{
+            ...cardStyle,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            padding: "8px 16px",
+            marginBottom: "12px",
+            fontFamily: fonts.body,
+            fontSize: "13px",
+            color: colors.mossDark,
+          }}
+        >
+          <span style={{ textTransform: "capitalize" }}>Showing: {statusLabels[statusFilter] || statusFilter}</span>
+          <button
+            onClick={() => setSearchParams({})}
+            style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: 0 }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
       {!loading && equipment.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment yet.</p>}

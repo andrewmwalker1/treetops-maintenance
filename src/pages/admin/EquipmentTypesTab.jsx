@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
+import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -13,7 +14,7 @@ const fieldStyle = {
   marginBottom: "10px",
 };
 
-const blank = { id: null, name: "" };
+const blank = { id: null, name: "", pre_use_checklist: [] };
 
 export default function EquipmentTypesTab() {
   const { org } = useAuth();
@@ -24,7 +25,7 @@ export default function EquipmentTypesTab() {
 
   function refresh() {
     Promise.all([
-      supabase.from("equipment_types").select("id, name").eq("org_id", org.id).order("name"),
+      supabase.from("equipment_types").select("id, name, pre_use_checklist").eq("org_id", org.id).order("name"),
       supabase.from("equipment").select("equipment_type_id"),
     ]).then(([{ data: t, error: err }, { data: eq }]) => {
       if (err) setError(err.message);
@@ -41,13 +42,13 @@ export default function EquipmentTypesTab() {
 
   function editType(t) {
     setError(null);
-    setForm({ id: t.id, name: t.name });
+    setForm({ id: t.id, name: t.name, pre_use_checklist: t.pre_use_checklist || [] });
   }
 
   async function handleSave(e) {
     e.preventDefault();
     setError(null);
-    const payload = { org_id: org.id, name: form.name };
+    const payload = { org_id: org.id, name: form.name, pre_use_checklist: form.pre_use_checklist };
     const { error: err } = form.id
       ? await supabase.from("equipment_types").update(payload).eq("id", form.id)
       : await supabase.from("equipment_types").insert(payload);
@@ -117,7 +118,15 @@ export default function EquipmentTypesTab() {
             <form onSubmit={handleSave}>
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Strimmer" style={fieldStyle} />
 
-              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, margin: "10px 0 6px" }}>
+                Pre-use checklist (shown as a reminder on the workshop kiosk)
+              </label>
+              <ChecklistBuilder
+                items={form.pre_use_checklist}
+                onChange={(items) => setForm({ ...form, pre_use_checklist: items })}
+              />
+
+              {error && <p style={{ color: colors.immediate, fontSize: "13px", marginTop: "10px" }}>{error}</p>}
 
               <div style={{ display: "flex", gap: "8px" }}>
                 <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Create equipment type"}</button>

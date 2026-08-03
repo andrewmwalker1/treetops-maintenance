@@ -5,6 +5,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
+import { writeJobCompletion } from "../lib/completeJob.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
 import PrintableJobCard from "../components/PrintableJobCard.jsx";
@@ -230,29 +231,17 @@ export default function JobDetail() {
       if (!proceed) return;
     }
 
-    const { error: err } = await supabase
-      .from("jobs")
-      .update({ status_id: completedStatus.id, closed_by: profile.id, completed_date: completeDate })
-      .eq("id", job.id);
+    const { error: err } = await writeJobCompletion({
+      jobId: job.id,
+      oldStatusId: job.status_id,
+      completedStatusId: completedStatus.id,
+      actorProfileId: profile.id,
+      completedDate: completeDate,
+      comment: completeComment,
+    });
     if (err) {
       setError(err.message);
       return;
-    }
-
-    await supabase.from("job_activity").insert({
-      job_id: job.id,
-      event_type: "status_change",
-      actor_profile_id: profile.id,
-      previous_value: { status_id: job.status_id },
-      new_value: { status_id: completedStatus.id, completed_date: completeDate },
-    });
-    if (completeComment.trim()) {
-      await supabase.from("job_activity").insert({
-        job_id: job.id,
-        event_type: "comment",
-        actor_profile_id: profile.id,
-        new_value: { text: completeComment.trim() },
-      });
     }
 
     setShowCompleteModal(false);

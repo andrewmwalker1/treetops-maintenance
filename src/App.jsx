@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import Layout from "./components/Layout.jsx";
 import Login from "./pages/Login.jsx";
@@ -10,10 +10,40 @@ import EquipmentDetail from "./pages/EquipmentDetail.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
+import KioskSignIn from "./kiosk/KioskSignIn.jsx";
+import KioskApp from "./kiosk/KioskApp.jsx";
 import { colors, pageStyle } from "./lib/theme.js";
 
 function AppShell() {
   const { session, loading, deactivated } = useAuth();
+  const location = useLocation();
+  const isKiosk = location.pathname.startsWith("/kiosk");
+
+  // The kiosk needs its own routing branch reachable BEFORE the normal
+  // !session -> <Login/> check below, since RFID sign-in is how a kiosk
+  // session gets created in the first place -- it must be reachable with
+  // no session yet. Once signed in it renders its own full-screen
+  // KioskApp, never the normal <Layout> chrome/nav.
+  if (isKiosk) {
+    if (loading) {
+      return (
+        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <p style={{ color: colors.inkSoft }}>Loading…</p>
+        </div>
+      );
+    }
+    if (deactivated) {
+      return (
+        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
+            This account has been deactivated.
+          </p>
+        </div>
+      );
+    }
+    if (!session) return <KioskSignIn />;
+    return <KioskApp />;
+  }
 
   if (loading) {
     return (

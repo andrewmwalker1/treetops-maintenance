@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
+import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { exportJobsCsv } from "../lib/csvExport.js";
 import { colors, fonts, cardStyle, buttonStyle, priorityColor } from "../lib/theme.js";
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const permissions = usePermissions();
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
+  const [faultyCount, setFaultyCount] = useState(0);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -18,6 +20,16 @@ export default function Dashboard() {
     if (!activeSite) return;
     queryJobs(activeSite.id, {}).then(setJobs).catch((err) => setError(err.message));
   }, [activeSite]);
+
+  useEffect(() => {
+    if (!org) return;
+    supabase
+      .from("equipment")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", org.id)
+      .eq("status", "faulty")
+      .then(({ count }) => setFaultyCount(count || 0));
+  }, [org]);
 
   const openJobs = jobs.filter((j) => !j.job_status?.is_completed);
   const byPriority = ["immediate", "high", "medium", "low"].map((p) => ({
@@ -68,6 +80,12 @@ export default function Dashboard() {
             onClick={() => navigate(`/?priority=${p.priority}`)}
           />
         ))}
+        <StatTile
+          label="Faulty equipment"
+          value={faultyCount}
+          color={faultyCount ? colors.immediate : colors.moss}
+          onClick={() => navigate("/equipment?status=faulty")}
+        />
       </div>
     </div>
   );
