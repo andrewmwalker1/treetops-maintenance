@@ -8,8 +8,7 @@ import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
-import PrintableJobCard from "../components/PrintableJobCard.jsx";
-import PrintStyles from "../components/PrintStyles.jsx";
+import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
 import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
@@ -359,6 +358,32 @@ export default function JobDetail() {
     }
   }
 
+  async function handlePrint() {
+    let printWindow;
+    try {
+      printWindow = openPrintWindow();
+    } catch (err) {
+      setError(err.message);
+      return;
+    }
+    try {
+      const photosWithUrls = await Promise.all(
+        photos.map(async (p) => {
+          const { data } = await supabase.storage.from("job-photos").createSignedUrl(p.storage_path, 3600);
+          return { ...p, signedUrl: data?.signedUrl };
+        })
+      );
+      writeAndPrintJobBundles(
+        printWindow,
+        [{ job, subtasks, photos: photosWithUrls, activity, activityTypes, documentsByActivityType }],
+        terminology
+      );
+    } catch (err) {
+      printWindow.close();
+      setError(err.message);
+    }
+  }
+
   async function handleAddPhoto() {
     setUploading(true);
     setError(null);
@@ -387,11 +412,9 @@ export default function JobDetail() {
 
   return (
     <div style={{ maxWidth: "640px" }}>
-      <PrintStyles />
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
         <button onClick={() => navigate(-1)} style={buttonStyle.secondary}>← Back</button>
-        <button type="button" onClick={() => window.print()} style={buttonStyle.secondary}>Print job card</button>
+        <button type="button" onClick={handlePrint} style={buttonStyle.secondary}>Print job card</button>
       </div>
 
       {error && <p style={{ color: colors.immediate, fontSize: "14px" }}>{error}</p>}
@@ -651,17 +674,6 @@ export default function JobDetail() {
         </Modal>
       )}
 
-      <div className="print-sheet">
-        <PrintableJobCard
-          job={job}
-          subtasks={subtasks}
-          photos={photos}
-          activity={activity}
-          activityTypes={activityTypes}
-          documentsByActivityType={documentsByActivityType}
-          terminology={terminology}
-        />
-      </div>
     </div>
   );
 }

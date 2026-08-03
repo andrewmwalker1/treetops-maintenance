@@ -4,9 +4,8 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
+import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
 import JobCard from "../components/JobCard.jsx";
-import PrintableJobCard from "../components/PrintableJobCard.jsx";
-import PrintStyles from "../components/PrintStyles.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 // Dashboard stat tiles link here with a query param (?priority=medium,
@@ -31,6 +30,21 @@ function quickFilterLabel(quickFilter) {
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
 
+// Tapping a job card (rather than its checkbox) navigates to JobDetail,
+// which unmounts this page -- plain useState would lose the selection
+// entirely on the way back. sessionStorage survives that round trip
+// (cleared when the tab closes, which is fine for a transient selection).
+const SELECTED_IDS_STORAGE_KEY = "jobsList:selectedIds";
+
+function loadStoredSelectedIds() {
+  try {
+    const raw = sessionStorage.getItem(SELECTED_IDS_STORAGE_KEY);
+    return raw ? new Set(JSON.parse(raw)) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
 export default function JobsList() {
   const { activeSite, terminology } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,9 +59,12 @@ export default function JobsList() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedIds, setSelectedIds] = useState(() => new Set());
-  const [printBatch, setPrintBatch] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(loadStoredSelectedIds);
   const [printing, setPrinting] = useState(false);
+
+  useEffect(() => {
+    sessionStorage.setItem(SELECTED_IDS_STORAGE_KEY, JSON.stringify([...selectedIds]));
+  }, [selectedIds]);
 
   useEffect(() => {
     if (!activeSite) return;
@@ -128,8 +145,30 @@ export default function JobsList() {
     });
   }
 
+  // Toggles selection for whatever's in the current view only -- a job
+  // selected under a different filter stays selected rather than being
+  // silently dropped by an unrelated "select all" click.
+  function toggleSelectAll() {
+    setSelectedIds((prev) => {
+      const allVisibleSelected = visibleJobs.length > 0 && visibleJobs.every((j) => prev.has(j.id));
+      const next = new Set(prev);
+      for (const job of visibleJobs) {
+        if (allVisibleSelected) next.delete(job.id);
+        else next.add(job.id);
+      }
+      return next;
+    });
+  }
+
   async function handlePrintSelected() {
     setError(null);
+    let printWindow;
+    try {
+      printWindow = openPrintWindow();
+    } catch (err) {
+      setError(err.message);
+      return;
+    }
     setPrinting(true);
     try {
       const orderedIds = visibleJobs.filter((j) => selectedIds.has(j.id)).map((j) => j.id);
@@ -137,8 +176,7 @@ export default function JobsList() {
 
       // Unlike the single-job print button, these photos have never been
       // displayed on screen here, so nothing has warmed their signed URLs
-      // yet -- resolve them all before triggering print, or window.print()
-      // could fire while PhotoThumb is still fetching and print blank boxes.
+      // yet -- resolve them all before handing the bundle off to print.
       await Promise.all(
         bundles.flatMap((bundle) =>
           bundle.photos.map(async (photo) => {
@@ -148,27 +186,19 @@ export default function JobsList() {
         )
       );
 
-      setPrintBatch(bundles);
+      writeAndPrintJobBundles(printWindow, bundles, terminology);
     } catch (err) {
+      printWindow.close();
       setError(err.message);
     } finally {
       setPrinting(false);
     }
   }
 
-  // Runs after the print-sheet bundle above has actually committed to the
-  // DOM, so window.print() always sees the freshly loaded cards rather than
-  // racing the state update.
-  useEffect(() => {
-    if (printBatch) window.print();
-  }, [printBatch]);
-
   if (!activeSite) return <p style={{ color: colors.inkSoft }}>Loading your site…</p>;
 
   return (
     <div>
-      <PrintStyles />
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
         <Link to="/jobs/new" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
@@ -307,6 +337,13 @@ export default function JobsList() {
       {error && <p style={{ color: colors.immediate }}>{error}</p>}
       {!loading && !error && visibleJobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs match this view.</p>}
 
+      {visibleJobs.length > 0 && (
+        <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontFamily: fonts.body, fontSize: "13px", color: colors.inkSoft, cursor: "pointer" }}>
+          <input type="checkbox" checked={visibleJobs.every((j) => selectedIds.has(j.id))} onChange={toggleSelectAll} />
+          Select all
+        </label>
+      )}
+
       {visibleJobs.map((job) => (
         <JobCard
           key={job.id}
@@ -317,21 +354,6 @@ export default function JobsList() {
           onToggleSelect={toggleSelect}
         />
       ))}
-
-      <div className="print-sheet">
-        {(printBatch || []).map((bundle) => (
-          <PrintableJobCard
-            key={bundle.job.id}
-            job={bundle.job}
-            subtasks={bundle.subtasks}
-            photos={bundle.photos}
-            activity={bundle.activity}
-            activityTypes={bundle.activityTypes}
-            documentsByActivityType={bundle.documentsByActivityType}
-            terminology={terminology}
-          />
-        ))}
-      </div>
     </div>
   );
 }
