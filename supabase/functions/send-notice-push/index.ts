@@ -23,6 +23,23 @@ webpush.setVapidDetails(
   Deno.env.get("VAPID_PRIVATE_KEY")!
 );
 
+// Called directly from the browser (src/platform/notifications.js) on a
+// different origin than this function -- see the identical comment in
+// manage-users/index.ts for why every response (including the OPTIONS
+// preflight) needs these headers.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 async function pushToProfile(recipientProfileId: string, title: string, body: string, data: unknown) {
   const { data: subs, error } = await supabase
     .from("push_subscriptions")
@@ -48,10 +65,14 @@ async function pushToProfile(recipientProfileId: string, title: string, body: st
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const { recipientProfileId, triggerType, priority, title, body, data } = await req.json();
 
   if (!recipientProfileId || !priority || !title) {
-    return new Response(JSON.stringify({ error: "recipientProfileId, priority and title are required" }), { status: 400 });
+    return jsonResponse({ error: "recipientProfileId, priority and title are required" }, 400);
   }
 
   let shouldSendNow = priority === "safety_critical";
@@ -61,7 +82,7 @@ Deno.serve(async (req) => {
       .select("dnd_enabled")
       .eq("id", recipientProfileId)
       .single();
-    if (profileError) return new Response(JSON.stringify({ error: profileError.message }), { status: 500 });
+    if (profileError) return jsonResponse({ error: profileError.message }, 500);
     shouldSendNow = !profile.dnd_enabled;
   }
 
@@ -72,11 +93,11 @@ Deno.serve(async (req) => {
     payload: { title, body, data },
     delivered_at: shouldSendNow ? new Date().toISOString() : null,
   });
-  if (insertError) return new Response(JSON.stringify({ error: insertError.message }), { status: 500 });
+  if (insertError) return jsonResponse({ error: insertError.message }, 500);
 
   if (shouldSendNow) {
     await pushToProfile(recipientProfileId, title, body, data);
   }
 
-  return new Response(JSON.stringify({ queued: !shouldSendNow }), { headers: { "Content-Type": "application/json" } });
+  return jsonResponse({ queued: !shouldSendNow });
 });

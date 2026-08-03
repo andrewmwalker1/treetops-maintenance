@@ -24,14 +24,36 @@ const supabaseAdmin = createClient(
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_FAILURES = 8;
 
+// Called directly from the browser (src/kiosk/KioskSignIn.jsx) on a
+// different origin than this function -- see the identical comment in
+// manage-users/index.ts for why every response (including the OPTIONS
+// preflight) needs these headers, or the browser blocks it client-side
+// before the kiosk ever sees the result.
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 async function logAttempt(tagUid: string, ip: string | null, succeeded: boolean) {
   await supabaseAdmin.from("rfid_login_attempts").insert({ tag_uid: tagUid, ip, succeeded });
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const { tagUid, redirectTo } = await req.json();
   if (!tagUid || !redirectTo) {
-    return new Response(JSON.stringify({ error: "tagUid and redirectTo are required" }), { status: 400 });
+    return jsonResponse({ error: "tagUid and redirectTo are required" }, 400);
   }
 
   const ip = req.headers.get("x-forwarded-for");
@@ -46,7 +68,7 @@ Deno.serve(async (req) => {
 
   if ((recentFailures ?? 0) >= RATE_LIMIT_MAX_FAILURES) {
     await logAttempt(tagUid, ip, false);
-    return new Response(JSON.stringify({ error: "Too many attempts -- try again later." }), { status: 429 });
+    return jsonResponse({ error: "Too many attempts -- try again later." }, 429);
   }
 
   const { data: tag, error: tagError } = await supabaseAdmin
@@ -56,21 +78,21 @@ Deno.serve(async (req) => {
     .maybeSingle();
   if (tagError) {
     await logAttempt(tagUid, ip, false);
-    return new Response(JSON.stringify({ error: tagError.message }), { status: 500 });
+    return jsonResponse({ error: tagError.message }, 500);
   }
   if (!tag) {
     await logAttempt(tagUid, ip, false);
-    return new Response(JSON.stringify({ error: "Tag not recognised" }), { status: 404 });
+    return jsonResponse({ error: "Tag not recognised" }, 404);
   }
   if (tag.profiles?.is_active === false) {
     await logAttempt(tagUid, ip, false);
-    return new Response(JSON.stringify({ error: "This account is deactivated" }), { status: 403 });
+    return jsonResponse({ error: "This account is deactivated" }, 403);
   }
 
   const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(tag.profile_id);
   if (userError || !userData?.user?.email) {
     await logAttempt(tagUid, ip, false);
-    return new Response(JSON.stringify({ error: "No account email found for this tag" }), { status: 500 });
+    return jsonResponse({ error: "No account email found for this tag" }, 500);
   }
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
@@ -80,11 +102,9 @@ Deno.serve(async (req) => {
   });
   if (linkError) {
     await logAttempt(tagUid, ip, false);
-    return new Response(JSON.stringify({ error: linkError.message }), { status: 500 });
+    return jsonResponse({ error: linkError.message }, 500);
   }
 
   await logAttempt(tagUid, ip, true);
-  return new Response(JSON.stringify({ actionLink: linkData.properties.action_link }), {
-    headers: { "Content-Type": "application/json" },
-  });
+  return jsonResponse({ actionLink: linkData.properties.action_link });
 });

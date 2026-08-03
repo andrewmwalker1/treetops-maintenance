@@ -18,6 +18,27 @@ const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
 
+// Called directly from the browser (src/pages/admin/UsersTab.jsx) on a
+// different origin than this function, so every response -- including the
+// preflight OPTIONS request supabase-js's Authorization/apikey headers
+// trigger -- needs CORS headers, or the browser blocks the response before
+// the page ever sees it (surfaces client-side as the generic "Failed to
+// send a request to the Edge Function", not any error this function
+// returns -- this was missing entirely before, which is why invites failed
+// silently from the real site despite the function itself working fine).
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 async function authorizeCaller(req: Request): Promise<{ ok: boolean; orgId?: string }> {
   const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
   if (!token) return { ok: false };
@@ -43,9 +64,13 @@ async function authorizeCaller(req: Request): Promise<{ ok: boolean; orgId?: str
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
   const { ok, orgId } = await authorizeCaller(req);
   if (!ok || !orgId) {
-    return new Response(JSON.stringify({ error: "Not authorized" }), { status: 403 });
+    return jsonResponse({ error: "Not authorized" }, 403);
   }
 
   const body = await req.json();
@@ -54,14 +79,20 @@ Deno.serve(async (req) => {
   if (action === "invite") {
     const { email, displayName, roleId, isContractor, siteIds } = body;
     if (!email || !displayName || !roleId || !Array.isArray(siteIds) || siteIds.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "email, displayName, roleId and at least one site are required" }),
-        { status: 400 }
-      );
+      return jsonResponse({ error: "email, displayName, roleId and at least one site are required" }, 400);
     }
 
     const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-    if (inviteError) return new Response(JSON.stringify({ error: inviteError.message }), { status: 400 });
+    if (inviteError) {
+      // AuthRetryableFetchError here (rather than a normal Auth API error)
+      // usually means the outbound email send itself failed -- e.g. no
+      // custom SMTP configured, so this project is on Supabase's shared
+      // built-in email sender, which is rate-limited and meant for testing
+      // only. Logged server-side since the client-visible message from
+      // this error class is unhelpfully terse ("{}").
+      console.error("inviteUserByEmail failed", inviteError.name, inviteError.status, inviteError.message);
+      return jsonResponse({ error: inviteError.message || "Invite failed -- check function logs" }, 400);
+    }
 
     const userId = invited.user.id;
 
@@ -72,19 +103,19 @@ Deno.serve(async (req) => {
       display_name: displayName,
       is_contractor: !!isContractor,
     });
-    if (profileError) return new Response(JSON.stringify({ error: profileError.message }), { status: 500 });
+    if (profileError) return jsonResponse({ error: profileError.message }, 500);
 
     const { error: scopeError } = await supabaseAdmin
       .from("site_scope")
       .insert(siteIds.map((site_id: string) => ({ profile_id: userId, site_id })));
-    if (scopeError) return new Response(JSON.stringify({ error: scopeError.message }), { status: 500 });
+    if (scopeError) return jsonResponse({ error: scopeError.message }, 500);
 
-    return new Response(JSON.stringify({ userId }), { headers: { "Content-Type": "application/json" } });
+    return jsonResponse({ userId });
   }
 
   if (action === "deactivate" || action === "reactivate") {
     const { userId } = body;
-    if (!userId) return new Response(JSON.stringify({ error: "userId is required" }), { status: 400 });
+    if (!userId) return jsonResponse({ error: "userId is required" }, 400);
 
     const isActive = action === "reactivate";
     const { error: profileError } = await supabaseAdmin
@@ -92,7 +123,7 @@ Deno.serve(async (req) => {
       .update({ is_active: isActive })
       .eq("id", userId)
       .eq("org_id", orgId);
-    if (profileError) return new Response(JSON.stringify({ error: profileError.message }), { status: 500 });
+    if (profileError) return jsonResponse({ error: profileError.message }, 500);
 
     // A ban blocks new sign-ins and token refreshes immediately -- the
     // hard cutoff. profiles.is_active is the belt-and-braces check on
@@ -101,10 +132,10 @@ Deno.serve(async (req) => {
     const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
       ban_duration: isActive ? "none" : "876000h",
     });
-    if (banError) return new Response(JSON.stringify({ error: banError.message }), { status: 500 });
+    if (banError) return jsonResponse({ error: banError.message }, 500);
 
-    return new Response(JSON.stringify({ ok: true }), { headers: { "Content-Type": "application/json" } });
+    return jsonResponse({ ok: true });
   }
 
-  return new Response(JSON.stringify({ error: `Unknown action "${action}"` }), { status: 400 });
+  return jsonResponse({ error: `Unknown action "${action}"` }, 400);
 });
