@@ -82,6 +82,10 @@ export default function ReportIssueForm({ equipmentTypeId, onSubmit, onCancel, s
           {submitting ? "Reporting…" : "Submit report"}
         </button>
       </div>
+
+      <p style={{ fontFamily: fonts.body, fontSize: "14px", color: colors.inkSoft, marginTop: "16px", marginBottom: 0, textAlign: "center" }}>
+        Please remember to pink ticket the defective machine.
+      </p>
     </div>
   );
 }

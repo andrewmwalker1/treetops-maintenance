@@ -92,8 +92,11 @@ export default function KioskCheckIn() {
           />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            <p style={{ fontFamily: fonts.body, fontSize: "18px", color: colors.ink, marginTop: 0 }}>
+              Is the Kit clean and free from issues?
+            </p>
             <button style={kioskButtonStyle} onClick={handleConfirmClean} disabled={busy}>
-              {busy ? "Checking in…" : "Confirm clean & ready"}
+              {busy ? "Checking in…" : "Yes"}
             </button>
             <button style={kioskDangerButtonStyle} onClick={() => setReportingIssue(true)} disabled={busy}>
               Report an Issue
