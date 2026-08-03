@@ -2,8 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import PrintableJobCard from "../components/PrintableJobCard.jsx";
 
 const PRINT_DOCUMENT_STYLE = `
-  body { margin: 0; font-family: 'Work Sans', sans-serif; }
+  body { margin: 0; font-family: 'Work Sans', sans-serif; padding-bottom: 28px; }
   .print-job-card:not(:last-child) { page-break-after: always; }
+  .print-footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 10px; color: #666; }
 `;
 
 // Must be called synchronously from the click handler, before any await --
@@ -44,9 +45,14 @@ export function writeAndPrintJobBundles(printWindow, bundles, terminology) {
     )
     .join("");
 
+  // One footer, fixed to the page rather than tied to any single job card,
+  // so it reprints on every physical page a long job's checklist/activity
+  // spills onto -- not just the first page of each card.
+  const footer = `<div class="print-footer">Printed ${new Date().toLocaleString()}</div>`;
+
   printWindow.document.open();
   printWindow.document.write(
-    `<!doctype html><html><head><title>Print job card</title><style>${PRINT_DOCUMENT_STYLE}</style></head><body>${html}</body></html>`
+    `<!doctype html><html><head><title>Print job card</title><style>${PRINT_DOCUMENT_STYLE}</style></head><body>${html}${footer}</body></html>`
   );
   printWindow.document.close();
 

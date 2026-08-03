@@ -8,8 +8,7 @@ export default function PrintableJobCard({ job, subtasks, photos, activity, acti
   return (
     <div className="print-job-card" style={{ padding: "24px", fontFamily: "'Work Sans', sans-serif", color: "#000", fontSize: "13px" }}>
       <img src="/logo.png" alt="Tree Tops Caravan Park" style={{ width: "89px", height: "79px", marginBottom: "8px" }} />
-      <h1 style={{ fontFamily: "'Lora', serif", fontSize: "20px", margin: "0 0 4px" }}>{job.description}</h1>
-      <p style={{ margin: "0 0 12px", color: "#444" }}>Printed {new Date().toLocaleString()}</p>
+      <h1 style={{ fontFamily: "'Lora', serif", fontSize: "20px", margin: "0 0 12px" }}>{job.description}</h1>
 
       <table style={{ borderCollapse: "collapse" }}>
         <tbody>
