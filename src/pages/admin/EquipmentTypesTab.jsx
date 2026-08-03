@@ -14,6 +14,17 @@ const fieldStyle = {
   marginBottom: "10px",
 };
 
+const iconButtonStyle = {
+  background: "transparent",
+  border: `1px solid ${colors.lineStrong}`,
+  borderRadius: "6px",
+  width: "28px",
+  height: "28px",
+  cursor: "pointer",
+  color: colors.inkSoft,
+  fontSize: "13px",
+};
+
 const blank = { id: null, name: "", pre_use_checklist: [] };
 
 export default function EquipmentTypesTab() {
@@ -25,7 +36,7 @@ export default function EquipmentTypesTab() {
 
   function refresh() {
     Promise.all([
-      supabase.from("equipment_types").select("id, name, pre_use_checklist").eq("org_id", org.id).order("name"),
+      supabase.from("equipment_types").select("id, name, pre_use_checklist, sort_order").eq("org_id", org.id).order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
     ]).then(([{ data: t, error: err }, { data: eq }]) => {
       if (err) setError(err.message);
@@ -36,6 +47,19 @@ export default function EquipmentTypesTab() {
       }
       setCounts(grouped);
     });
+  }
+
+  async function moveType(index, direction) {
+    const target = index + direction;
+    if (target < 0 || target >= types.length) return;
+    const a = types[index];
+    const b = types[target];
+    const [{ error: err1 }, { error: err2 }] = await Promise.all([
+      supabase.from("equipment_types").update({ sort_order: b.sort_order }).eq("id", a.id),
+      supabase.from("equipment_types").update({ sort_order: a.sort_order }).eq("id", b.id),
+    ]);
+    if (err1 || err2) setError((err1 || err2).message);
+    else refresh();
   }
 
   useEffect(refresh, [org]);
@@ -49,6 +73,9 @@ export default function EquipmentTypesTab() {
     e.preventDefault();
     setError(null);
     const payload = { org_id: org.id, name: form.name, pre_use_checklist: form.pre_use_checklist };
+    if (!form.id) {
+      payload.sort_order = types.length > 0 ? Math.max(...types.map((t) => t.sort_order)) + 1 : 0;
+    }
     const { error: err } = form.id
       ? await supabase.from("equipment_types").update(payload).eq("id", form.id)
       : await supabase.from("equipment_types").insert(payload);
@@ -76,13 +103,15 @@ export default function EquipmentTypesTab() {
         Groups individual equipment items (e.g. ST1, ST2, ST3) under what they actually are (e.g. "Strimmer").
       </p>
 
-      {types.map((t) => (
+      {types.map((t, i) => (
         <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>{counts[t.id] || 0} item(s)</div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
+            <button type="button" onClick={() => moveType(i, -1)} disabled={i === 0} style={iconButtonStyle}>↑</button>
+            <button type="button" onClick={() => moveType(i, 1)} disabled={i === types.length - 1} style={iconButtonStyle}>↓</button>
             <button onClick={() => editType(t)} style={buttonStyle.secondary}>Edit</button>
             <button onClick={() => handleDelete(t.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
           </div>
