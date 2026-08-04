@@ -26,6 +26,7 @@ export default function NewJob() {
   const permissions = usePermissions();
   const navigate = useNavigate();
   const canEditChecklist = permissions.has("can_edit_job_checklist");
+  const canRequirePhoto = permissions.has("can_require_job_photo");
 
   const [jobTypes, setJobTypes] = useState([]);
   const [statuses, setStatuses] = useState([]);
@@ -53,6 +54,7 @@ export default function NewJob() {
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
   const [photoError, setPhotoError] = useState(null);
+  const [requiresPhoto, setRequiresPhoto] = useState(false);
 
   useEffect(() => {
     if (!org || !activeSite) return;
@@ -175,6 +177,7 @@ export default function NewJob() {
       pitch_id: locationKind === "pitch" && locationId ? locationId : null,
       area_id: areaId,
       created_by: profile.id,
+      requires_photo: canRequirePhoto && requiresPhoto,
     };
 
     if (!navigator.onLine) {
@@ -326,6 +329,13 @@ export default function NewJob() {
               ))}
             </datalist>
           </>
+        )}
+
+        {canRequirePhoto && (
+          <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px", fontSize: "14px" }}>
+            <input type="checkbox" checked={requiresPhoto} onChange={(e) => setRequiresPhoto(e.target.checked)} />
+            Require a photo before this job can be completed
+          </label>
         )}
 
         <label style={labelStyle}>Photo (optional)</label>

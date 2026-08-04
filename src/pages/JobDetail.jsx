@@ -193,6 +193,10 @@ export default function JobDetail() {
     // the assignee — completing on someone else's behalf skips it
     // entirely (Section 5).
     const closingNow = newStatus?.is_completed && !oldCompleted;
+    if (closingNow && job.requires_photo && photos.length === 0 && !permissions.has("can_complete_job_without_photo")) {
+      setError("This job requires a photo before it can be completed. Add one below.");
+      return;
+    }
     const closerIsAssignee = job.assignee_profile_id === profile.id;
     if (closingNow && job.job_type?.requires_completion_photo && photos.length === 0 && closerIsAssignee) {
       const proceed = window.confirm("No photo added — complete anyway?");
@@ -224,6 +228,10 @@ export default function JobDetail() {
       return;
     }
 
+    if (job.requires_photo && photos.length === 0 && !permissions.has("can_complete_job_without_photo")) {
+      setError("This job requires a photo before it can be completed. Add one below.");
+      return;
+    }
     const closerIsAssignee = job.assignee_profile_id === profile.id;
     if (job.job_type?.requires_completion_photo && photos.length === 0 && closerIsAssignee) {
       const proceed = window.confirm("No photo added — complete anyway?");
@@ -593,6 +601,9 @@ export default function JobDetail() {
       )}
 
       <Section title="Photos">
+        {job.requires_photo && photos.length === 0 && (
+          <p style={{ color: colors.immediate, fontSize: "13px", marginTop: 0 }}>Photo required before this job can be completed.</p>
+        )}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
           {photos.map((p) => (
             <PhotoThumb key={p.id} path={p.storage_path} />
@@ -642,7 +653,7 @@ export default function JobDetail() {
             style={{ ...selectStyle, resize: "vertical" }}
           />
 
-          <label style={modalLabelStyle}>Photos (optional)</label>
+          <label style={modalLabelStyle}>{job.requires_photo ? "Photos (required)" : "Photos (optional)"}</label>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
             {photos.map((p) => (
               <PhotoThumb key={p.id} path={p.storage_path} />
