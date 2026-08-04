@@ -81,7 +81,7 @@ export default function JobsList() {
   const refresh = useCallback(() => {
     if (!activeSite) return;
     setLoading(true);
-    const filters = { search: search || undefined };
+    const filters = {};
     if (activeStatusId) {
       filters.statusIds = [activeStatusId];
     } else if (quickFilter && statuses.length) {
@@ -102,7 +102,7 @@ export default function JobsList() {
       .then(setJobs)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [activeSite, activeStatusId, activePriority, search, quickFilter, statuses]);
+  }, [activeSite, activeStatusId, activePriority, quickFilter, statuses]);
 
   useEffect(() => {
     refresh();
@@ -127,14 +127,33 @@ export default function JobsList() {
   }, [jobs]);
 
   const visibleJobs = useMemo(() => {
-    if (!assigneeFilter) return jobs;
-    const colonIdx = assigneeFilter.indexOf(":");
-    const kind = assigneeFilter.slice(0, colonIdx);
-    const value = assigneeFilter.slice(colonIdx + 1);
-    if (kind === "person") return jobs.filter((j) => j.assignee?.id === value);
-    if (kind === "role") return jobs.filter((j) => j.assignee?.role?.name === value);
-    return jobs;
-  }, [jobs, assigneeFilter]);
+    let result = jobs;
+
+    if (assigneeFilter) {
+      const colonIdx = assigneeFilter.indexOf(":");
+      const kind = assigneeFilter.slice(0, colonIdx);
+      const value = assigneeFilter.slice(colonIdx + 1);
+      if (kind === "person") result = result.filter((j) => j.assignee?.id === value);
+      else if (kind === "role") result = result.filter((j) => j.assignee?.role?.name === value);
+    }
+
+    // Client-side, over the same already-loaded (RLS-visible) jobs as
+    // assigneeFilter above -- lets one search box match the job
+    // description, the assigned person's name, or the assigned group's
+    // name (e.g. "dave" finds every job assigned to Dave) without a
+    // second round trip or a fragile cross-table ilike/or() query.
+    const term = search.trim().toLowerCase();
+    if (term) {
+      result = result.filter(
+        (j) =>
+          j.description?.toLowerCase().includes(term) ||
+          j.assignee?.display_name?.toLowerCase().includes(term) ||
+          j.assignee_group?.name?.toLowerCase().includes(term)
+      );
+    }
+
+    return result;
+  }, [jobs, assigneeFilter, search]);
 
   function toggleSelect(jobId) {
     setSelectedIds((prev) => {
@@ -321,7 +340,7 @@ export default function JobsList() {
       <input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search jobs…"
+        placeholder="Search jobs, people, or groups…"
         style={{
           width: "100%",
           boxSizing: "border-box",

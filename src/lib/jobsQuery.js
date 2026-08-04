@@ -31,9 +31,6 @@ export async function queryJobs(siteId, filters = {}) {
   if (filters.assigneeGroupId) {
     query = query.eq("assignee_group_id", filters.assigneeGroupId);
   }
-  if (filters.search) {
-    query = query.ilike("description", `%${filters.search}%`);
-  }
   if (filters.dueBefore) {
     query = query.lte("due_date", filters.dueBefore);
   }
