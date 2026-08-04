@@ -58,7 +58,7 @@ export default function Login() {
         {status === "sent" || status === "verifying" ? (
           <>
             <p style={{ color: colors.moss, fontWeight: 600, marginBottom: "4px" }}>
-              Check your email — tap the link, or enter the 6-digit code below.
+              Check your email — tap the link, or enter the 8-digit code below.
             </p>
             <p style={{ color: colors.inkSoft, fontSize: "13px", marginTop: 0 }}>
               Using the app from your home screen? Use the code — the link opens in a
@@ -73,7 +73,7 @@ export default function Login() {
                 autoFocus
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                placeholder="123456"
+                placeholder="12345678"
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
