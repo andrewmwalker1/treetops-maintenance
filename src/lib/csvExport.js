@@ -44,7 +44,7 @@ export async function exportJobsCsv({ orgId, siteId, profileId, filters = {} }) 
     job.description,
     job.priority,
     job.job_status?.name,
-    job.assignee?.display_name || job.assignee_group?.name || "",
+    job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name || "",
     job.due_date || "",
     job.pitch?.pitch_number_or_name || job.area?.name || "",
     job.created_at,

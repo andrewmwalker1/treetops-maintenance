@@ -5,11 +5,12 @@
 import { supabase } from "./supabaseClient.js";
 
 export const JOB_SELECT = `
-  id, description, priority, due_date, completed_date, status_id, assignee_profile_id, assignee_group_id, closed_by, org_id, site_id, requires_photo,
+  id, description, priority, due_date, completed_date, status_id, assignee_profile_id, assignee_group_id, assignee_contractor_id, closed_by, org_id, site_id, requires_photo,
   job_status:job_statuses(id, name, is_completed),
   job_type:job_types(id, name, requires_completion_photo),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
   assignee_group:groups(id, name),
+  assignee_contractor:contractors(id, name),
   pitch:pitches(pitch_number_or_name),
   area:areas(name)
 `;

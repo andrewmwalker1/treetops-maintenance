@@ -40,6 +40,7 @@ export default function NewJob() {
   const [pitches, setPitches] = useState([]);
   const [areas, setAreas] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
+  const [contractors, setContractors] = useState([]);
   const [defaultActivitiesByType, setDefaultActivitiesByType] = useState({}); // job_type_id -> [task_type_id]
 
   const [description, setDescription] = useState("");
@@ -70,6 +71,7 @@ export default function NewJob() {
     supabase.from("job_statuses").select("id, name, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
     supabase.from("profiles").select("id, display_name").eq("org_id", org.id).then(({ data }) => setPeople(data || []));
     supabase.from("groups").select("id, name").eq("org_id", org.id).then(({ data }) => setGroups(data || []));
+    supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
     supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
     supabase.from("task_types").select("id, name").eq("org_id", org.id).then(({ data }) => setActivityTypes(data || []));
@@ -216,6 +218,7 @@ export default function NewJob() {
       due_date: dueDate || null,
       assignee_profile_id: assigneeKind === "person" && assigneeId ? assigneeId : null,
       assignee_group_id: assigneeKind === "group" && assigneeId ? assigneeId : null,
+      assignee_contractor_id: assigneeKind === "contractor" && assigneeId ? assigneeId : null,
       pitch_id: locationKind === "pitch" && locationId ? locationId : null,
       area_id: areaId,
       created_by: profile.id,
@@ -346,10 +349,11 @@ export default function NewJob() {
         <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
           <label><input type="radio" checked={assigneeKind === "person"} onChange={() => { setAssigneeKind("person"); setAssigneeId(""); }} /> Person</label>
           <label><input type="radio" checked={assigneeKind === "group"} onChange={() => { setAssigneeKind("group"); setAssigneeId(""); }} /> Group</label>
+          <label><input type="radio" checked={assigneeKind === "contractor"} onChange={() => { setAssigneeKind("contractor"); setAssigneeId(""); }} /> Contractor</label>
         </div>
         <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} style={fieldStyle}>
           <option value="">Unassigned</option>
-          {(assigneeKind === "person" ? people : groups).map((item) => (
+          {(assigneeKind === "person" ? people : assigneeKind === "group" ? groups : contractors).map((item) => (
             <option key={item.id} value={item.id}>{item.display_name || item.name}</option>
           ))}
         </select>

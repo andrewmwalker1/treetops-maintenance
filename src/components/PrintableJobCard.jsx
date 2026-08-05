@@ -17,7 +17,7 @@ export default function PrintableJobCard({ job, subtasks, photos, activity, acti
           <PrintRow label="Priority" value={job.priority.charAt(0).toUpperCase() + job.priority.slice(1)} />
           <PrintRow label="Due date" value={job.due_date || "—"} />
           <PrintRow label="Completed date" value={job.completed_date || "—"} />
-          <PrintRow label="Assigned to" value={job.assignee?.display_name || job.assignee_group?.name || "Unassigned"} />
+          <PrintRow label="Assigned to" value={job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name || "Unassigned"} />
           <PrintRow label={terminology?.pitch || "Pitch"} value={job.pitch?.pitch_number_or_name || "—"} />
           <PrintRow label={terminology?.area || "Area"} value={job.area?.name || "—"} />
         </tbody>

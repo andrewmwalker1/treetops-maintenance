@@ -39,6 +39,7 @@ export default function JobDetail() {
   const [statuses, setStatuses] = useState([]);
   const [people, setPeople] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [contractors, setContractors] = useState([]);
   const [comment, setComment] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [error, setError] = useState(null);
@@ -79,6 +80,7 @@ export default function JobDetail() {
     supabase.from("job_statuses").select("id, name, is_completed, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
     supabase.from("profiles").select("id, display_name").eq("org_id", org.id).then(({ data }) => setPeople(data || []));
     supabase.from("groups").select("id, name").eq("org_id", org.id).then(({ data }) => setGroups(data || []));
+    supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
   }, [org]);
 
   async function toggleSubtask(subtask) {
@@ -353,6 +355,7 @@ export default function JobDetail() {
     const update = {
       assignee_profile_id: kind === "person" ? newId || null : null,
       assignee_group_id: kind === "group" ? newId || null : null,
+      assignee_contractor_id: kind === "contractor" ? newId || null : null,
     };
     const { error: err } = await supabase.from("jobs").update(update).eq("id", job.id);
     if (err) {
@@ -363,7 +366,7 @@ export default function JobDetail() {
       job_id: job.id,
       event_type: "reallocation",
       actor_profile_id: profile.id,
-      previous_value: { assignee_profile_id: job.assignee_profile_id, assignee_group_id: job.assignee_group_id },
+      previous_value: { assignee_profile_id: job.assignee_profile_id, assignee_group_id: job.assignee_group_id, assignee_contractor_id: job.assignee_contractor_id },
       new_value: update,
     });
     loadAll();
@@ -523,7 +526,7 @@ export default function JobDetail() {
             <>
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Reassign to</label>
               <select
-                defaultValue={job.assignee_profile_id ? `person:${job.assignee_profile_id}` : job.assignee_group_id ? `group:${job.assignee_group_id}` : ""}
+                defaultValue={job.assignee_profile_id ? `person:${job.assignee_profile_id}` : job.assignee_group_id ? `group:${job.assignee_group_id}` : job.assignee_contractor_id ? `contractor:${job.assignee_contractor_id}` : ""}
                 onChange={(e) => {
                   const [kind, val] = e.target.value.split(":");
                   handleReallocate(kind, val);
@@ -537,11 +540,14 @@ export default function JobDetail() {
                 <optgroup label="Groups">
                   {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
                 </optgroup>
+                <optgroup label="Contractors">
+                  {contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.name}</option>)}
+                </optgroup>
               </select>
             </>
           )}
-          {!permissions.has("can_reallocate_jobs") && (job.assignee?.display_name || job.assignee_group?.name) && (
-            <p style={{ fontSize: "14px", marginTop: "10px" }}>Assigned to {job.assignee?.display_name || job.assignee_group?.name}</p>
+          {!permissions.has("can_reallocate_jobs") && (job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name) && (
+            <p style={{ fontSize: "14px", marginTop: "10px" }}>Assigned to {job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name}</p>
           )}
         </div>
       </div>

@@ -114,15 +114,18 @@ export default function JobsList() {
   const assigneeOptions = useMemo(() => {
     const people = new Map();
     const roles = new Set();
+    const contractors = new Map();
     for (const job of jobs) {
       if (job.assignee) {
         people.set(job.assignee.id, job.assignee.display_name);
         if (job.assignee.role?.name) roles.add(job.assignee.role.name);
       }
+      if (job.assignee_contractor) contractors.set(job.assignee_contractor.id, job.assignee_contractor.name);
     }
     return {
       people: [...people.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
       roles: [...roles].sort(),
+      contractors: [...contractors.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
     };
   }, [jobs]);
 
@@ -135,6 +138,7 @@ export default function JobsList() {
       const value = assigneeFilter.slice(colonIdx + 1);
       if (kind === "person") result = result.filter((j) => j.assignee?.id === value);
       else if (kind === "role") result = result.filter((j) => j.assignee?.role?.name === value);
+      else if (kind === "contractor") result = result.filter((j) => j.assignee_contractor?.id === value);
     }
 
     // Client-side, over the same already-loaded (RLS-visible) jobs as
@@ -148,7 +152,8 @@ export default function JobsList() {
         (j) =>
           j.description?.toLowerCase().includes(term) ||
           j.assignee?.display_name?.toLowerCase().includes(term) ||
-          j.assignee_group?.name?.toLowerCase().includes(term)
+          j.assignee_group?.name?.toLowerCase().includes(term) ||
+          j.assignee_contractor?.name?.toLowerCase().includes(term)
       );
     }
 
@@ -307,7 +312,7 @@ export default function JobsList() {
       {/* Only worth showing once the visible jobs actually span more than
           one assignee -- i.e. exactly when this user's role_visibility (or
           can_see_all_jobs) surfaces someone else's jobs alongside their own. */}
-      {assigneeOptions.people.length > 1 && (
+      {assigneeOptions.people.length + assigneeOptions.contractors.length > 1 && (
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
@@ -334,6 +339,13 @@ export default function JobsList() {
               <option key={`person:${p.id}`} value={`person:${p.id}`}>{p.name}</option>
             ))}
           </optgroup>
+          {assigneeOptions.contractors.length > 0 && (
+            <optgroup label="By contractor">
+              {assigneeOptions.contractors.map((c) => (
+                <option key={`contractor:${c.id}`} value={`contractor:${c.id}`}>{c.name}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
       )}
 

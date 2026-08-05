@@ -12,6 +12,7 @@ const JOB_SELECT = `
   job_type:job_types(id, name, requires_completion_photo),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name, role:roles(name)),
   assignee_group:groups(id, name),
+  assignee_contractor:contractors(id, name),
   pitch:pitches(id, pitch_number_or_name),
   area:areas(id, name)
 `;

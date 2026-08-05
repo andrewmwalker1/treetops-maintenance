@@ -40,6 +40,7 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
           {location && <span>{location}</span>}
           {job.assignee && <span>{job.assignee.display_name}</span>}
           {job.assignee_group && <span>{job.assignee_group.name}</span>}
+          {job.assignee_contractor && <span>{job.assignee_contractor.name}</span>}
           {job.due_date && <span style={{ fontFamily: fonts.mono }}>Due {job.due_date}</span>}
         </div>
       </div>
