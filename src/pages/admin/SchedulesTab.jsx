@@ -29,6 +29,14 @@ const WEEKDAYS = [
 const FREQ_BY_NAME = { daily: RRule.DAILY, weekly: RRule.WEEKLY, monthly: RRule.MONTHLY };
 const NAME_BY_FREQ = { [RRule.DAILY]: "daily", [RRule.WEEKLY]: "weekly", [RRule.MONTHLY]: "monthly" };
 
+const MONTHLY_POSITIONS = [
+  { value: "1", label: "First" },
+  { value: "2", label: "Second" },
+  { value: "3", label: "Third" },
+  { value: "4", label: "Fourth" },
+  { value: "-1", label: "Last" },
+];
+
 const blank = {
   id: null,
   jobTypeId: "",
@@ -36,7 +44,10 @@ const blank = {
   frequency: "weekly",
   interval: 1,
   weekdays: [],
+  monthlyMode: "monthday", // monthday | weekday -- e.g. "the 15th" vs "the last Friday"
   monthday: "",
+  monthlyPosition: "1",
+  monthlyWeekday: "",
   startDate: new Date().toISOString().slice(0, 10),
   leadInDays: 0,
 };
@@ -50,20 +61,38 @@ function buildRule(form) {
   if (form.frequency === "weekly" && form.weekdays.length > 0) {
     options.byweekday = form.weekdays.map((code) => RRule[code]);
   }
-  if (form.frequency === "monthly" && form.monthday) {
-    options.bymonthday = [Number(form.monthday)];
+  if (form.frequency === "monthly") {
+    if (form.monthlyMode === "weekday" && form.monthlyWeekday) {
+      // .nth(-1) etc encodes the position directly into the BYDAY token
+      // (e.g. "-1FR" for "the last Friday"), rather than a separate
+      // BYSETPOS -- the standard iCal form for a single nth-weekday rule.
+      options.byweekday = [RRule[form.monthlyWeekday].nth(Number(form.monthlyPosition))];
+    } else if (form.monthday) {
+      options.bymonthday = [Number(form.monthday)];
+    }
   }
   return new RRule(options).toString();
 }
 
 function parseRule(rruleText) {
   const { options } = RRule.fromString(rruleText);
+  // rrule stores a plain "BYDAY=FR" as options.byweekday (Weekday objects
+  // or plain numbers), but a positioned "BYDAY=-1FR" as a completely
+  // separate options.bynweekday ([weekday, n] pairs) -- byweekday is null
+  // in that case, not populated with a Weekday carrying an .n property.
+  const nthEntry = options.freq === RRule.MONTHLY ? (options.bynweekday || [])[0] : null;
+
   return {
     frequency: NAME_BY_FREQ[options.freq] || "weekly",
     interval: options.interval || 1,
     startDate: options.dtstart.toISOString().slice(0, 10),
-    weekdays: (options.byweekday || []).map((wd) => WEEKDAYS[typeof wd === "number" ? wd : wd.weekday].code),
+    weekdays: options.freq === RRule.WEEKLY
+      ? (options.byweekday || []).map((wd) => WEEKDAYS[typeof wd === "number" ? wd : wd.weekday].code)
+      : [],
+    monthlyMode: nthEntry ? "weekday" : "monthday",
     monthday: (options.bymonthday || [])[0] || "",
+    monthlyPosition: nthEntry ? String(nthEntry[1]) : "1",
+    monthlyWeekday: nthEntry ? WEEKDAYS[nthEntry[0]].code : "",
   };
 }
 
@@ -124,8 +153,12 @@ export default function SchedulesTab() {
       setError("Pick at least one day of the week.");
       return;
     }
-    if (form.frequency === "monthly" && !form.monthday) {
+    if (form.frequency === "monthly" && form.monthlyMode === "monthday" && !form.monthday) {
       setError("Pick a day of the month.");
+      return;
+    }
+    if (form.frequency === "monthly" && form.monthlyMode === "weekday" && !form.monthlyWeekday) {
+      setError("Pick a weekday.");
       return;
     }
 
@@ -226,15 +259,44 @@ export default function SchedulesTab() {
           )}
 
           {form.frequency === "monthly" && (
-            <input
-              type="number"
-              min="1"
-              max="31"
-              placeholder="Day of month (1-31)"
-              value={form.monthday}
-              onChange={(e) => setForm({ ...form, monthday: e.target.value })}
-              style={fieldStyle}
-            />
+            <>
+              <div style={{ display: "flex", gap: "14px", marginBottom: "10px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+                  <input type="radio" checked={form.monthlyMode === "monthday"} onChange={() => setForm({ ...form, monthlyMode: "monthday" })} />
+                  On a day of the month
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+                  <input type="radio" checked={form.monthlyMode === "weekday"} onChange={() => setForm({ ...form, monthlyMode: "weekday" })} />
+                  On a weekday
+                </label>
+              </div>
+
+              {form.monthlyMode === "monthday" ? (
+                <input
+                  type="number"
+                  min="1"
+                  max="31"
+                  placeholder="Day of month (1-31)"
+                  value={form.monthday}
+                  onChange={(e) => setForm({ ...form, monthday: e.target.value })}
+                  style={fieldStyle}
+                />
+              ) : (
+                <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
+                  <select value={form.monthlyPosition} onChange={(e) => setForm({ ...form, monthlyPosition: e.target.value })} style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}>
+                    {MONTHLY_POSITIONS.map((p) => (
+                      <option key={p.value} value={p.value}>{p.label}</option>
+                    ))}
+                  </select>
+                  <select value={form.monthlyWeekday} onChange={(e) => setForm({ ...form, monthlyWeekday: e.target.value })} style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}>
+                    <option value="">Weekday</option>
+                    {WEEKDAYS.map((wd) => (
+                      <option key={wd.code} value={wd.code}>{wd.label}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
           )}
 
           <label style={labelInline}>Starts on</label>
