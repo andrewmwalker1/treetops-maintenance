@@ -48,15 +48,3 @@ export async function queryJobs(siteId, filters = {}) {
   }
   return data;
 }
-
-// Kiosk "View Jobs" deliberately shows only jobs assigned to the signed-in
-// person or a group they belong to -- narrower than full can_see_job RLS
-// visibility (no role_can_see_role/can_see_all_jobs parity), matching the
-// literal kiosk spec rather than "everything this person could see".
-export function filterToAssigneeOrGroups(jobs, profileId, groupIds) {
-  return jobs.filter(
-    (job) =>
-      job.assignee?.id === profileId ||
-      (job.assignee_group?.id && groupIds.includes(job.assignee_group.id))
-  );
-}

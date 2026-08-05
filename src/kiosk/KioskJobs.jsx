@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
-import { queryJobs, filterToAssigneeOrGroups } from "../lib/jobsQuery.js";
+import { queryJobs } from "../lib/jobsQuery.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import { colors, fonts, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
@@ -27,13 +27,17 @@ export default function KioskJobs() {
   const refresh = useCallback(async () => {
     if (!activeSite || !profile) return;
     setLoading(true);
-    const [{ data: groupRows }, allJobs, { data: statusRows }] = await Promise.all([
-      supabase.from("group_members").select("group_id").eq("profile_id", profile.id),
+    // Same visibility as the main Jobs screen -- queryJobs is already
+    // scoped by RLS (can_see_job: assignee, assignee's group, role
+    // visibility, or can_see_all_jobs), so no extra client-side
+    // narrowing here. Previously filtered down to direct assignee/group
+    // membership only, which was narrower than what the same person
+    // sees signed into the main app -- not what the kiosk is meant to be.
+    const [allJobs, { data: statusRows }] = await Promise.all([
       queryJobs(activeSite.id, {}),
       supabase.from("job_statuses").select("id, name, is_completed").eq("org_id", profile.org_id),
     ]);
-    const groupIds = (groupRows || []).map((g) => g.group_id);
-    setJobs(filterToAssigneeOrGroups(allJobs, profile.id, groupIds));
+    setJobs(allJobs);
     setStatuses(statusRows || []);
     setLoading(false);
   }, [activeSite, profile]);
