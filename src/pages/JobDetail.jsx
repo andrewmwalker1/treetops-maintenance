@@ -44,6 +44,7 @@ export default function JobDetail() {
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [sendingContractorEmail, setSendingContractorEmail] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completeDate, setCompleteDate] = useState(today());
   const [completeComment, setCompleteComment] = useState("");
@@ -436,6 +437,18 @@ export default function JobDetail() {
     }
   }
 
+  async function handleSendContractorEmail() {
+    setSendingContractorEmail(true);
+    setError(null);
+    const { error: err } = await supabase.functions.invoke("send-contractor-job-email", { body: { jobId: job.id } });
+    setSendingContractorEmail(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    loadAll();
+  }
+
   async function handleDeleteJob() {
     const proceed = window.confirm(`Permanently delete "${job.description}"? This can't be undone.`);
     if (!proceed) return;
@@ -549,6 +562,11 @@ export default function JobDetail() {
           {!permissions.has("can_reallocate_jobs") && (job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name) && (
             <p style={{ fontSize: "14px", marginTop: "10px" }}>Assigned to {job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name}</p>
           )}
+          {job.assignee_contractor && permissions.has("can_manage_contractors") && (
+            <button type="button" onClick={handleSendContractorEmail} disabled={sendingContractorEmail} style={{ ...buttonStyle.secondary, marginTop: "10px" }}>
+              {sendingContractorEmail ? "Sending…" : "Send email to contractor"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -649,9 +667,12 @@ export default function JobDetail() {
         {activity.map((a) => (
           <div key={a.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
             <div style={{ fontSize: "13px", color: colors.inkSoft }}>
-              <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> · {a.event_type} · {new Date(a.created_at).toLocaleString()}
+              <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> · {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type} · {new Date(a.created_at).toLocaleString()}
             </div>
             {a.event_type === "comment" && <div>{a.new_value?.text}</div>}
+            {a.event_type === "contractor_email" && (
+              <div>Job details sent to {a.new_value?.contractor_name} ({a.new_value?.sent_to})</div>
+            )}
           </div>
         ))}
       </Section>
