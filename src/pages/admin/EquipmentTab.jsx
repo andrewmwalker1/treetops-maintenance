@@ -110,10 +110,32 @@ export default function EquipmentTab() {
   }
 
   async function handleDelete(id) {
-    if (!window.confirm("Delete this equipment item? This can't be undone.")) return;
+    if (!window.confirm("Delete this equipment item? This can't be undone, and also removes its checks, fault reports, repair history, and check-out log.")) return;
+
+    // The DB rows for checks/fault reports/repair records/check-outs all
+    // cascade automatically (see equipment_checks/fault_reports/
+    // repair_records/equipment_checkouts in 01-schema.sql and
+    // 16-rfid-kiosk-and-equipment-checkout.sql) -- but Storage objects
+    // aren't tied to those rows by a DB constraint, so fault photos need
+    // cleaning up separately or they'd become orphaned files no longer
+    // referenced by anything.
+    const { data: faultReports } = await supabase.from("fault_reports").select("id").eq("equipment_id", id);
+    const faultReportIds = (faultReports || []).map((f) => f.id);
+    let photoPaths = [];
+    if (faultReportIds.length > 0) {
+      const { data: photos } = await supabase.from("fault_photos").select("storage_path").in("fault_report_id", faultReportIds);
+      photoPaths = (photos || []).map((p) => p.storage_path);
+    }
+
     const { error: err } = await supabase.from("equipment").delete().eq("id", id);
-    if (err) setError(err.message);
-    else refresh();
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    if (photoPaths.length > 0) {
+      await supabase.storage.from("fault-photos").remove(photoPaths);
+    }
+    refresh();
   }
 
   const visibleEquipment = filterTypeId ? equipment.filter((eq) => eq.equipment_type_id === filterTypeId) : equipment;

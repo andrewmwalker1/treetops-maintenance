@@ -8,6 +8,7 @@ import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
+import Modal from "../components/Modal.jsx";
 import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
 import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
 
@@ -27,6 +28,7 @@ export default function JobDetail() {
   // can_edit_job_checklist -- require both so these buttons don't offer an
   // action that the server will then reject.
   const canManageTemplates = permissions.has("can_edit_job_checklist") && permissions.has("can_manage_reference_data");
+  const canDeleteJob = permissions.has("can_delete_jobs");
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
@@ -431,15 +433,34 @@ export default function JobDetail() {
     }
   }
 
+  async function handleDeleteJob() {
+    const proceed = window.confirm(`Permanently delete "${job.description}"? This can't be undone.`);
+    if (!proceed) return;
+    const { error: err } = await supabase.rpc("delete_job", { p_job_id: job.id });
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    if (photos.length > 0) {
+      await supabase.storage.from("job-photos").remove(photos.map((p) => p.storage_path));
+    }
+    navigate("/");
+  }
+
   if (!job) {
     return error ? <p style={{ color: colors.immediate }}>{error}</p> : <p style={{ color: colors.inkSoft }}>Loading…</p>;
   }
 
   return (
     <div style={{ maxWidth: "640px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
         <button onClick={() => navigate(-1)} style={buttonStyle.secondary}>← Back</button>
-        <button type="button" onClick={handlePrint} style={buttonStyle.secondary}>Print job card</button>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <button type="button" onClick={handlePrint} style={buttonStyle.secondary}>Print job card</button>
+          {canDeleteJob && (
+            <button type="button" onClick={handleDeleteJob} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete job</button>
+          )}
+        </div>
       </div>
 
       {error && <p style={{ color: colors.immediate, fontSize: "14px" }}>{error}</p>}
@@ -742,33 +763,6 @@ const checklistIconStyle = {
   fontSize: "13px",
 };
 
-
-function Modal({ title, onClose, children }) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        background: "rgba(49, 56, 45, 0.5)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        padding: "24px 16px",
-        overflowY: "auto",
-        zIndex: 100,
-      }}
-      onClick={onClose}
-    >
-      <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 function Section({ title, children }) {
   return (

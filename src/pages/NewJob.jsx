@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { queueJob } from "../platform/syncQueue.js";
 import { capturePhoto } from "../platform/camera.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
+import Modal from "../components/Modal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 const fieldStyle = {
@@ -27,6 +28,10 @@ export default function NewJob() {
   const navigate = useNavigate();
   const canEditChecklist = permissions.has("can_edit_job_checklist");
   const canRequirePhoto = permissions.has("can_require_job_photo");
+  // Same gating as JobDetail's identical buttons -- job_types insert/update
+  // is RLS-gated on can_manage_reference_data separately from
+  // can_edit_job_checklist, so require both or the server rejects it.
+  const canManageTemplates = permissions.has("can_edit_job_checklist") && permissions.has("can_manage_reference_data");
 
   const [jobTypes, setJobTypes] = useState([]);
   const [statuses, setStatuses] = useState([]);
@@ -55,6 +60,9 @@ export default function NewJob() {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
   const [photoError, setPhotoError] = useState(null);
   const [requiresPhoto, setRequiresPhoto] = useState(false);
+  const [showSaveAsModal, setShowSaveAsModal] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
     if (!org || !activeSite) return;
@@ -85,6 +93,40 @@ export default function NewJob() {
 
   function toggleActivityType(id) {
     setActivityTypeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  }
+
+  async function handleSaveAsTemplate(e) {
+    e.preventDefault();
+    const name = newTemplateName.trim();
+    if (!name) return;
+    setSavingTemplate(true);
+    const { error: err } = await supabase.from("job_types").insert({
+      org_id: org.id,
+      name,
+      template_schema: checklistItems,
+    });
+    setSavingTemplate(false);
+    if (err) {
+      setSubmitError(err.message);
+      return;
+    }
+    setShowSaveAsModal(false);
+    setNewTemplateName("");
+  }
+
+  async function handleUpdateTemplate() {
+    const jobType = jobTypes.find((jt) => jt.id === jobTypeId);
+    if (!jobType) return;
+    const proceed = window.confirm(
+      `Update the "${jobType.name}" template's checklist to match what's shown here? This changes the default checklist for any new jobs created from this template from now on.`
+    );
+    if (!proceed) return;
+    const { error: err } = await supabase.from("job_types").update({ template_schema: checklistItems }).eq("id", jobType.id);
+    if (err) {
+      setSubmitError(err.message);
+      return;
+    }
+    setJobTypes((prev) => prev.map((jt) => (jt.id === jobType.id ? { ...jt, template_schema: checklistItems } : jt)));
   }
 
   async function handleAddPhoto() {
@@ -275,6 +317,18 @@ export default function NewJob() {
           {!canEditChecklist && checklistItems.length === 0 && (
             <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Pick a job template above to attach its checklist.</p>
           )}
+          {canManageTemplates && (
+            <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
+              <button type="button" onClick={() => setShowSaveAsModal(true)} style={buttonStyle.secondary}>
+                Save as new template
+              </button>
+              {jobTypeId && (
+                <button type="button" onClick={handleUpdateTemplate} style={buttonStyle.secondary}>
+                  Update "{jobTypes.find((jt) => jt.id === jobTypeId)?.name}" template
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <label style={labelStyle}>Priority</label>
@@ -362,6 +416,25 @@ export default function NewJob() {
           {submitting ? "Saving…" : "Create job"}
         </button>
       </form>
+
+      {showSaveAsModal && (
+        <Modal title="Save as new template" onClose={() => setShowSaveAsModal(false)}>
+          <form onSubmit={handleSaveAsTemplate}>
+            <label style={labelStyle}>Template name</label>
+            <input
+              autoFocus
+              required
+              value={newTemplateName}
+              onChange={(e) => setNewTemplateName(e.target.value)}
+              style={fieldStyle}
+            />
+            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+              <button type="button" onClick={() => setShowSaveAsModal(false)} style={buttonStyle.secondary}>Cancel</button>
+              <button type="submit" disabled={savingTemplate} style={buttonStyle.primary}>{savingTemplate ? "Saving…" : "Save"}</button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }
