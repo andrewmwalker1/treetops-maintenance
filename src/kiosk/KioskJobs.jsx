@@ -4,7 +4,6 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
-import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import { colors, fonts, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "./kioskTheme.js";
 
@@ -58,6 +57,15 @@ export default function KioskJobs() {
     setSubtasks(data || []);
   }
 
+  async function toggleSubtask(subtask) {
+    const { error: err } = await supabase.from("job_subtasks").update({ is_checked: !subtask.is_checked }).eq("id", subtask.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_checked: !s.is_checked } : s)));
+  }
+
   async function handleComplete() {
     const completedStatus = statuses.find((s) => s.name === "Completed");
     if (!completedStatus) {
@@ -107,7 +115,20 @@ export default function KioskJobs() {
 
         <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
           <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Checklist</h2>
-          <ChecklistBuilder items={subtasks.map((s) => s.label)} onChange={() => {}} readOnly />
+          {subtasks.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "16px" }}>No checklist items.</p>}
+          {subtasks.map((s) => (
+            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 0", fontSize: "16px", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={s.is_checked}
+                onChange={() => toggleSubtask(s)}
+                style={{ width: "24px", height: "24px", flexShrink: 0 }}
+              />
+              <span style={{ textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>
+                {s.label}
+              </span>
+            </label>
+          ))}
         </div>
 
         {error && <p style={{ color: colors.immediate }}>{error}</p>}
