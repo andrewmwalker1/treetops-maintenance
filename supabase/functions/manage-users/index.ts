@@ -12,11 +12,13 @@
 // straight through those policies from the UI, not through here).
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { Resend } from "npm:resend@3";
 
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
 );
+const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
 // Called directly from the browser (src/pages/admin/UsersTab.jsx) on a
 // different origin than this function, so every response -- including the
@@ -36,6 +38,27 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+// Sends the account-creation/sign-in link ourselves via Resend rather than
+// relying on Supabase's built-in invite email -- this project has no custom
+// SMTP configured, so invite emails go out through Supabase's shared sender,
+// which is rate-limited and meant for testing only. That's what silently
+// swallowed a real invite before (see the "invite" action below): the email
+// failed, which surfaced as the whole invite failing. Resend is already
+// proven here for contractor job emails (send-contractor-job-email).
+async function sendInviteEmail(email: string, displayName: string, actionLink: string) {
+  return await resend.emails.send({
+    from: "Tree Tops Maintenance <noreply@treetopscaravanpark.co.uk>",
+    to: email,
+    subject: "You've been invited to Tree Tops Maintenance",
+    html: `
+      <p>Hi ${displayName},</p>
+      <p>You've been invited to Tree Tops Maintenance. Click below to sign in:</p>
+      <p><a href="${actionLink}">Sign in to Tree Tops Maintenance</a></p>
+      <p>If the button doesn't work, open the app and enter this email address on the sign-in screen instead.</p>
+    `,
   });
 }
 
@@ -77,24 +100,28 @@ Deno.serve(async (req) => {
   const { action } = body;
 
   if (action === "invite") {
-    const { email, displayName, roleId, isContractor, siteIds } = body;
+    const { email, displayName, roleId, isContractor, siteIds, redirectTo } = body;
     if (!email || !displayName || !roleId || !Array.isArray(siteIds) || siteIds.length === 0) {
       return jsonResponse({ error: "email, displayName, roleId and at least one site are required" }, 400);
     }
 
-    const { data: invited, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email);
-    if (inviteError) {
-      // AuthRetryableFetchError here (rather than a normal Auth API error)
-      // usually means the outbound email send itself failed -- e.g. no
-      // custom SMTP configured, so this project is on Supabase's shared
-      // built-in email sender, which is rate-limited and meant for testing
-      // only. Logged server-side since the client-visible message from
-      // this error class is unhelpfully terse ("{}").
-      console.error("inviteUserByEmail failed", inviteError.name, inviteError.status, inviteError.message);
-      return jsonResponse({ error: inviteError.message || "Invite failed -- check function logs" }, 400);
+    // generateLink creates the auth account (for type "invite") without
+    // sending any email itself -- account creation and email delivery are
+    // deliberately two separate steps below, so a failed send can never
+    // again take the account down with it and leave the person invisible
+    // (no profiles row -> not listed in the Users tab -> looks like the
+    // invite was never even attempted).
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: { redirectTo },
+    });
+    if (linkError) {
+      console.error("generateLink (invite) failed", linkError.name, linkError.status, linkError.message);
+      return jsonResponse({ error: linkError.message || "Could not create account -- check function logs" }, 400);
     }
 
-    const userId = invited.user.id;
+    const userId = linkData.user.id;
 
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: userId,
@@ -110,7 +137,65 @@ Deno.serve(async (req) => {
       .insert(siteIds.map((site_id: string) => ({ profile_id: userId, site_id })));
     if (scopeError) return jsonResponse({ error: scopeError.message }, 500);
 
-    return jsonResponse({ userId });
+    const { error: sendError } = await sendInviteEmail(email, displayName, linkData.properties.action_link);
+    if (sendError) {
+      // Account + profile now exist either way -- this person will show up
+      // in the Users tab and can be retried with "Resend invite" rather
+      // than silently disappearing the way a failed invite used to.
+      console.error("Resend send failed (invite)", sendError);
+      return jsonResponse({ userId, emailSent: false, emailError: sendError.message || "Failed to send invite email" });
+    }
+
+    return jsonResponse({ userId, emailSent: true });
+  }
+
+  if (action === "resend") {
+    const { userId, redirectTo } = body;
+    if (!userId) return jsonResponse({ error: "userId is required" }, 400);
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, display_name")
+      .eq("id", userId)
+      .eq("org_id", orgId)
+      .single();
+    if (profileError || !profile) return jsonResponse({ error: "User not found" }, 404);
+
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
+    if (userError || !userData?.user?.email) {
+      return jsonResponse({ error: "Could not look up this user's email" }, 500);
+    }
+    const email = userData.user.email;
+
+    // "invite" links only work for accounts that have never signed in --
+    // someone who signed in before and just wants a fresh link needs
+    // "magiclink" instead. Try invite first (the common case for someone
+    // stuck exactly like Jayne was) and fall back rather than making the
+    // caller know which state the account is in.
+    let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: { redirectTo },
+    });
+    if (linkError) {
+      ({ data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email,
+        options: { redirectTo },
+      }));
+    }
+    if (linkError) {
+      console.error("generateLink (resend) failed", linkError.name, linkError.status, linkError.message);
+      return jsonResponse({ error: linkError.message || "Could not generate a new sign-in link" }, 400);
+    }
+
+    const { error: sendError } = await sendInviteEmail(email, profile.display_name, linkData.properties.action_link);
+    if (sendError) {
+      console.error("Resend send failed (resend)", sendError);
+      return jsonResponse({ error: sendError.message || "Failed to send invite email" }, 500);
+    }
+
+    return jsonResponse({ ok: true });
   }
 
   if (action === "deactivate" || action === "reactivate") {

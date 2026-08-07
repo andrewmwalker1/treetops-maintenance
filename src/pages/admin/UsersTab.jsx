@@ -21,10 +21,11 @@ export default function UsersTab() {
   const [roles, setRoles] = useState([]);
   const [sites, setSites] = useState([]);
   const [invite, setInvite] = useState(blankInvite);
-  const [inviteStatus, setInviteStatus] = useState("idle"); // idle | sending | sent | error
+  const [inviteStatus, setInviteStatus] = useState("idle"); // idle | sending | sent | sent-email-failed | error
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
   const [error, setError] = useState(null);
+  const [resendStatus, setResendStatus] = useState({}); // userId -> "sending" | "sent" | "error"
 
   function refresh() {
     Promise.all([
@@ -45,7 +46,7 @@ export default function UsersTab() {
     e.preventDefault();
     setError(null);
     setInviteStatus("sending");
-    const { error: err } = await supabase.functions.invoke("manage-users", {
+    const { data, error: err } = await supabase.functions.invoke("manage-users", {
       body: {
         action: "invite",
         email: invite.email,
@@ -53,6 +54,7 @@ export default function UsersTab() {
         roleId: invite.roleId,
         isContractor: invite.isContractor,
         siteIds: invite.siteIds,
+        redirectTo: window.location.origin,
       },
     });
     if (err) {
@@ -60,9 +62,21 @@ export default function UsersTab() {
       setError(err.message);
       return;
     }
-    setInviteStatus("sent");
+    // The account can be created even when the invite email itself fails to
+    // send -- that's now a distinct, recoverable state (use Resend below)
+    // rather than the whole invite silently vanishing.
+    setInviteStatus(data?.emailSent === false ? "sent-email-failed" : "sent");
     setInvite(blankInvite);
     refresh();
+  }
+
+  async function handleResend(userId) {
+    setResendStatus((s) => ({ ...s, [userId]: "sending" }));
+    const { error: err } = await supabase.functions.invoke("manage-users", {
+      body: { action: "resend", userId, redirectTo: window.location.origin },
+    });
+    setResendStatus((s) => ({ ...s, [userId]: err ? "error" : "sent" }));
+    if (err) setError(err.message);
   }
 
   function startEdit(u) {
@@ -175,13 +189,26 @@ export default function UsersTab() {
                     {u.email} · {u.role_name || "No role"}{u.is_contractor ? " · Contractor" : ""}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button onClick={() => startEdit(u)} style={buttonStyle.secondary}>Edit</button>
-                  {u.is_active === false ? (
-                    <button onClick={() => handleReactivate(u.id)} style={buttonStyle.secondary}>Reactivate</button>
-                  ) : (
-                    <button onClick={() => handleDeactivate(u.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Deactivate</button>
-                  )}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button onClick={() => startEdit(u)} style={buttonStyle.secondary}>Edit</button>
+                    {u.is_active === false ? (
+                      <button onClick={() => handleReactivate(u.id)} style={buttonStyle.secondary}>Reactivate</button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleResend(u.id)}
+                          disabled={resendStatus[u.id] === "sending"}
+                          style={buttonStyle.secondary}
+                        >
+                          {resendStatus[u.id] === "sending" ? "Sending…" : "Resend invite"}
+                        </button>
+                        <button onClick={() => handleDeactivate(u.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Deactivate</button>
+                      </>
+                    )}
+                  </div>
+                  {resendStatus[u.id] === "sent" && <span style={{ fontSize: "12px", color: colors.moss }}>Invite email sent</span>}
+                  {resendStatus[u.id] === "error" && <span style={{ fontSize: "12px", color: colors.immediate }}>Failed to send — see message above</span>}
                 </div>
               </div>
             )}
@@ -225,6 +252,11 @@ export default function UsersTab() {
           ))}
 
           {inviteStatus === "sent" && <p style={{ color: colors.moss, fontSize: "13px" }}>Invite sent.</p>}
+          {inviteStatus === "sent-email-failed" && (
+            <p style={{ color: colors.immediate, fontSize: "13px" }}>
+              Account created, but the invite email failed to send — find them in the list on the left and use "Resend invite".
+            </p>
+          )}
           {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
 
           <button type="submit" disabled={inviteStatus === "sending"} style={{ ...buttonStyle.primary, width: "100%", marginTop: "10px" }}>
