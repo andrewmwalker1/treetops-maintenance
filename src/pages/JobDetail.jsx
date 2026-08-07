@@ -667,12 +667,15 @@ export default function JobDetail() {
         {activity.map((a) => (
           <div key={a.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
             <div style={{ fontSize: "13px", color: colors.inkSoft }}>
-              <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> · {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type} · {new Date(a.created_at).toLocaleString()}
+              <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> ·{" "}
+              {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type === "progress_update" ? "progress update" : a.event_type} ·{" "}
+              {new Date(a.created_at).toLocaleString()}
             </div>
             {a.event_type === "comment" && <div>{a.new_value?.text}</div>}
             {a.event_type === "contractor_email" && (
               <div>Job details sent to {a.new_value?.contractor_name} ({a.new_value?.sent_to})</div>
             )}
+            {a.event_type === "progress_update" && <div>Progress: {a.new_value?.percent}%</div>}
           </div>
         ))}
       </Section>

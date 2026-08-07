@@ -22,6 +22,9 @@ export default function KioskJobs() {
   const [subtasks, setSubtasks] = useState([]);
   const [completing, setCompleting] = useState(false);
   const [completeComment, setCompleteComment] = useState("");
+  const [progressPercent, setProgressPercent] = useState(50);
+  const [loggingProgress, setLoggingProgress] = useState(false);
+  const [progressLogged, setProgressLogged] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!activeSite || !profile) return;
@@ -48,6 +51,8 @@ export default function KioskJobs() {
   async function openJob(job) {
     setError(null);
     setCompleteComment("");
+    setProgressPercent(50);
+    setProgressLogged(false);
     setSelectedJob(job);
     const { data } = await supabase
       .from("job_subtasks")
@@ -64,6 +69,23 @@ export default function KioskJobs() {
       return;
     }
     setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_checked: !s.is_checked } : s)));
+  }
+
+  async function handleLogProgress() {
+    setLoggingProgress(true);
+    setError(null);
+    const { error: err } = await supabase.from("job_activity").insert({
+      job_id: selectedJob.id,
+      event_type: "progress_update",
+      actor_profile_id: profile.id,
+      new_value: { percent: progressPercent },
+    });
+    setLoggingProgress(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setProgressLogged(true);
   }
 
   async function handleComplete() {
@@ -132,6 +154,35 @@ export default function KioskJobs() {
         </div>
 
         {error && <p style={{ color: colors.immediate }}>{error}</p>}
+
+        {!isCompleted && (
+          <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Progress update</h2>
+            <p style={{ fontSize: "36px", fontWeight: 700, color: colors.mossDark, textAlign: "center", margin: "0 0 8px" }}>
+              {progressPercent}%
+            </p>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={progressPercent}
+              onChange={(e) => {
+                setProgressPercent(Number(e.target.value));
+                setProgressLogged(false);
+              }}
+              style={{ width: "100%", height: "32px" }}
+            />
+            <button
+              type="button"
+              style={{ ...kioskSecondaryButtonStyle, width: "100%", marginTop: "12px" }}
+              onClick={handleLogProgress}
+              disabled={loggingProgress}
+            >
+              {loggingProgress ? "Logging…" : progressLogged ? "Logged ✓" : "Log update"}
+            </button>
+          </div>
+        )}
 
         {!isCompleted && (
           <>
