@@ -4,6 +4,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
+import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
 
 const navLinkStyle = ({ isActive }) => ({
   color: isActive ? colors.mossDark : colors.inkSoft,
@@ -15,7 +16,7 @@ const navLinkStyle = ({ isActive }) => ({
 });
 
 export default function Layout({ children }) {
-  const { profile, org, activeSite, signOut } = useAuth();
+  const { profile, viewingAs, org, activeSite, signOut } = useAuth();
   const permissions = usePermissions();
   const [dnd, setDnd] = useState(Boolean(profile?.dnd_enabled));
   const [pushStatus, setPushStatus] = useState("idle"); // idle | subscribing | on | error
@@ -43,6 +44,7 @@ export default function Layout({ children }) {
 
   return (
     <div style={pageStyle}>
+      <ViewAsBanner />
       <header
         style={{
           background: colors.paper,
@@ -73,17 +75,22 @@ export default function Layout({ children }) {
           )}
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
-            <input type="checkbox" checked={dnd} onChange={handleDndToggle} /> Do not disturb
-          </label>
-          {pushStatus !== "on" && (
-            <button
-              onClick={handleEnablePush}
-              disabled={pushStatus === "subscribing"}
-              style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px" }}
-            >
-              {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
-            </button>
+          <ViewAsPicker />
+          {!viewingAs && (
+            <>
+              <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
+                <input type="checkbox" checked={dnd} onChange={handleDndToggle} /> Do not disturb
+              </label>
+              {pushStatus !== "on" && (
+                <button
+                  onClick={handleEnablePush}
+                  disabled={pushStatus === "subscribing"}
+                  style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px" }}
+                >
+                  {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
+                </button>
+              )}
+            </>
           )}
           <span style={{ fontSize: "14px", color: colors.ink }}>{profile?.display_name}</span>
           <button

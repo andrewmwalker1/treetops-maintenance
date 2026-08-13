@@ -4,6 +4,22 @@ import { loadTerminology } from "./terminology.js";
 
 const AuthContext = createContext(null);
 
+// "View as" is a purely client-side role fake for admin
+// testing/training -- it never mints a real session for the target
+// person, so every write still happens under the real signed-in admin.
+// sessionStorage (not localStorage) so it can't silently survive past
+// the tab closing.
+const VIEWING_AS_STORAGE_KEY = "auth:viewingAs";
+
+function loadStoredViewingAs() {
+  try {
+    const raw = sessionStorage.getItem(VIEWING_AS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined); // undefined = not checked yet, null = signed out
   const [profile, setProfile] = useState(null);
@@ -13,6 +29,7 @@ export function AuthProvider({ children }) {
   const [terminology, setTerminology] = useState({});
   const [loading, setLoading] = useState(true);
   const [deactivated, setDeactivated] = useState(false);
+  const [viewingAsProfile, setViewingAsProfile] = useState(loadStoredViewingAs);
   const loadedUserIdRef = useRef(null);
 
   const loadProfileAndScope = useCallback(async (userId) => {
@@ -100,6 +117,8 @@ export function AuthProvider({ children }) {
         setActiveSite(null);
         setTerminology({});
         setLoading(false);
+        setViewingAsProfile(null);
+        sessionStorage.removeItem(VIEWING_AS_STORAGE_KEY);
       }
       // Anything else (TOKEN_REFRESHED, INITIAL_SESSION, USER_UPDATED) just
       // swaps in an updated token -- profile/org/site haven't changed, so
@@ -111,9 +130,42 @@ export function AuthProvider({ children }) {
 
   const signOut = useCallback(() => supabase.auth.signOut(), []);
 
+  // fakedProfile comes from list_org_users() (id, display_name, role_id,
+  // role_name, is_contractor) -- reshaped to look like a real profile row
+  // so every existing `profile.x` read (usePermissions, Layout, etc.) just
+  // works without knowing "view as" exists. org_id/id below stay the REAL
+  // admin's, not the target's, since every actual query still runs under
+  // the admin's real Supabase session/RLS -- only role-gated UI changes.
+  const startViewingAs = useCallback(
+    (fakedProfile) => {
+      const viewAs = {
+        id: profile.id,
+        org_id: profile.org_id,
+        role_id: fakedProfile.role_id,
+        display_name: fakedProfile.display_name,
+        is_contractor: fakedProfile.is_contractor,
+        dnd_enabled: false,
+        is_active: true,
+        roles: { name: fakedProfile.role_name },
+      };
+      setViewingAsProfile(viewAs);
+      sessionStorage.setItem(VIEWING_AS_STORAGE_KEY, JSON.stringify(viewAs));
+    },
+    [profile]
+  );
+
+  const stopViewingAs = useCallback(() => {
+    setViewingAsProfile(null);
+    sessionStorage.removeItem(VIEWING_AS_STORAGE_KEY);
+  }, []);
+
   const value = {
     session,
-    profile,
+    profile: viewingAsProfile || profile,
+    realProfile: profile,
+    viewingAs: Boolean(viewingAsProfile),
+    startViewingAs,
+    stopViewingAs,
     org,
     sites,
     activeSite,
