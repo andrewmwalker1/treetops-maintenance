@@ -84,10 +84,11 @@ export default function JobsList() {
     const filters = {};
     if (activeStatusId) {
       filters.statusIds = [activeStatusId];
-    } else if (quickFilter && statuses.length) {
-      // "open"/"overdue"/"priority" tiles on the Dashboard only ever count
-      // non-completed jobs, so match that here or the list wouldn't agree
-      // with the count that was clicked.
+    } else if (statuses.length) {
+      // Default "All" view (and the Dashboard's "open"/"overdue"/"priority"
+      // quick filters) only ever means open + in-progress -- Completed and
+      // Cancelled each have their own status chip already, so "All" isn't
+      // literally every job or it'd bury the active work under history.
       const openStatusIds = statuses.filter((s) => !s.is_completed).map((s) => s.id);
       if (openStatusIds.length) filters.statusIds = openStatusIds;
     }
