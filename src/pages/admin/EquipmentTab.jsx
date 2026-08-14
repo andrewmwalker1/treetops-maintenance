@@ -15,7 +15,13 @@ const fieldStyle = {
 
 const labelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
 
-const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped" };
+const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
+
+const DECOMMISSION_REASONS = [
+  { value: "scrapped", label: "Scrapped" },
+  { value: "sold", label: "Sold" },
+  { value: "other", label: "Other" },
+];
 
 const blank = {
   id: null,
@@ -28,12 +34,17 @@ const blank = {
   date_added: "",
 };
 
+function today() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export default function EquipmentTab() {
   const { org, activeSite } = useAuth();
   const [equipment, setEquipment] = useState([]);
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [filterTypeId, setFilterTypeId] = useState("");
   const [form, setForm] = useState(null); // null = modal closed
+  const [decommissionForm, setDecommissionForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
   const [openCheckouts, setOpenCheckouts] = useState({}); // equipment_id -> checkout row
 
@@ -41,7 +52,7 @@ export default function EquipmentTab() {
     Promise.all([
       supabase
         .from("equipment")
-        .select("id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, equipment_type:equipment_types(name)")
+        .select("id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, decommissioned_at, decommission_reason, decommission_notes, equipment_type:equipment_types(name)")
         .eq("org_id", org?.id),
       supabase.from("equipment_types").select("id, name").eq("org_id", org?.id).order("name"),
       supabase.from("equipment_checkouts").select("id, equipment_id, profiles(display_name)").is("checked_in_at", null),
@@ -109,32 +120,28 @@ export default function EquipmentTab() {
     refresh();
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this equipment item? This can't be undone, and also removes its checks, fault reports, repair history, and check-out log.")) return;
+  function openDecommission(eq) {
+    setError(null);
+    setDecommissionForm({ id: eq.id, reason: "scrapped", notes: "", date: today() });
+  }
 
-    // The DB rows for checks/fault reports/repair records/check-outs all
-    // cascade automatically (see equipment_checks/fault_reports/
-    // repair_records/equipment_checkouts in 01-schema.sql and
-    // 16-rfid-kiosk-and-equipment-checkout.sql) -- but Storage objects
-    // aren't tied to those rows by a DB constraint, so fault photos need
-    // cleaning up separately or they'd become orphaned files no longer
-    // referenced by anything.
-    const { data: faultReports } = await supabase.from("fault_reports").select("id").eq("equipment_id", id);
-    const faultReportIds = (faultReports || []).map((f) => f.id);
-    let photoPaths = [];
-    if (faultReportIds.length > 0) {
-      const { data: photos } = await supabase.from("fault_photos").select("storage_path").in("fault_report_id", faultReportIds);
-      photoPaths = (photos || []).map((p) => p.storage_path);
-    }
-
-    const { error: err } = await supabase.from("equipment").delete().eq("id", id);
+  async function handleDecommission(e) {
+    e.preventDefault();
+    setError(null);
+    const { error: err } = await supabase
+      .from("equipment")
+      .update({
+        status: "decommissioned",
+        decommissioned_at: decommissionForm.date,
+        decommission_reason: decommissionForm.reason,
+        decommission_notes: decommissionForm.notes || null,
+      })
+      .eq("id", decommissionForm.id);
     if (err) {
       setError(err.message);
       return;
     }
-    if (photoPaths.length > 0) {
-      await supabase.storage.from("fault-photos").remove(photoPaths);
-    }
+    setDecommissionForm(null);
     refresh();
   }
 
@@ -167,13 +174,28 @@ export default function EquipmentTab() {
                 Checked out to {openCheckouts[eq.id].profiles?.display_name || "someone"}
               </div>
             )}
+            {eq.status === "decommissioned" && (
+              <div style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "4px" }}>
+                Decommissioned ({DECOMMISSION_REASONS.find((r) => r.value === eq.decommission_reason)?.label || eq.decommission_reason}){eq.decommissioned_at && ` · ${eq.decommissioned_at}`}
+                {eq.decommission_notes && ` · ${eq.decommission_notes}`}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             {openCheckouts[eq.id] && (
               <button onClick={() => handleForceCheckIn(openCheckouts[eq.id].id)} style={buttonStyle.secondary}>Force check-in</button>
             )}
             <button onClick={() => editItem(eq)} style={buttonStyle.secondary}>Edit</button>
-            <button onClick={() => handleDelete(eq.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+            {eq.status !== "decommissioned" && (
+              <button
+                onClick={() => openDecommission(eq)}
+                disabled={!!openCheckouts[eq.id]}
+                title={openCheckouts[eq.id] ? "Force this item checked in first" : undefined}
+                style={{ ...buttonStyle.secondary, color: colors.immediate }}
+              >
+                Decommission
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -236,6 +258,71 @@ export default function EquipmentTab() {
               <div style={{ display: "flex", gap: "8px" }}>
                 <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Add equipment"}</button>
                 <button type="button" onClick={() => setForm(null)} style={buttonStyle.secondary}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {decommissionForm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(49, 56, 45, 0.5)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "24px 16px",
+            overflowY: "auto",
+            zIndex: 100,
+          }}
+          onClick={() => setDecommissionForm(null)}
+        >
+          <div
+            style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Decommission equipment</h2>
+              <button type="button" onClick={() => setDecommissionForm(null)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+            <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+              This takes the machine out of service for good — it'll stop being offered to team members checking out equipment.
+            </p>
+            <form onSubmit={handleDecommission}>
+              <label style={labelStyle}>What happened</label>
+              <select
+                value={decommissionForm.reason}
+                onChange={(e) => setDecommissionForm({ ...decommissionForm, reason: e.target.value })}
+                style={fieldStyle}
+              >
+                {DECOMMISSION_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+
+              <label style={labelStyle}>Notes (optional)</label>
+              <textarea
+                value={decommissionForm.notes}
+                onChange={(e) => setDecommissionForm({ ...decommissionForm, notes: e.target.value })}
+                rows={3}
+                style={{ ...fieldStyle, resize: "vertical" }}
+              />
+
+              <label style={labelStyle}>Date</label>
+              <input
+                type="date"
+                value={decommissionForm.date}
+                onChange={(e) => setDecommissionForm({ ...decommissionForm, date: e.target.value })}
+                style={fieldStyle}
+              />
+
+              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button type="submit" style={{ ...buttonStyle.primary, background: colors.immediate }}>Decommission</button>
+                <button type="button" onClick={() => setDecommissionForm(null)} style={buttonStyle.secondary}>Cancel</button>
               </div>
             </form>
           </div>

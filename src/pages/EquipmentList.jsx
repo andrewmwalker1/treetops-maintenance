@@ -9,6 +9,7 @@ const statusColors = {
   faulty: colors.immediate,
   in_repair: colors.gold,
   scrapped: colors.inkSoft,
+  decommissioned: colors.inkSoft,
 };
 
 const statusLabels = {
@@ -16,6 +17,7 @@ const statusLabels = {
   faulty: "Faulty",
   in_repair: "In repair",
   scrapped: "Scrapped",
+  decommissioned: "Decommissioned",
 };
 
 export default function EquipmentList() {

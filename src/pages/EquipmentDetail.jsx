@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
-const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped" };
+const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
 
 // One shared vocabulary for every row in the combined history table below,
 // whichever of the three source tables (equipment_checks/fault_reports/
