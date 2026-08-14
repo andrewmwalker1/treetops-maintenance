@@ -43,8 +43,10 @@ export default function Layout({ children }) {
   }
 
   return (
-    <div style={pageStyle}>
-      <ViewAsBanner />
+    <div style={{ ...pageStyle, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flexShrink: 0 }}>
+        <ViewAsBanner />
+      </div>
       <header
         style={{
           background: colors.paper,
@@ -55,6 +57,7 @@ export default function Layout({ children }) {
           justifyContent: "space-between",
           flexWrap: "wrap",
           gap: "12px",
+          flexShrink: 0,
         }}
       >
         <div>
@@ -109,8 +112,8 @@ export default function Layout({ children }) {
           </button>
         </div>
       </header>
-      <main style={{ padding: "20px" }}>{children}</main>
-      <footer style={{ padding: "10px 20px", textAlign: "center" }}>
+      <main style={{ flex: 1, overflowY: "auto", padding: "20px" }}>{children}</main>
+      <footer style={{ flexShrink: 0, padding: "10px 20px", textAlign: "center" }}>
         <span style={{ fontFamily: fonts.mono, fontSize: "11px", color: colors.inkSoft }}>
           v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
         </span>

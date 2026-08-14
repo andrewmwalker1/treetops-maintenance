@@ -233,6 +233,13 @@ export default function JobsList() {
 
   return (
     <div>
+      {/* Sticks to the top of <main>'s own scroll area (Layout.jsx made
+          main the scrolling region, not the whole page) -- position:sticky
+          needs no pixel math for the header's height because it's stuck
+          relative to the nearest scrolling ancestor, not the viewport. The
+          background match is what stops job cards from visibly scrolling
+          up underneath it as this bar stays put. */}
+      <div style={{ position: "sticky", top: 0, background: colors.bg, zIndex: 5, paddingBottom: "4px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
         <Link to="/jobs/new" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
@@ -373,6 +380,7 @@ export default function JobsList() {
           marginBottom: "16px",
         }}
       />
+      </div>
 
       {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
       {error && <p style={{ color: colors.immediate }}>{error}</p>}
