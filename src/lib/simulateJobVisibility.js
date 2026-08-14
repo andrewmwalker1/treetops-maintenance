@@ -28,9 +28,6 @@ export function useViewAsJobFilter() {
       .eq("role_id", profile.role_id)
       .then(({ data }) => setVisibleRoleIds(new Set((data || []).map((r) => r.visible_role_id))));
 
-    // No target person for a bare-role pick -- group_members has nothing
-    // meaningful to look up, so this role can only ever see jobs via
-    // can_see_all_jobs or role_visibility, never "assigned to me"/group.
     if (viewingAsTargetId) {
       supabase
         .from("group_members")
@@ -38,7 +35,29 @@ export function useViewAsJobFilter() {
         .eq("profile_id", viewingAsTargetId)
         .then(({ data }) => setGroupIds(new Set((data || []).map((r) => r.group_id))));
     } else {
-      setGroupIds(new Set());
+      // Bare role pick, no real person to check group membership for.
+      // Day-to-day jobs get assigned to a team group (e.g. "Maintenance")
+      // far more often than to one named individual, so approximate with
+      // every group ANY current holder of this role actually belongs to
+      // -- without this, a bare-role pick could only ever match via
+      // can_see_all_jobs/role_visibility and would show almost nothing,
+      // which is what was happening before this was added.
+      supabase
+        .from("profiles")
+        .select("id")
+        .eq("role_id", profile.role_id)
+        .then(({ data: roleProfiles }) => {
+          const ids = (roleProfiles || []).map((p) => p.id);
+          if (ids.length === 0) {
+            setGroupIds(new Set());
+            return;
+          }
+          supabase
+            .from("group_members")
+            .select("group_id")
+            .in("profile_id", ids)
+            .then(({ data }) => setGroupIds(new Set((data || []).map((r) => r.group_id))));
+        });
     }
   }, [viewingAs, profile.role_id, viewingAsTargetId]);
 
