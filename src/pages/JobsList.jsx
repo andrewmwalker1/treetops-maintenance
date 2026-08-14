@@ -238,8 +238,16 @@ export default function JobsList() {
           needs no pixel math for the header's height because it's stuck
           relative to the nearest scrolling ancestor, not the viewport. The
           background match is what stops job cards from visibly scrolling
-          up underneath it as this bar stays put. */}
-      <div style={{ position: "sticky", top: 0, background: colors.bg, zIndex: 5, paddingBottom: "4px" }}>
+          up underneath it as this bar stays put.
+          top/marginTop/paddingTop all use main's own 20px padding
+          (Layout.jsx) -- sticky parks itself just inside a scroll
+          container's padding by spec, leaving that padding strip as
+          ordinary scrollable space non-sticky content (job cards) keeps
+          sliding through. Pulling the sticky box up by main's padding
+          amount and re-adding that space as its own padding covers that
+          strip with this element's own background instead. If main's
+          padding ever changes, this -20px/-20px/20px trio needs to match. */}
+      <div style={{ position: "sticky", top: "-20px", marginTop: "-20px", paddingTop: "20px", paddingBottom: "4px", background: colors.bg, zIndex: 5 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
         <Link to="/jobs/new" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
