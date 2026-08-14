@@ -8,6 +8,7 @@ import Modal from "../components/Modal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 const RECENT_CHECKS_SHOWN = 5;
+const RECENT_HISTORY_SHOWN = 5;
 
 const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped" };
 
@@ -31,6 +32,9 @@ export default function EquipmentDetail() {
   const [showChecksModal, setShowChecksModal] = useState(false);
   const [checksFilter, setChecksFilter] = useState("all"); // all | passed | failed
   const [checksSort, setChecksSort] = useState("newest"); // newest | oldest
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState("all"); // all | fault | repair
+  const [historySort, setHistorySort] = useState("newest"); // newest | oldest
 
   const loadAll = useCallback(async () => {
     const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }] = await Promise.all([
@@ -64,6 +68,40 @@ export default function EquipmentDetail() {
     );
     return result;
   }, [checks, checksFilter, checksSort]);
+
+  // Faults and repairs come from two separate tables with no FK linking a
+  // repair to the fault it fixed -- merging them into one date-ordered list
+  // (rather than two side-by-side tables) is what actually lets you read a
+  // fault and its follow-up repair in sequence.
+  const faultsAndRepairsHistory = useMemo(() => {
+    return [
+      ...faultReports.map((f) => ({
+        kind: "fault",
+        id: `fault-${f.id}`,
+        date: f.created_at,
+        description: f.description,
+        by: f.reported_by?.display_name,
+      })),
+      ...repairs.map((r) => ({
+        kind: "repair",
+        id: `repair-${r.id}`,
+        date: r.repaired_at,
+        note: r.note,
+        vendor: r.vendor,
+        cost: r.cost,
+      })),
+    ];
+  }, [faultReports, repairs]);
+
+  const filteredSortedHistory = useMemo(() => {
+    let result = faultsAndRepairsHistory;
+    if (historyFilter === "fault") result = result.filter((h) => h.kind === "fault");
+    else if (historyFilter === "repair") result = result.filter((h) => h.kind === "repair");
+    result = [...result].sort((a, b) =>
+      historySort === "oldest" ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date)
+    );
+    return result;
+  }, [faultsAndRepairsHistory, historyFilter, historySort]);
 
   async function logCheck(passed) {
     const { error: err } = await supabase.from("equipment_checks").insert({ equipment_id: id, checked_by: profile.id, passed });
@@ -176,41 +214,46 @@ export default function EquipmentDetail() {
 
       {activeTab === "faults" && (
         <>
-          <Section title="Fault reports">
-            <form onSubmit={handleReportFault} style={{ marginBottom: "12px" }}>
+          <Section title="Report a fault">
+            <form onSubmit={handleReportFault}>
               <textarea value={faultDescription} onChange={(e) => setFaultDescription(e.target.value)} placeholder="Describe the fault…" rows={2} style={{ ...selectStyle, resize: "vertical" }} />
               <button type="submit" style={buttonStyle.primary}>Report fault (with photo)</button>
             </form>
-            {faultReports.map((f) => (
-              <div key={f.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-                <div>{f.description}</div>
-                <div style={{ fontSize: "12px", color: colors.inkSoft }}>{f.reported_by?.display_name} — {new Date(f.created_at).toLocaleString()}</div>
-              </div>
-            ))}
           </Section>
 
-          {(canManage || repairs.length > 0) && (
-            <Section title="Repair history">
-              {canManage && (
-                <form onSubmit={handleLogRepair} style={{ marginBottom: "12px" }}>
-                  <textarea value={repairNote} onChange={(e) => setRepairNote(e.target.value)} placeholder="What was done…" rows={2} style={{ ...selectStyle, resize: "vertical" }} />
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <input value={repairVendor} onChange={(e) => setRepairVendor(e.target.value)} placeholder="Vendor (optional)" style={{ ...selectStyle, flex: 1 }} />
-                    <input value={repairCost} onChange={(e) => setRepairCost(e.target.value)} placeholder="Cost £ (optional)" type="number" step="0.01" style={{ ...selectStyle, flex: 1 }} />
-                  </div>
-                  <button type="submit" style={buttonStyle.primary}>Log repair</button>
-                </form>
-              )}
-              {repairs.map((r) => (
-                <div key={r.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-                  <div>{r.note}</div>
-                  <div style={{ fontSize: "12px", color: colors.inkSoft }}>
-                    {r.vendor && `${r.vendor} · `}{r.cost != null && `£${r.cost} · `}{r.repaired_at && new Date(r.repaired_at).toLocaleDateString()}
-                  </div>
+          {canManage && (
+            <Section title="Log a repair">
+              <form onSubmit={handleLogRepair}>
+                <textarea value={repairNote} onChange={(e) => setRepairNote(e.target.value)} placeholder="What was done…" rows={2} style={{ ...selectStyle, resize: "vertical" }} />
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <input value={repairVendor} onChange={(e) => setRepairVendor(e.target.value)} placeholder="Vendor (optional)" style={{ ...selectStyle, flex: 1 }} />
+                  <input value={repairCost} onChange={(e) => setRepairCost(e.target.value)} placeholder="Cost £ (optional)" type="number" step="0.01" style={{ ...selectStyle, flex: 1 }} />
                 </div>
-              ))}
+                <button type="submit" style={buttonStyle.primary}>Log repair</button>
+              </form>
             </Section>
           )}
+
+          <Section title="Fault & repair history">
+            {faultsAndRepairsHistory.length === 0 && (
+              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No faults or repairs logged yet.</p>
+            )}
+            {[...faultsAndRepairsHistory]
+              .sort((a, b) => new Date(b.date) - new Date(a.date))
+              .slice(0, RECENT_HISTORY_SHOWN)
+              .map((item) => (
+                <HistoryRow key={item.id} item={item} />
+              ))}
+            {faultsAndRepairsHistory.length > RECENT_HISTORY_SHOWN && (
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(true)}
+                style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: "8px 0 0" }}
+              >
+                View all {faultsAndRepairsHistory.length}
+              </button>
+            )}
+          </Section>
         </>
       )}
 
@@ -236,6 +279,56 @@ export default function EquipmentDetail() {
           </div>
         </Modal>
       )}
+
+      {showHistoryModal && (
+        <Modal title={`Fault & repair history (${faultsAndRepairsHistory.length})`} onClose={() => setShowHistoryModal(false)}>
+          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
+            <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} style={{ ...selectStyle, marginBottom: 0, flex: 1 }}>
+              <option value="all">All entries</option>
+              <option value="fault">Faults only</option>
+              <option value="repair">Repairs only</option>
+            </select>
+            <select value={historySort} onChange={(e) => setHistorySort(e.target.value)} style={{ ...selectStyle, marginBottom: 0, flex: 1 }}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </div>
+          <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
+            {filteredSortedHistory.length === 0 ? (
+              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No entries match this filter.</p>
+            ) : (
+              filteredSortedHistory.map((item) => <HistoryRow key={item.id} item={item} />)
+            )}
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function HistoryRow({ item }) {
+  if (item.kind === "fault") {
+    return (
+      <div style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
+        <div>
+          <span style={{ color: colors.immediate, fontWeight: 600 }}>Fault</span> — {item.description}
+        </div>
+        <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+          {item.by} — {item.date && new Date(item.date).toLocaleString()}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
+      <div>
+        <span style={{ color: colors.mossDark, fontWeight: 600 }}>Repair</span> — {item.note}
+      </div>
+      <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+        {item.vendor && `${item.vendor} · `}
+        {item.cost != null && `£${item.cost} · `}
+        {item.date && new Date(item.date).toLocaleDateString()}
+      </div>
     </div>
   );
 }
