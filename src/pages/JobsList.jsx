@@ -5,7 +5,7 @@ import { queryJobs } from "../lib/jobsQuery.js";
 import { useViewAsJobFilter } from "../lib/simulateJobVisibility.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
-import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
+import { openPrintWindow, writeAndPrintJobBundles, writeAndPrintJobsChecklist } from "../lib/printJobCards.jsx";
 import JobCard from "../components/JobCard.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
@@ -229,6 +229,22 @@ export default function JobsList() {
     }
   }
 
+  // Unlike handlePrintSelected above, this needs no extra queries first --
+  // it's just a table of the job summaries JobsList already has loaded, so
+  // it can write straight to the print window.
+  function handlePrintChecklist() {
+    setError(null);
+    let printWindow;
+    try {
+      printWindow = openPrintWindow();
+    } catch (err) {
+      setError(err.message);
+      return;
+    }
+    const selected = visibleJobs.filter((j) => selectedIds.has(j.id));
+    writeAndPrintJobsChecklist(printWindow, selected, terminology);
+  }
+
   if (!activeSite) return <p style={{ color: colors.inkSoft }}>Loading your site…</p>;
 
   return (
@@ -278,6 +294,9 @@ export default function JobsList() {
               style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px" }}
             >
               Clear
+            </button>
+            <button type="button" onClick={handlePrintChecklist} style={buttonStyle.secondary}>
+              Print checklist
             </button>
             <button type="button" onClick={handlePrintSelected} disabled={printing} style={buttonStyle.primary}>
               {printing ? "Preparing…" : "Print selected"}

@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import PrintableJobCard from "../components/PrintableJobCard.jsx";
+import PrintableJobsChecklist from "../components/PrintableJobsChecklist.jsx";
 
 const PRINT_DOCUMENT_STYLE = `
   body { margin: 0; font-family: 'Work Sans', sans-serif; padding-bottom: 28px; }
@@ -53,6 +54,28 @@ export function writeAndPrintJobBundles(printWindow, bundles, terminology) {
   printWindow.document.open();
   printWindow.document.write(
     `<!doctype html><html><head><title>Print job card</title><style>${PRINT_DOCUMENT_STYLE}</style></head><body>${html}${footer}</body></html>`
+  );
+  printWindow.document.close();
+
+  printWindow.addEventListener("load", () => {
+    printWindow.focus();
+    printWindow.print();
+  });
+}
+
+// The lighter-weight sibling of writeAndPrintJobBundles above -- a single
+// table (like the on-screen jobs list) rather than one full sheet per job,
+// for a management walk-round checklist rather than a per-job record.
+// Takes the already-loaded job summaries straight from JobsList's own
+// state, so unlike the full print flow it needs no extra queries for
+// subtasks/photos/activity first.
+export function writeAndPrintJobsChecklist(printWindow, jobs, terminology) {
+  const html = renderToStaticMarkup(<PrintableJobsChecklist jobs={jobs} terminology={terminology} />);
+  const footer = `<div class="print-footer">Printed ${new Date().toLocaleString()}</div>`;
+
+  printWindow.document.open();
+  printWindow.document.write(
+    `<!doctype html><html><head><title>Print job checklist</title><style>${PRINT_DOCUMENT_STYLE}</style></head><body>${html}${footer}</body></html>`
   );
   printWindow.document.close();
 
