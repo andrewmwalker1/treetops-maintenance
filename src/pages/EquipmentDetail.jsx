@@ -7,10 +7,34 @@ import { capturePhoto } from "../platform/camera.js";
 import Modal from "../components/Modal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
-const RECENT_CHECKS_SHOWN = 5;
 const RECENT_HISTORY_SHOWN = 5;
 
 const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped" };
+
+// One shared vocabulary for every row in the combined history table below,
+// whichever of the three source tables (equipment_checks/fault_reports/
+// repair_records) it came from -- each gets its own colour so the table
+// reads at a glance without needing a legend.
+const HISTORY_STATUS = {
+  pass: { label: "Pass", color: colors.mossDark },
+  fail: { label: "Fail", color: colors.immediate },
+  fault: { label: "Fault", color: colors.clay },
+  repair: { label: "Repair", color: colors.moss },
+};
+
+const HISTORY_STATUS_CHIPS = [
+  { key: "all", label: "All" },
+  { key: "pass", label: "Pass" },
+  { key: "fail", label: "Fail" },
+  { key: "fault", label: "Fault" },
+  { key: "repair", label: "Repair" },
+];
+
+function formatDateTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
+}
 
 export default function EquipmentDetail() {
   const { id } = useParams();
@@ -29,19 +53,16 @@ export default function EquipmentDetail() {
   const [repairVendor, setRepairVendor] = useState("");
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("checks");
-  const [showChecksModal, setShowChecksModal] = useState(false);
-  const [checksFilter, setChecksFilter] = useState("all"); // all | passed | failed
-  const [checksSort, setChecksSort] = useState("newest"); // newest | oldest
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [historyFilter, setHistoryFilter] = useState("all"); // all | fault | repair
-  const [historySort, setHistorySort] = useState("newest"); // newest | oldest
+  const [historyStatusFilter, setHistoryStatusFilter] = useState("all");
+  const [historySort, setHistorySort] = useState({ field: "date", direction: "desc" });
 
   const loadAll = useCallback(async () => {
     const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }] = await Promise.all([
       supabase.from("equipment").select("id, name, make, model, status, check_frequency_days, equipment_type:equipment_types(name)").eq("id", id).single(),
       supabase.from("equipment_checks").select("id, checked_at, passed, checked_by:profiles(display_name)").eq("equipment_id", id).order("checked_at", { ascending: false }),
       supabase.from("fault_reports").select("id, description, created_at, reported_by:profiles!fault_reports_reported_by_fkey(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
-      supabase.from("repair_records").select("id, note, cost, vendor, repaired_at").eq("equipment_id", id).order("repaired_at", { ascending: false }),
+      supabase.from("repair_records").select("id, note, cost, vendor, repaired_at, repaired_by:profiles(display_name)").eq("equipment_id", id).order("repaired_at", { ascending: false }),
     ]);
     setEquipment(eq || null);
     setChecks(checkRows || []);
@@ -53,55 +74,72 @@ export default function EquipmentDetail() {
     loadAll();
   }, [loadAll]);
 
-  // The full history is already loaded (loadAll has no limit) -- filtering
-  // and sorting here is just a client-side view over it, same as JobsList
-  // does for its filters. Only the popout modal needs the full set; the
-  // tab itself only ever shows the most recent few.
-  const filteredSortedChecks = useMemo(() => {
-    let result = checks;
-    if (checksFilter === "passed") result = result.filter((c) => c.passed);
-    else if (checksFilter === "failed") result = result.filter((c) => !c.passed);
-    result = [...result].sort((a, b) =>
-      checksSort === "oldest"
-        ? new Date(a.checked_at) - new Date(b.checked_at)
-        : new Date(b.checked_at) - new Date(a.checked_at)
-    );
-    return result;
-  }, [checks, checksFilter, checksSort]);
-
-  // Faults and repairs come from two separate tables with no FK linking a
-  // repair to the fault it fixed -- merging them into one date-ordered list
-  // (rather than two side-by-side tables) is what actually lets you read a
-  // fault and its follow-up repair in sequence.
-  const faultsAndRepairsHistory = useMemo(() => {
-    return [
+  // Checks, fault reports, and repairs are three separate tables with no FK
+  // chaining a repair to the fault it fixed -- merging them into one
+  // date-ordered list (rather than three separate views) is what actually
+  // lets you read a failed check, the fault it prompted, and the repair
+  // that followed in sequence, one table, like the admin checkout log.
+  const combinedHistory = useMemo(() => {
+    const rows = [
+      ...checks.map((c) => ({
+        id: `check-${c.id}`,
+        status: c.passed ? "pass" : "fail",
+        details: null,
+        person: c.checked_by?.display_name,
+        date: c.checked_at,
+      })),
       ...faultReports.map((f) => ({
-        kind: "fault",
         id: `fault-${f.id}`,
+        status: "fault",
+        details: f.description,
+        person: f.reported_by?.display_name,
         date: f.created_at,
-        description: f.description,
-        by: f.reported_by?.display_name,
       })),
       ...repairs.map((r) => ({
-        kind: "repair",
         id: `repair-${r.id}`,
+        status: "repair",
+        details: [r.note, r.vendor && `via ${r.vendor}`, r.cost != null && `£${r.cost}`].filter(Boolean).join(" · "),
+        person: r.repaired_by?.display_name,
         date: r.repaired_at,
-        note: r.note,
-        vendor: r.vendor,
-        cost: r.cost,
       })),
     ];
-  }, [faultReports, repairs]);
+    return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [checks, faultReports, repairs]);
 
   const filteredSortedHistory = useMemo(() => {
-    let result = faultsAndRepairsHistory;
-    if (historyFilter === "fault") result = result.filter((h) => h.kind === "fault");
-    else if (historyFilter === "repair") result = result.filter((h) => h.kind === "repair");
-    result = [...result].sort((a, b) =>
-      historySort === "oldest" ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date)
-    );
-    return result;
-  }, [faultsAndRepairsHistory, historyFilter, historySort]);
+    let result = combinedHistory;
+    if (historyStatusFilter !== "all") result = result.filter((r) => r.status === historyStatusFilter);
+
+    const dir = historySort.direction === "asc" ? 1 : -1;
+    const getValue = (r) => {
+      switch (historySort.field) {
+        case "status":
+          return HISTORY_STATUS[r.status].label;
+        case "details":
+          return r.details || "";
+        case "person":
+          return r.person || "";
+        default:
+          return r.date || "";
+      }
+    };
+    return [...result].sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+  }, [combinedHistory, historyStatusFilter, historySort]);
+
+  function toggleHistorySort(field) {
+    setHistorySort((prev) => (prev.field === field ? { field, direction: prev.direction === "asc" ? "desc" : "asc" } : { field, direction: "asc" }));
+  }
+
+  function historySortIndicator(field) {
+    if (historySort.field !== field) return "";
+    return historySort.direction === "asc" ? " ↑" : " ↓";
+  }
 
   async function logCheck(passed) {
     const { error: err } = await supabase.from("equipment_checks").insert({ equipment_id: id, checked_by: profile.id, passed });
@@ -186,29 +224,16 @@ export default function EquipmentDetail() {
       </div>
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-        <TabButton active={activeTab === "checks"} onClick={() => setActiveTab("checks")} label="Checks" />
-        <TabButton active={activeTab === "faults"} onClick={() => setActiveTab("faults")} label="Faults & repairs" />
+        <TabButton active={activeTab === "checks"} onClick={() => setActiveTab("checks")} label="Log a check" />
+        <TabButton active={activeTab === "faults"} onClick={() => setActiveTab("faults")} label="Report a fault / repair" />
       </div>
 
       {activeTab === "checks" && (
-        <Section title="Checks">
-          <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
+        <Section title="Log a check">
+          <div style={{ display: "flex", gap: "8px" }}>
             <button onClick={() => logCheck(true)} style={buttonStyle.primary}>Log passed check</button>
             <button onClick={() => logCheck(false)} style={buttonStyle.secondary}>Log failed check</button>
           </div>
-          {checks.slice(0, RECENT_CHECKS_SHOWN).map((c) => (
-            <CheckRow key={c.id} check={c} />
-          ))}
-          {checks.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No checks logged yet.</p>}
-          {checks.length > RECENT_CHECKS_SHOWN && (
-            <button
-              type="button"
-              onClick={() => setShowChecksModal(true)}
-              style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: "8px 0 0" }}
-            >
-              View all {checks.length} checks
-            </button>
-          )}
         </Section>
       )}
 
@@ -233,113 +258,93 @@ export default function EquipmentDetail() {
               </form>
             </Section>
           )}
-
-          <Section title="Fault & repair history">
-            {faultsAndRepairsHistory.length === 0 && (
-              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No faults or repairs logged yet.</p>
-            )}
-            {[...faultsAndRepairsHistory]
-              .sort((a, b) => new Date(b.date) - new Date(a.date))
-              .slice(0, RECENT_HISTORY_SHOWN)
-              .map((item) => (
-                <HistoryRow key={item.id} item={item} />
-              ))}
-            {faultsAndRepairsHistory.length > RECENT_HISTORY_SHOWN && (
-              <button
-                type="button"
-                onClick={() => setShowHistoryModal(true)}
-                style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: "8px 0 0" }}
-              >
-                View all {faultsAndRepairsHistory.length}
-              </button>
-            )}
-          </Section>
         </>
       )}
 
-      {showChecksModal && (
-        <Modal title={`All checks (${checks.length})`} onClose={() => setShowChecksModal(false)}>
-          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-            <select value={checksFilter} onChange={(e) => setChecksFilter(e.target.value)} style={{ ...selectStyle, marginBottom: 0, flex: 1 }}>
-              <option value="all">All results</option>
-              <option value="passed">Passed only</option>
-              <option value="failed">Failed only</option>
-            </select>
-            <select value={checksSort} onChange={(e) => setChecksSort(e.target.value)} style={{ ...selectStyle, marginBottom: 0, flex: 1 }}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </div>
-          <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
-            {filteredSortedChecks.length === 0 ? (
-              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No checks match this filter.</p>
-            ) : (
-              filteredSortedChecks.map((c) => <CheckRow key={c.id} check={c} />)
-            )}
-          </div>
-        </Modal>
-      )}
+      <Section title="History">
+        {combinedHistory.length === 0 ? (
+          <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Nothing logged against this machine yet.</p>
+        ) : (
+          <>
+            {combinedHistory.slice(0, RECENT_HISTORY_SHOWN).map((row) => (
+              <HistoryRow key={row.id} row={row} />
+            ))}
+            <button
+              type="button"
+              onClick={() => setShowHistoryModal(true)}
+              style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: "8px 0 0" }}
+            >
+              View full history ({combinedHistory.length})
+            </button>
+          </>
+        )}
+      </Section>
 
       {showHistoryModal && (
-        <Modal title={`Fault & repair history (${faultsAndRepairsHistory.length})`} onClose={() => setShowHistoryModal(false)}>
-          <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-            <select value={historyFilter} onChange={(e) => setHistoryFilter(e.target.value)} style={{ ...selectStyle, marginBottom: 0, flex: 1 }}>
-              <option value="all">All entries</option>
-              <option value="fault">Faults only</option>
-              <option value="repair">Repairs only</option>
-            </select>
-            <select value={historySort} onChange={(e) => setHistorySort(e.target.value)} style={{ ...selectStyle, marginBottom: 0, flex: 1 }}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
+        <Modal title={`History (${combinedHistory.length})`} onClose={() => setShowHistoryModal(false)} maxWidth="760px">
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+            {HISTORY_STATUS_CHIPS.map((chip) => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => setHistoryStatusFilter(chip.key)}
+                style={{
+                  border: `1px solid ${historyStatusFilter === chip.key ? colors.mossDark : colors.lineStrong}`,
+                  background: historyStatusFilter === chip.key ? colors.mossDark : "transparent",
+                  color: historyStatusFilter === chip.key ? "#FFFFFF" : colors.inkSoft,
+                  borderRadius: "999px",
+                  padding: "6px 14px",
+                  fontFamily: fonts.body,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                }}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
-          <div style={{ maxHeight: "50vh", overflowY: "auto" }}>
-            {filteredSortedHistory.length === 0 ? (
-              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No entries match this filter.</p>
-            ) : (
-              filteredSortedHistory.map((item) => <HistoryRow key={item.id} item={item} />)
-            )}
-          </div>
+
+          {filteredSortedHistory.length === 0 ? (
+            <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No entries match this filter.</p>
+          ) : (
+            <div style={{ ...cardStyle, overflowX: "auto", maxHeight: "55vh", overflowY: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={thStyle} onClick={() => toggleHistorySort("status")}>Status{historySortIndicator("status")}</th>
+                    <th style={thStyle} onClick={() => toggleHistorySort("details")}>Details{historySortIndicator("details")}</th>
+                    <th style={thStyle} onClick={() => toggleHistorySort("person")}>Person{historySortIndicator("person")}</th>
+                    <th style={thStyle} onClick={() => toggleHistorySort("date")}>Date{historySortIndicator("date")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSortedHistory.map((row) => (
+                    <tr key={row.id}>
+                      <td style={tdStyle}>
+                        <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>{HISTORY_STATUS[row.status].label}</span>
+                      </td>
+                      <td style={tdStyle}>{row.details || "—"}</td>
+                      <td style={tdStyle}>{row.person || "—"}</td>
+                      <td style={tdStyle}>{formatDateTime(row.date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Modal>
       )}
     </div>
   );
 }
 
-function HistoryRow({ item }) {
-  if (item.kind === "fault") {
-    return (
-      <div style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-        <div>
-          <span style={{ color: colors.immediate, fontWeight: 600 }}>Fault</span> — {item.description}
-        </div>
-        <div style={{ fontSize: "12px", color: colors.inkSoft }}>
-          {item.by} — {item.date && new Date(item.date).toLocaleString()}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-      <div>
-        <span style={{ color: colors.mossDark, fontWeight: 600 }}>Repair</span> — {item.note}
-      </div>
-      <div style={{ fontSize: "12px", color: colors.inkSoft }}>
-        {item.vendor && `${item.vendor} · `}
-        {item.cost != null && `£${item.cost} · `}
-        {item.date && new Date(item.date).toLocaleDateString()}
-      </div>
-    </div>
-  );
-}
-
-function CheckRow({ check }) {
+function HistoryRow({ row }) {
   return (
     <div style={{ fontSize: "13px", color: colors.inkSoft, padding: "4px 0" }}>
-      <span style={{ color: check.passed ? colors.mossDark : colors.immediate, fontWeight: 600 }}>
-        {check.passed ? "Passed" : "Failed"}
-      </span>{" "}
-      by {check.checked_by?.display_name} — {new Date(check.checked_at).toLocaleString()}
+      <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>{HISTORY_STATUS[row.status].label}</span>
+      {row.details && <> — {row.details}</>}
+      <br />
+      {row.person} — {formatDateTime(row.date)}
     </div>
   );
 }
@@ -373,6 +378,23 @@ const selectStyle = {
   border: `1px solid ${colors.lineStrong}`,
   fontFamily: fonts.body,
   marginBottom: "10px",
+};
+
+const thStyle = {
+  textAlign: "left",
+  padding: "8px 10px",
+  fontSize: "12px",
+  color: colors.inkSoft,
+  cursor: "pointer",
+  userSelect: "none",
+  whiteSpace: "nowrap",
+};
+
+const tdStyle = {
+  padding: "8px 10px",
+  fontSize: "13px",
+  borderTop: `1px solid ${colors.line}`,
+  verticalAlign: "top",
 };
 
 function Section({ title, children }) {
