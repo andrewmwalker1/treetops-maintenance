@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { queryJobs } from "../lib/jobsQuery.js";
+import { useViewAsJobFilter } from "../lib/simulateJobVisibility.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
@@ -47,6 +48,7 @@ function loadStoredSelectedIds() {
 
 export default function JobsList() {
   const { activeSite, terminology } = useAuth();
+  const viewAsFilter = useViewAsJobFilter();
   const [searchParams, setSearchParams] = useSearchParams();
   const quickFilter = useMemo(() => quickFilterFromParams(searchParams), [searchParams]);
   const [jobs, setJobs] = useState([]);
@@ -109,6 +111,13 @@ export default function JobsList() {
     refresh();
   }, [refresh]);
 
+  // While "viewing as", narrow the admin's real (full) RLS-visible set down
+  // to an approximation of what the faked role/person would actually see --
+  // see simulateJobVisibility.js for the caveats. Both assigneeOptions and
+  // visibleJobs build on this so the assignee dropdown never offers people
+  // whose jobs the simulation has already hidden.
+  const baseJobs = useMemo(() => (viewAsFilter ? jobs.filter(viewAsFilter) : jobs), [jobs, viewAsFilter]);
+
   // Options are derived from whatever jobs RLS + the filters above already
   // surfaced -- so "filter by role" only ever offers roles actually visible
   // to this user, without duplicating the role_visibility logic client-side.
@@ -116,7 +125,7 @@ export default function JobsList() {
     const people = new Map();
     const roles = new Set();
     const contractors = new Map();
-    for (const job of jobs) {
+    for (const job of baseJobs) {
       if (job.assignee) {
         people.set(job.assignee.id, job.assignee.display_name);
         if (job.assignee.role?.name) roles.add(job.assignee.role.name);
@@ -128,10 +137,10 @@ export default function JobsList() {
       roles: [...roles].sort(),
       contractors: [...contractors.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
     };
-  }, [jobs]);
+  }, [baseJobs]);
 
   const visibleJobs = useMemo(() => {
-    let result = jobs;
+    let result = baseJobs;
 
     if (assigneeFilter) {
       const colonIdx = assigneeFilter.indexOf(":");
@@ -159,7 +168,7 @@ export default function JobsList() {
     }
 
     return result;
-  }, [jobs, assigneeFilter, search]);
+  }, [baseJobs, assigneeFilter, search]);
 
   function toggleSelect(jobId) {
     setSelectedIds((prev) => {

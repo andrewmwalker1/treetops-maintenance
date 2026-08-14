@@ -29,7 +29,13 @@ export function AuthProvider({ children }) {
   const [terminology, setTerminology] = useState({});
   const [loading, setLoading] = useState(true);
   const [deactivated, setDeactivated] = useState(false);
-  const [viewingAsProfile, setViewingAsProfile] = useState(loadStoredViewingAs);
+  const [viewingAsProfile, setViewingAsProfile] = useState(() => loadStoredViewingAs()?.viewAs ?? null);
+  // The real target person's id, kept separate from viewingAsProfile.id
+  // (which stays the admin's own id, see startViewingAs below) -- only
+  // used to look up the target's real group memberships for the Jobs
+  // list visibility simulation. Null for a bare-role "view as" pick,
+  // since there's no real person to look up.
+  const [viewingAsTargetId, setViewingAsTargetId] = useState(() => loadStoredViewingAs()?.targetId ?? null);
   const loadedUserIdRef = useRef(null);
 
   const loadProfileAndScope = useCallback(async (userId) => {
@@ -118,6 +124,7 @@ export function AuthProvider({ children }) {
         setTerminology({});
         setLoading(false);
         setViewingAsProfile(null);
+        setViewingAsTargetId(null);
         sessionStorage.removeItem(VIEWING_AS_STORAGE_KEY);
       }
       // Anything else (TOKEN_REFRESHED, INITIAL_SESSION, USER_UPDATED) just
@@ -148,14 +155,20 @@ export function AuthProvider({ children }) {
         is_active: true,
         roles: { name: fakedProfile.role_name },
       };
+      // fakedProfile.id is the real target's id when a specific person
+      // was picked (it's their row from list_org_users), and undefined
+      // for a bare-role pick -- targetId stays null in that case.
+      const targetId = fakedProfile.id ?? null;
       setViewingAsProfile(viewAs);
-      sessionStorage.setItem(VIEWING_AS_STORAGE_KEY, JSON.stringify(viewAs));
+      setViewingAsTargetId(targetId);
+      sessionStorage.setItem(VIEWING_AS_STORAGE_KEY, JSON.stringify({ viewAs, targetId }));
     },
     [profile]
   );
 
   const stopViewingAs = useCallback(() => {
     setViewingAsProfile(null);
+    setViewingAsTargetId(null);
     sessionStorage.removeItem(VIEWING_AS_STORAGE_KEY);
   }, []);
 
@@ -164,6 +177,7 @@ export function AuthProvider({ children }) {
     profile: viewingAsProfile || profile,
     realProfile: profile,
     viewingAs: Boolean(viewingAsProfile),
+    viewingAsTargetId,
     startViewingAs,
     stopViewingAs,
     org,
