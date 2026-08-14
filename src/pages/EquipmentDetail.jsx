@@ -135,8 +135,16 @@ export default function EquipmentDetail() {
           return r.details || "";
         case "person":
           return r.person || "";
+        // Compared as an actual timestamp, not the raw string -- repairs
+        // are logged with a client-generated `new Date().toISOString()`
+        // (e.g. "...123Z") while checks/faults get Postgres's `now()`
+        // default (e.g. "...123456+00:00"). Those two formats aren't
+        // string-comparable: 'Z' sorts after digits, so a repair could
+        // falsely rank "newer" than a check/fault from later the same
+        // day, scrambling the fault-then-repair sequence this table
+        // exists to show.
         default:
-          return r.date || "";
+          return r.date ? new Date(r.date).getTime() : 0;
       }
     };
     return [...result].sort((a, b) => {
