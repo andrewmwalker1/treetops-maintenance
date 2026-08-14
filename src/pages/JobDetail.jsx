@@ -54,6 +54,9 @@ export default function JobDetail() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
+  const [progressPercent, setProgressPercent] = useState(50);
+  const [loggingProgress, setLoggingProgress] = useState(false);
+  const [progressLogged, setProgressLogged] = useState(false);
 
   const loadAll = useCallback(async () => {
     let data;
@@ -373,6 +376,28 @@ export default function JobDetail() {
     loadAll();
   }
 
+  // Mirrors KioskJobs.jsx's identical handler -- a progress-update note is
+  // just a job_activity row (event_type "progress_update"), independent of
+  // the job's actual status_id. Previously only the kiosk could log one;
+  // this brings the same control here so it's not a kiosk-only affordance.
+  async function handleLogProgress() {
+    setLoggingProgress(true);
+    setError(null);
+    const { error: err } = await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "progress_update",
+      actor_profile_id: profile.id,
+      new_value: { percent: progressPercent },
+    });
+    setLoggingProgress(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setProgressLogged(true);
+    loadAll();
+  }
+
   async function handleAddComment(e) {
     e.preventDefault();
     if (!comment.trim()) return;
@@ -658,6 +683,34 @@ export default function JobDetail() {
           {uploading ? "Uploading…" : "Add photo"}
         </button>
       </Section>
+
+      {!job.job_status?.is_completed && (
+        <Section title="Progress update">
+          <p style={{ fontSize: "28px", fontWeight: 700, color: colors.mossDark, textAlign: "center", margin: "0 0 8px" }}>
+            {progressPercent}%
+          </p>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="5"
+            value={progressPercent}
+            onChange={(e) => {
+              setProgressPercent(Number(e.target.value));
+              setProgressLogged(false);
+            }}
+            style={{ width: "100%" }}
+          />
+          <button
+            type="button"
+            onClick={handleLogProgress}
+            disabled={loggingProgress}
+            style={{ ...buttonStyle.secondary, width: "100%", marginTop: "12px" }}
+          >
+            {loggingProgress ? "Logging…" : progressLogged ? "Logged ✓" : "Log update"}
+          </button>
+        </Section>
+      )}
 
       <Section title="Activity">
         <form onSubmit={handleAddComment} style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
