@@ -4,10 +4,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
-import Modal from "../components/Modal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
-
-const RECENT_HISTORY_SHOWN = 5;
 
 const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped" };
 
@@ -36,6 +33,12 @@ function formatDateTime(iso) {
   return `${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
+function oneMonthAgoISODate() {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export default function EquipmentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -53,9 +56,13 @@ export default function EquipmentDetail() {
   const [repairVendor, setRepairVendor] = useState("");
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("checks");
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyStatusFilter, setHistoryStatusFilter] = useState("all");
   const [historySort, setHistorySort] = useState({ field: "date", direction: "desc" });
+  // Defaults to the last month so a machine with years of history doesn't
+  // dump its whole log onto the page at once -- widen or clear the dates
+  // to see further back.
+  const [historyFrom, setHistoryFrom] = useState(oneMonthAgoISODate);
+  const [historyTo, setHistoryTo] = useState("");
 
   const loadAll = useCallback(async () => {
     const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }] = await Promise.all([
@@ -109,6 +116,15 @@ export default function EquipmentDetail() {
   const filteredSortedHistory = useMemo(() => {
     let result = combinedHistory;
     if (historyStatusFilter !== "all") result = result.filter((r) => r.status === historyStatusFilter);
+    if (historyFrom) {
+      const from = new Date(historyFrom);
+      result = result.filter((r) => r.date && new Date(r.date) >= from);
+    }
+    if (historyTo) {
+      // End-of-day so a "to" date includes entries logged that day.
+      const to = new Date(`${historyTo}T23:59:59.999`);
+      result = result.filter((r) => r.date && new Date(r.date) <= to);
+    }
 
     const dir = historySort.direction === "asc" ? 1 : -1;
     const getValue = (r) => {
@@ -130,7 +146,7 @@ export default function EquipmentDetail() {
       if (va > vb) return 1 * dir;
       return 0;
     });
-  }, [combinedHistory, historyStatusFilter, historySort]);
+  }, [combinedHistory, historyStatusFilter, historyFrom, historyTo, historySort]);
 
   function toggleHistorySort(field) {
     setHistorySort((prev) => (prev.field === field ? { field, direction: prev.direction === "asc" ? "desc" : "asc" } : { field, direction: "asc" }));
@@ -266,85 +282,73 @@ export default function EquipmentDetail() {
           <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Nothing logged against this machine yet.</p>
         ) : (
           <>
-            {combinedHistory.slice(0, RECENT_HISTORY_SHOWN).map((row) => (
-              <HistoryRow key={row.id} row={row} />
-            ))}
-            <button
-              type="button"
-              onClick={() => setShowHistoryModal(true)}
-              style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: "8px 0 0" }}
-            >
-              View full history ({combinedHistory.length})
-            </button>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "10px" }}>
+              <input type="date" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} style={{ ...selectStyle, marginBottom: 0, width: "auto" }} title="From date" />
+              <input type="date" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} style={{ ...selectStyle, marginBottom: 0, width: "auto" }} title="To date" />
+              {(historyFrom || historyTo) && (
+                <button
+                  type="button"
+                  onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
+                  style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px" }}
+                >
+                  Show all time
+                </button>
+              )}
+            </div>
+
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+              {HISTORY_STATUS_CHIPS.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => setHistoryStatusFilter(chip.key)}
+                  style={{
+                    border: `1px solid ${historyStatusFilter === chip.key ? colors.mossDark : colors.lineStrong}`,
+                    background: historyStatusFilter === chip.key ? colors.mossDark : "transparent",
+                    color: historyStatusFilter === chip.key ? "#FFFFFF" : colors.inkSoft,
+                    borderRadius: "999px",
+                    padding: "6px 14px",
+                    fontFamily: fonts.body,
+                    fontSize: "13px",
+                    cursor: "pointer",
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            {filteredSortedHistory.length === 0 ? (
+              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No entries match this filter.</p>
+            ) : (
+              <div style={{ border: `1px solid ${colors.line}`, borderRadius: "10px", overflowX: "auto", maxHeight: "60vh", overflowY: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={thStyle} onClick={() => toggleHistorySort("status")}>Status{historySortIndicator("status")}</th>
+                      <th style={thStyle} onClick={() => toggleHistorySort("details")}>Details{historySortIndicator("details")}</th>
+                      <th style={thStyle} onClick={() => toggleHistorySort("person")}>Person{historySortIndicator("person")}</th>
+                      <th style={thStyle} onClick={() => toggleHistorySort("date")}>Date{historySortIndicator("date")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSortedHistory.map((row) => (
+                      <tr key={row.id}>
+                        <td style={tdStyle}>
+                          <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>{HISTORY_STATUS[row.status].label}</span>
+                        </td>
+                        <td style={tdStyle}>{row.details || "—"}</td>
+                        <td style={tdStyle}>{row.person || "—"}</td>
+                        <td style={tdStyle}>{formatDateTime(row.date)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </Section>
-
-      {showHistoryModal && (
-        <Modal title={`History (${combinedHistory.length})`} onClose={() => setShowHistoryModal(false)} maxWidth="760px">
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
-            {HISTORY_STATUS_CHIPS.map((chip) => (
-              <button
-                key={chip.key}
-                type="button"
-                onClick={() => setHistoryStatusFilter(chip.key)}
-                style={{
-                  border: `1px solid ${historyStatusFilter === chip.key ? colors.mossDark : colors.lineStrong}`,
-                  background: historyStatusFilter === chip.key ? colors.mossDark : "transparent",
-                  color: historyStatusFilter === chip.key ? "#FFFFFF" : colors.inkSoft,
-                  borderRadius: "999px",
-                  padding: "6px 14px",
-                  fontFamily: fonts.body,
-                  fontSize: "13px",
-                  cursor: "pointer",
-                }}
-              >
-                {chip.label}
-              </button>
-            ))}
-          </div>
-
-          {filteredSortedHistory.length === 0 ? (
-            <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No entries match this filter.</p>
-          ) : (
-            <div style={{ ...cardStyle, overflowX: "auto", maxHeight: "55vh", overflowY: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th style={thStyle} onClick={() => toggleHistorySort("status")}>Status{historySortIndicator("status")}</th>
-                    <th style={thStyle} onClick={() => toggleHistorySort("details")}>Details{historySortIndicator("details")}</th>
-                    <th style={thStyle} onClick={() => toggleHistorySort("person")}>Person{historySortIndicator("person")}</th>
-                    <th style={thStyle} onClick={() => toggleHistorySort("date")}>Date{historySortIndicator("date")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSortedHistory.map((row) => (
-                    <tr key={row.id}>
-                      <td style={tdStyle}>
-                        <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>{HISTORY_STATUS[row.status].label}</span>
-                      </td>
-                      <td style={tdStyle}>{row.details || "—"}</td>
-                      <td style={tdStyle}>{row.person || "—"}</td>
-                      <td style={tdStyle}>{formatDateTime(row.date)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Modal>
-      )}
-    </div>
-  );
-}
-
-function HistoryRow({ row }) {
-  return (
-    <div style={{ fontSize: "13px", color: colors.inkSoft, padding: "4px 0" }}>
-      <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>{HISTORY_STATUS[row.status].label}</span>
-      {row.details && <> — {row.details}</>}
-      <br />
-      {row.person} — {formatDateTime(row.date)}
     </div>
   );
 }
