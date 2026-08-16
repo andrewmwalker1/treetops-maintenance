@@ -15,10 +15,10 @@ export function capturePhoto() {
     input.type = "file";
     input.accept = "image/*";
 
-    input.onchange = () => {
+    input.onchange = async () => {
       const file = input.files?.[0];
       if (file) {
-        resolve(file);
+        resolve(await downscaleImage(file));
       } else {
         reject(new Error("No photo captured."));
       }
@@ -27,4 +27,39 @@ export function capturePhoto() {
 
     input.click();
   });
+}
+
+// Phone cameras hand over multi-megapixel originals (several MB each) --
+// with no resizing, every place that shows a photo (including an 80px
+// list thumbnail) downloads the full original. Re-encoding down to a
+// sane max dimension before upload fixes load times everywhere a photo
+// is shown, not just the thumbnail, at a size increase small enough
+// nobody who's ever seen a job photo would notice. Falls back to the
+// original file on any failure (unsupported format, canvas error) so a
+// resize bug never blocks the underlying capture.
+const MAX_DIMENSION = 1600;
+const JPEG_QUALITY = 0.82;
+
+async function downscaleImage(file) {
+  if (!file.type.startsWith("image/")) return file;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height));
+    if (scale === 1) {
+      bitmap.close?.();
+      return file;
+    }
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d").drawImage(bitmap, 0, 0, width, height);
+    bitmap.close?.();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", JPEG_QUALITY));
+    if (!blob) return file;
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
 }

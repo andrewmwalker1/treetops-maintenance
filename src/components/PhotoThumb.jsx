@@ -32,6 +32,7 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl }) {
       <img
         src={url}
         alt=""
+        loading="lazy"
         onClick={() => setExpanded(true)}
         style={{ width: size, height: size, objectFit: "cover", borderRadius: 8, cursor: "pointer" }}
       />
