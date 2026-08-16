@@ -113,6 +113,11 @@ export default function KioskJobs() {
 
   const refresh = useCallback(async () => {
     if (!activeSite) return;
+    // job_statuses hasn't loaded yet, so there's no way to know which
+    // statuses count as "open" -- wait rather than momentarily querying
+    // with no status filter at all, which would show every job including
+    // Completed until statuses arrives and this re-runs.
+    if (!activeStatusId && statuses.length === 0) return;
     setLoading(true);
     // Same visibility as the main Jobs screen -- queryJobs is already
     // scoped by RLS (can_see_job: assignee, assignee's group, role

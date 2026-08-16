@@ -82,11 +82,16 @@ export default function JobsList() {
 
   const refresh = useCallback(() => {
     if (!activeSite) return;
+    // job_statuses hasn't loaded yet, so there's no way to know which
+    // statuses count as "open" -- wait rather than momentarily querying
+    // with no status filter at all, which would show every job including
+    // Completed until statuses arrives and this re-runs.
+    if (!activeStatusId && statuses.length === 0) return;
     setLoading(true);
     const filters = {};
     if (activeStatusId) {
       filters.statusIds = [activeStatusId];
-    } else if (statuses.length) {
+    } else {
       // Default "All" view (and the Dashboard's "open"/"overdue"/"priority"
       // quick filters) only ever means open + in-progress -- Completed and
       // Cancelled each have their own status chip already, so "All" isn't
