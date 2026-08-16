@@ -119,22 +119,21 @@ export default function JobsList() {
   const baseJobs = useMemo(() => (viewAsFilter ? jobs.filter(viewAsFilter) : jobs), [jobs, viewAsFilter]);
 
   // Options are derived from whatever jobs RLS + the filters above already
-  // surfaced -- so "filter by role" only ever offers roles actually visible
-  // to this user, without duplicating the role_visibility logic client-side.
+  // surfaced -- so "filter by group" only ever offers groups actually
+  // visible to this user, without duplicating the role_visibility logic
+  // client-side.
   const assigneeOptions = useMemo(() => {
     const people = new Map();
-    const roles = new Set();
+    const groups = new Map();
     const contractors = new Map();
     for (const job of baseJobs) {
-      if (job.assignee) {
-        people.set(job.assignee.id, job.assignee.display_name);
-        if (job.assignee.role?.name) roles.add(job.assignee.role.name);
-      }
+      if (job.assignee) people.set(job.assignee.id, job.assignee.display_name);
+      if (job.assignee_group) groups.set(job.assignee_group.id, job.assignee_group.name);
       if (job.assignee_contractor) contractors.set(job.assignee_contractor.id, job.assignee_contractor.name);
     }
     return {
       people: [...people.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
-      roles: [...roles].sort(),
+      groups: [...groups.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
       contractors: [...contractors.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
     };
   }, [baseJobs]);
@@ -147,7 +146,7 @@ export default function JobsList() {
       const kind = assigneeFilter.slice(0, colonIdx);
       const value = assigneeFilter.slice(colonIdx + 1);
       if (kind === "person") result = result.filter((j) => j.assignee?.id === value);
-      else if (kind === "role") result = result.filter((j) => j.assignee?.role?.name === value);
+      else if (kind === "group") result = result.filter((j) => j.assignee_group?.id === value);
       else if (kind === "contractor") result = result.filter((j) => j.assignee_contractor?.id === value);
     }
 
@@ -356,7 +355,7 @@ export default function JobsList() {
       {/* Only worth showing once the visible jobs actually span more than
           one assignee -- i.e. exactly when this user's role_visibility (or
           can_see_all_jobs) surfaces someone else's jobs alongside their own. */}
-      {assigneeOptions.people.length + assigneeOptions.contractors.length > 1 && (
+      {assigneeOptions.people.length + assigneeOptions.groups.length + assigneeOptions.contractors.length > 1 && (
         <select
           value={assigneeFilter}
           onChange={(e) => setAssigneeFilter(e.target.value)}
@@ -371,10 +370,10 @@ export default function JobsList() {
           }}
         >
           <option value="">Everyone</option>
-          {assigneeOptions.roles.length > 0 && (
-            <optgroup label="By role">
-              {assigneeOptions.roles.map((r) => (
-                <option key={`role:${r}`} value={`role:${r}`}>{r}</option>
+          {assigneeOptions.groups.length > 0 && (
+            <optgroup label="By group">
+              {assigneeOptions.groups.map((g) => (
+                <option key={`group:${g.id}`} value={`group:${g.id}`}>{g.name}</option>
               ))}
             </optgroup>
           )}
