@@ -8,7 +8,7 @@ import { supabase } from "./supabaseClient.js";
 
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
   const [{ data: types }, { data: equipment }, { data: openCheckouts }] = await Promise.all([
-    supabase.from("equipment_types").select("id, name, pre_use_checklist").eq("org_id", orgId).order("sort_order"),
+    supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout").eq("org_id", orgId).order("sort_order"),
     supabase.from("equipment").select("id, equipment_type_id, status").eq("org_id", orgId),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
   ]);
@@ -26,6 +26,7 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     id: t.id,
     name: t.name,
     preUseChecklist: t.pre_use_checklist || [],
+    allowMultiCheckout: t.allow_multi_checkout || false,
     availableCount: counts[t.id]?.available || 0,
     totalCount: counts[t.id]?.total || 0,
   }));

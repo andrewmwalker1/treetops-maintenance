@@ -25,7 +25,7 @@ const iconButtonStyle = {
   fontSize: "13px",
 };
 
-const blank = { id: null, name: "", pre_use_checklist: [] };
+const blank = { id: null, name: "", pre_use_checklist: [], allow_multi_checkout: false };
 
 export default function EquipmentTypesTab() {
   const { org } = useAuth();
@@ -37,7 +37,7 @@ export default function EquipmentTypesTab() {
 
   function refresh() {
     Promise.all([
-      supabase.from("equipment_types").select("id, name, pre_use_checklist, sort_order").eq("org_id", org.id).order("sort_order"),
+      supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout, sort_order").eq("org_id", org.id).order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
     ]).then(([{ data: t, error: err }, { data: eq }]) => {
       if (err) setError(err.message);
@@ -68,7 +68,7 @@ export default function EquipmentTypesTab() {
   function editType(t) {
     setError(null);
     setCopyFromId("");
-    setForm({ id: t.id, name: t.name, pre_use_checklist: t.pre_use_checklist || [] });
+    setForm({ id: t.id, name: t.name, pre_use_checklist: t.pre_use_checklist || [], allow_multi_checkout: t.allow_multi_checkout || false });
   }
 
   function copyChecklistFrom(sourceId) {
@@ -82,7 +82,7 @@ export default function EquipmentTypesTab() {
   async function handleSave(e) {
     e.preventDefault();
     setError(null);
-    const payload = { org_id: org.id, name: form.name, pre_use_checklist: form.pre_use_checklist };
+    const payload = { org_id: org.id, name: form.name, pre_use_checklist: form.pre_use_checklist, allow_multi_checkout: form.allow_multi_checkout };
     if (!form.id) {
       payload.sort_order = types.length > 0 ? Math.max(...types.map((t) => t.sort_order)) + 1 : 0;
     }
@@ -117,7 +117,9 @@ export default function EquipmentTypesTab() {
         <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
-            <div style={{ fontSize: "12px", color: colors.inkSoft }}>{counts[t.id] || 0} item(s)</div>
+            <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+              {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""}
+            </div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
             <button type="button" onClick={() => moveType(i, -1)} disabled={i === 0} style={iconButtonStyle}>↑</button>
@@ -188,6 +190,19 @@ export default function EquipmentTypesTab() {
                 items={form.pre_use_checklist}
                 onChange={(items) => setForm({ ...form, pre_use_checklist: items })}
               />
+
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: colors.ink, marginTop: "14px" }}>
+                <input
+                  type="checkbox"
+                  checked={form.allow_multi_checkout}
+                  onChange={(e) => setForm({ ...form, allow_multi_checkout: e.target.checked })}
+                />
+                Allow checking out more than one at once
+              </label>
+              <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "4px", marginBottom: 0 }}>
+                For kit like batteries that the team takes out and swaps in a group. On the kiosk, staff will tick as
+                many units as they need before continuing, instead of picking one at a time.
+              </p>
 
               {error && <p style={{ color: colors.immediate, fontSize: "13px", marginTop: "10px" }}>{error}</p>}
 
