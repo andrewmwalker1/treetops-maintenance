@@ -40,6 +40,11 @@ export default function JobDetail() {
   const [people, setPeople] = useState([]);
   const [groups, setGroups] = useState([]);
   const [contractors, setContractors] = useState([]);
+  const [pitches, setPitches] = useState([]);
+  const [areas, setAreas] = useState([]);
+  const [allActivityTypes, setAllActivityTypes] = useState([]);
+  const [locationKind, setLocationKind] = useState("none");
+  const [areaDraft, setAreaDraft] = useState("");
   const [comment, setComment] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [error, setError] = useState(null);
@@ -58,7 +63,7 @@ export default function JobDetail() {
   const [recallTemplateId, setRecallTemplateId] = useState("");
   const [recalling, setRecalling] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
-  const [progressPercent, setProgressPercent] = useState(50);
+  const [progressPercent, setProgressPercent] = useState(0);
   const [loggingProgress, setLoggingProgress] = useState(false);
   const [progressLogged, setProgressLogged] = useState(false);
 
@@ -72,6 +77,8 @@ export default function JobDetail() {
     }
     setJob(data.job);
     setDescriptionDraft(data.job.description);
+    setLocationKind(data.job.pitch_id ? "pitch" : data.job.area_id ? "area" : "none");
+    setAreaDraft(data.job.area?.name || "");
     setSubtasks(data.subtasks);
     setPhotos(data.photos);
     setActivity(data.activity);
@@ -90,7 +97,14 @@ export default function JobDetail() {
     supabase.from("groups").select("id, name").eq("org_id", org.id).then(({ data }) => setGroups(data || []));
     supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
     supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).order("name").then(({ data }) => setJobTypes(data || []));
+    supabase.from("task_types").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setAllActivityTypes(data || []));
   }, [org]);
+
+  useEffect(() => {
+    if (!activeSite) return;
+    supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
+    supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
+  }, [activeSite]);
 
   async function toggleSubtask(subtask) {
     const { error: err } = await supabase.from("job_subtasks").update({ is_checked: !subtask.is_checked }).eq("id", subtask.id);
@@ -416,6 +430,71 @@ export default function JobDetail() {
     loadAll();
   }
 
+  async function persistLocation(update) {
+    const { error: err } = await supabase.from("jobs").update(update).eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "edit",
+      actor_profile_id: profile.id,
+      previous_value: { pitch_id: job.pitch_id, area_id: job.area_id },
+      new_value: update,
+    });
+    loadAll();
+  }
+
+  function handleLocationKindChange(kind) {
+    setLocationKind(kind);
+    if (kind === "none") persistLocation({ pitch_id: null, area_id: null });
+    // pitch/area: wait for an actual selection below before persisting.
+  }
+
+  function handlePitchChange(pitchId) {
+    if (!pitchId) return;
+    persistLocation({ pitch_id: pitchId, area_id: null });
+  }
+
+  // Areas are free text (see NewJob.jsx's identical resolve-or-create) --
+  // resolve the typed name to an existing area or create a new one.
+  async function handleAreaBlur() {
+    const trimmed = areaDraft.trim();
+    if (!trimmed || trimmed === job.area?.name) return;
+    const existing = areas.find((a) => a.name.toLowerCase() === trimmed.toLowerCase());
+    let areaId = existing?.id;
+    if (!areaId) {
+      const { data: newArea, error: areaError } = await supabase
+        .from("areas")
+        .insert({ site_id: job.site_id, name: trimmed, created_by: profile.id })
+        .select()
+        .single();
+      if (areaError) {
+        setError(areaError.message);
+        return;
+      }
+      areaId = newArea.id;
+      setAreas((prev) => [...prev, newArea]);
+    }
+    await persistLocation({ area_id: areaId, pitch_id: null });
+  }
+
+  // job_activity_types has no permission gate beyond seeing the job (see
+  // 06-activity-types-and-safety-library.sql) -- treated as ordinary job
+  // metadata like priority or location, unlike checklist editing.
+  async function toggleJobActivityType(taskTypeId) {
+    const isLinked = activityTypes.some((t) => t.id === taskTypeId);
+    const { error: err } = isLinked
+      ? await supabase.from("job_activity_types").delete().eq("job_id", job.id).eq("task_type_id", taskTypeId)
+      : await supabase.from("job_activity_types").insert({ job_id: job.id, task_type_id: taskTypeId });
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    loadAll();
+  }
+
   // Mirrors KioskJobs.jsx's identical handler -- a progress-update note is
   // just a job_activity row (event_type "progress_update"), independent of
   // the job's actual status_id. Previously only the kiosk could log one;
@@ -600,6 +679,38 @@ export default function JobDetail() {
             ))}
           </select>
 
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Location</label>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "10px", fontSize: "14px" }}>
+            <label><input type="radio" checked={locationKind === "pitch"} onChange={() => handleLocationKindChange("pitch")} /> {terminology.pitch || "Pitch"}</label>
+            <label><input type="radio" checked={locationKind === "area"} onChange={() => handleLocationKindChange("area")} /> {terminology.area || "Area"}</label>
+            <label><input type="radio" checked={locationKind === "none"} onChange={() => handleLocationKindChange("none")} /> None</label>
+          </div>
+          {locationKind === "pitch" && (
+            <select value={job.pitch_id || ""} onChange={(e) => handlePitchChange(e.target.value)} style={selectStyle}>
+              <option value="">—</option>
+              {pitches.map((p) => (
+                <option key={p.id} value={p.id}>{p.pitch_number_or_name}</option>
+              ))}
+            </select>
+          )}
+          {locationKind === "area" && (
+            <>
+              <input
+                list="job-detail-area-suggestions"
+                value={areaDraft}
+                onChange={(e) => setAreaDraft(e.target.value)}
+                onBlur={handleAreaBlur}
+                placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
+                style={selectStyle}
+              />
+              <datalist id="job-detail-area-suggestions">
+                {areas.map((a) => (
+                  <option key={a.id} value={a.name} />
+                ))}
+              </datalist>
+            </>
+          )}
+
           {permissions.has("can_reallocate_jobs") && (
             <>
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Reassign to</label>
@@ -635,8 +746,19 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {activityTypes.length > 0 && (
+      {(activityTypes.length > 0 || allActivityTypes.length > 0) && (
         <Section title="⚠ Safety">
+          {allActivityTypes.length > 0 && (
+            <div style={{ marginBottom: "14px" }}>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Activity types</div>
+              {allActivityTypes.map((t) => (
+                <label key={t.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
+                  <input type="checkbox" checked={activityTypes.some((a) => a.id === t.id)} onChange={() => toggleJobActivityType(t.id)} />
+                  {t.name}
+                </label>
+              ))}
+            </div>
+          )}
           {activityTypes.map((t) => (
             <div key={t.id} style={{ marginBottom: "10px" }}>
               <div style={{ fontWeight: 600, fontSize: "14px" }}>{t.name}</div>
