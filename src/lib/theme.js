@@ -1,18 +1,22 @@
 // Field Journal design tokens — Section 8 of BUILD-BRIEF.md. Reproduced
 // exactly; don't hardcode these hex values anywhere else.
 
+// Admiralty colourway — chart-paper navy, swapped in in place of the
+// original Field Journal moss/clay/gold palette. Same token names so
+// every consumer (priorityColor, statusColor, cardStyle, etc. below)
+// keeps working unchanged; only the hex values moved.
 export const colors = {
-  bg: "#E7E2CC",
-  paper: "#FBF9F1",
-  ink: "#31382D",
-  inkSoft: "#78806E",
-  moss: "#5C7A4E",
-  mossDark: "#3F5837",
-  clay: "#A65A34",
-  gold: "#C9962F",
-  immediate: "#8C3A22",
-  line: "#DDD6BC",
-  lineStrong: "#CBC2A0",
+  bg: "#E4E7EC",
+  paper: "#FAFBFC",
+  ink: "#1B2430",
+  inkSoft: "#64707D",
+  moss: "#1F3B5C",
+  mossDark: "#142840",
+  clay: "#5C6670",
+  gold: "#A9862F",
+  immediate: "#7A2E28",
+  line: "#D4D9DF",
+  lineStrong: "#B9C1CA",
 };
 
 export const fonts = {
@@ -46,7 +50,7 @@ export function priorityBarStyle(priority) {
   if (priority === "immediate") {
     return {
       ...base,
-      backgroundImage: `repeating-linear-gradient(45deg, ${colors.immediate}, ${colors.immediate} 4px, #6b2a18 4px, #6b2a18 8px)`,
+      backgroundImage: `repeating-linear-gradient(45deg, ${colors.immediate}, ${colors.immediate} 4px, #4E1B17 4px, #4E1B17 8px)`,
     };
   }
   return { ...base, background: priorityColor[priority] || colors.moss };
