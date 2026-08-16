@@ -484,9 +484,10 @@ export default function JobDetail() {
     await persistLocation({ area_id: areaId, pitch_id: null });
   }
 
-  // job_activity_types has no permission gate beyond seeing the job (see
-  // 06-activity-types-and-safety-library.sql) -- treated as ordinary job
-  // metadata like priority or location, unlike checklist editing.
+  // Gated by can_edit_job_details server-side too (see
+  // 28-job-activity-types-edit-permission.sql) -- the UI only ever calls
+  // this from checkboxes that are themselves hidden without the
+  // permission, but the RLS policy is what actually stops a direct call.
   async function toggleJobActivityType(taskTypeId) {
     const isLinked = activityTypes.some((t) => t.id === taskTypeId);
     const { error: err } = isLinked
@@ -775,9 +776,9 @@ export default function JobDetail() {
         </div>
       </div>
 
-      {(activityTypes.length > 0 || allActivityTypes.length > 0) && (
+      {(activityTypes.length > 0 || (canEditJobDetails && allActivityTypes.length > 0)) && (
         <Section title="⚠ Safety">
-          {allActivityTypes.length > 0 && (
+          {canEditJobDetails && allActivityTypes.length > 0 && (
             <div style={{ marginBottom: "14px" }}>
               <div style={{ fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Activity types</div>
               {allActivityTypes.map((t) => (
@@ -788,6 +789,10 @@ export default function JobDetail() {
               ))}
             </div>
           )}
+          {/* Without can_edit_job_details, only the types already selected on
+              this job show -- each still links through to its RA/MS
+              documents below, so viewing safety info never requires the
+              edit permission, only changing the selection does. */}
           {activityTypes.map((t) => (
             <div key={t.id} style={{ marginBottom: "10px" }}>
               <div style={{ fontWeight: 600, fontSize: "14px" }}>{t.name}</div>
