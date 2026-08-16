@@ -29,6 +29,10 @@ export default function JobDetail() {
   // action that the server will then reject.
   const canManageTemplates = permissions.has("can_edit_job_checklist") && permissions.has("can_manage_reference_data");
   const canDeleteJob = permissions.has("can_delete_jobs");
+  // Completing/cancelling a job and reopening it are exempted server-side
+  // (see 27-job-details-edit-permission.sql) -- this only gates due
+  // date/priority/location and jumping status around otherwise.
+  const canEditJobDetails = permissions.has("can_edit_job_details");
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
@@ -652,63 +656,88 @@ export default function JobDetail() {
           {job.completed_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Completed {job.completed_date}</p>}
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Due date</label>
-          <input
-            type="date"
-            value={job.due_date || ""}
-            onChange={(e) => handleDueDateChange(e.target.value || null)}
-            style={selectStyle}
-          />
+          {canEditJobDetails ? (
+            <input
+              type="date"
+              value={job.due_date || ""}
+              onChange={(e) => handleDueDateChange(e.target.value || null)}
+              style={selectStyle}
+            />
+          ) : (
+            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>{job.due_date || "No due date"}</p>
+          )}
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Status</label>
-          <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
-            {statuses.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Priority</label>
-          <select
-            value={job.priority}
-            onChange={(e) => handlePriorityChange(e.target.value)}
-            style={{ ...selectStyle, color: priorityColor[job.priority], fontWeight: 600 }}
-          >
-            {PRIORITIES.map((p) => (
-              <option key={p} value={p} style={{ color: priorityColor[p] }}>
-                {p.charAt(0).toUpperCase() + p.slice(1)}
-              </option>
-            ))}
-          </select>
-
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Location</label>
-          <div style={{ display: "flex", gap: "10px", marginBottom: "10px", fontSize: "14px" }}>
-            <label><input type="radio" checked={locationKind === "pitch"} onChange={() => handleLocationKindChange("pitch")} /> {terminology.pitch || "Pitch"}</label>
-            <label><input type="radio" checked={locationKind === "area"} onChange={() => handleLocationKindChange("area")} /> {terminology.area || "Area"}</label>
-            <label><input type="radio" checked={locationKind === "none"} onChange={() => handleLocationKindChange("none")} /> None</label>
-          </div>
-          {locationKind === "pitch" && (
-            <select value={job.pitch_id || ""} onChange={(e) => handlePitchChange(e.target.value)} style={selectStyle}>
-              <option value="">—</option>
-              {pitches.map((p) => (
-                <option key={p.id} value={p.id}>{p.pitch_number_or_name}</option>
+          {canEditJobDetails ? (
+            <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
+              {statuses.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+          ) : (
+            // Marking a job Completed still works without can_edit_job_details --
+            // that goes through the separate "Complete" button below, not this
+            // dropdown, and the server-side trigger exempts that transition.
+            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>{job.job_status?.name}</p>
           )}
-          {locationKind === "area" && (
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Priority</label>
+          {canEditJobDetails ? (
+            <select
+              value={job.priority}
+              onChange={(e) => handlePriorityChange(e.target.value)}
+              style={{ ...selectStyle, color: priorityColor[job.priority], fontWeight: 600 }}
+            >
+              {PRIORITIES.map((p) => (
+                <option key={p} value={p} style={{ color: priorityColor[p] }}>
+                  {p.charAt(0).toUpperCase() + p.slice(1)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <p style={{ fontSize: "14px", margin: "4px 0 14px", color: priorityColor[job.priority], fontWeight: 600 }}>
+              {job.priority.charAt(0).toUpperCase() + job.priority.slice(1)}
+            </p>
+          )}
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Location</label>
+          {canEditJobDetails ? (
             <>
-              <input
-                list="job-detail-area-suggestions"
-                value={areaDraft}
-                onChange={(e) => setAreaDraft(e.target.value)}
-                onBlur={handleAreaBlur}
-                placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
-                style={selectStyle}
-              />
-              <datalist id="job-detail-area-suggestions">
-                {areas.map((a) => (
-                  <option key={a.id} value={a.name} />
-                ))}
-              </datalist>
+              <div style={{ display: "flex", gap: "10px", marginBottom: "10px", fontSize: "14px" }}>
+                <label><input type="radio" checked={locationKind === "pitch"} onChange={() => handleLocationKindChange("pitch")} /> {terminology.pitch || "Pitch"}</label>
+                <label><input type="radio" checked={locationKind === "area"} onChange={() => handleLocationKindChange("area")} /> {terminology.area || "Area"}</label>
+                <label><input type="radio" checked={locationKind === "none"} onChange={() => handleLocationKindChange("none")} /> None</label>
+              </div>
+              {locationKind === "pitch" && (
+                <select value={job.pitch_id || ""} onChange={(e) => handlePitchChange(e.target.value)} style={selectStyle}>
+                  <option value="">—</option>
+                  {pitches.map((p) => (
+                    <option key={p.id} value={p.id}>{p.pitch_number_or_name}</option>
+                  ))}
+                </select>
+              )}
+              {locationKind === "area" && (
+                <>
+                  <input
+                    list="job-detail-area-suggestions"
+                    value={areaDraft}
+                    onChange={(e) => setAreaDraft(e.target.value)}
+                    onBlur={handleAreaBlur}
+                    placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
+                    style={selectStyle}
+                  />
+                  <datalist id="job-detail-area-suggestions">
+                    {areas.map((a) => (
+                      <option key={a.id} value={a.name} />
+                    ))}
+                  </datalist>
+                </>
+              )}
             </>
+          ) : (
+            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>
+              {job.pitch ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}` : job.area ? job.area.name : "None"}
+            </p>
           )}
 
           {permissions.has("can_reallocate_jobs") && (
