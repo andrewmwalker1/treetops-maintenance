@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { getEquipmentTypeAvailabilityCounts, getAvailableUnits } from "../lib/equipmentAvailability.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import ReportIssueForm from "./ReportIssueForm.jsx";
+import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "./kioskTheme.js";
 
@@ -23,6 +24,7 @@ export default function KioskCheckOut() {
   const [checkoutOutcome, setCheckoutOutcome] = useState(null); // set only when a multi checkout partially failed
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [showSafety, setShowSafety] = useState(false);
 
   useEffect(() => {
     if (!org) return;
@@ -35,6 +37,7 @@ export default function KioskCheckOut() {
     setSelectedType(type);
     setSelectedIds(new Set());
     setCheckoutOutcome(null);
+    setShowSafety(false);
     getAvailableUnits(type.id).then((u) => {
       setUnits(u);
       setView("units");
@@ -65,6 +68,7 @@ export default function KioskCheckOut() {
     setSelectedIds(new Set());
     setReportingIssueFor(null);
     setCheckoutOutcome(null);
+    setShowSafety(false);
     if (org) getEquipmentTypeAvailabilityCounts(org.id).then(setCategories);
   }
 
@@ -253,6 +257,15 @@ export default function KioskCheckOut() {
           ← Categories
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{selectedType.name}</h1>
+        {selectedType.documents.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSafety(true)}
+            style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "16px", borderColor: colors.immediate, color: colors.immediate }}
+          >
+            ⚠ Health &amp; Safety
+          </button>
+        )}
         {multi && units.length > 0 && (
           <p style={{ color: colors.inkSoft, marginTop: "-8px" }}>Tick everything you need, then continue.</p>
         )}
@@ -306,6 +319,23 @@ export default function KioskCheckOut() {
             >
               Continue{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
             </button>
+          </div>
+        )}
+
+        {showSafety && (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
+            onClick={() => setShowSafety(false)}
+          >
+            <div style={{ ...kioskCardStyle, maxWidth: "560px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "20px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
+              {selectedType.documents.map((doc) => (
+                <SafetyDocumentLink key={doc.id} doc={doc} />
+              ))}
+              <button type="button" style={{ ...kioskSecondaryButtonStyle, marginTop: "16px" }} onClick={() => setShowSafety(false)}>
+                Close
+              </button>
+            </div>
           </div>
         )}
       </div>

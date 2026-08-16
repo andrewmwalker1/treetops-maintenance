@@ -7,10 +7,15 @@
 import { supabase } from "./supabaseClient.js";
 
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
-  const [{ data: types }, { data: equipment }, { data: openCheckouts }] = await Promise.all([
+  const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
     supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout").eq("org_id", orgId).order("sort_order"),
     supabase.from("equipment").select("id, equipment_type_id, status").eq("org_id", orgId),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
+    // Kiosk checkout surfaces these via a "Health & Safety" button once
+    // an equipment type has any linked -- fetched here, not on demand,
+    // so the button's own visibility (has documents or not) doesn't need
+    // a second round trip per type.
+    supabase.from("equipment_type_documents").select("equipment_type_id, document:ra_ms_documents(id, type, title, description, pdf_storage_path)"),
   ]);
 
   const checkedOutIds = new Set((openCheckouts || []).map((c) => c.equipment_id));
@@ -22,6 +27,11 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     if (e.status === "in_service" && !checkedOutIds.has(e.id)) bucket.available += 1;
   }
 
+  const documentsByType = {};
+  for (const link of docLinks || []) {
+    documentsByType[link.equipment_type_id] = [...(documentsByType[link.equipment_type_id] || []), link.document];
+  }
+
   return (types || []).map((t) => ({
     id: t.id,
     name: t.name,
@@ -29,6 +39,7 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     allowMultiCheckout: t.allow_multi_checkout || false,
     availableCount: counts[t.id]?.available || 0,
     totalCount: counts[t.id]?.total || 0,
+    documents: documentsByType[t.id] || [],
   }));
 }
 

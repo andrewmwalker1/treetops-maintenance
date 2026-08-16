@@ -5,6 +5,7 @@ import KioskMenu from "./KioskMenu.jsx";
 import KioskJobs from "./KioskJobs.jsx";
 import KioskCheckOut from "./KioskCheckOut.jsx";
 import KioskCheckIn from "./KioskCheckIn.jsx";
+import KioskSafety from "./KioskSafety.jsx";
 import { kioskPageStyle } from "./kioskTheme.js";
 
 // Idle sign-out: staff don't have to re-tap between quick consecutive
@@ -49,6 +50,7 @@ export default function KioskApp() {
         <Route path="/kiosk/jobs" element={<KioskJobs />} />
         <Route path="/kiosk/checkout" element={<KioskCheckOut />} />
         <Route path="/kiosk/checkin" element={<KioskCheckIn />} />
+        <Route path="/kiosk/safety" element={<KioskSafety />} />
       </Routes>
     </div>
   );

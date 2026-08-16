@@ -1,14 +1,86 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
-import { colors, fonts, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
+import { loadJobForPrint } from "../lib/loadJobForPrint.js";
+import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
+import { colors, fonts, statusColor, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "./kioskTheme.js";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+// The status pill carries its name as text, which needs room -- once a
+// job's description already wraps onto a second line, keeping the pill
+// forces the row taller still. Swapping to a plain colour-coded dot once
+// wrapped keeps rows compact without losing the status at a glance
+// (name available via the dot's title tooltip). Detected by rendered
+// line count, not word/character count, so it tracks the real column
+// width rather than an arbitrary guess.
+function JobRow({ job, onClick }) {
+  const descRef = useRef(null);
+  const [wrapped, setWrapped] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = descRef.current;
+    if (!el) return;
+    setWrapped(el.getClientRects().length > 1);
+  }, [job.description]);
+
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        ...kioskCardStyle,
+        display: "flex",
+        gap: "12px",
+        width: "100%",
+        textAlign: "left",
+        marginBottom: "14px",
+        cursor: "pointer",
+        font: "inherit",
+      }}
+    >
+      <div style={priorityBarStyle(job.priority)} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "flex-start" }}>
+          <span ref={descRef} style={{ fontWeight: 700, fontSize: "18px" }}>{job.description}</span>
+          {wrapped ? (
+            <span
+              title={job.job_status?.name}
+              style={{ width: "16px", height: "16px", borderRadius: "50%", flexShrink: 0, marginTop: "3px", background: statusColor[job.job_status?.name] || colors.inkSoft }}
+            />
+          ) : (
+            <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
+          )}
+        </div>
+        {job.due_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "14px", margin: "6px 0 0" }}>Due {job.due_date}</p>}
+      </div>
+    </button>
+  );
+}
+
+function FilterChip({ active, onClick, label }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        border: `2px solid ${active ? colors.mossDark : colors.lineStrong}`,
+        background: active ? colors.mossDark : "transparent",
+        color: active ? "#FFFFFF" : colors.inkSoft,
+        borderRadius: "999px",
+        padding: "8px 16px",
+        fontFamily: fonts.body,
+        fontSize: "15px",
+        cursor: "pointer",
+      }}
+    >
+      {label}
+    </button>
+  );
 }
 
 export default function KioskJobs() {
@@ -18,16 +90,29 @@ export default function KioskJobs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [statuses, setStatuses] = useState([]);
+  const [activeStatusId, setActiveStatusId] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
+  const [activityTypes, setActivityTypes] = useState([]);
+  const [documentsByActivityType, setDocumentsByActivityType] = useState({});
   const [completing, setCompleting] = useState(false);
   const [completeComment, setCompleteComment] = useState("");
-  const [progressPercent, setProgressPercent] = useState(50);
+  const [progressPercent, setProgressPercent] = useState(0);
   const [loggingProgress, setLoggingProgress] = useState(false);
   const [progressLogged, setProgressLogged] = useState(false);
 
+  useEffect(() => {
+    if (!profile) return;
+    supabase
+      .from("job_statuses")
+      .select("id, name, is_completed")
+      .eq("org_id", profile.org_id)
+      .then(({ data }) => setStatuses(data || []));
+  }, [profile]);
+
   const refresh = useCallback(async () => {
-    if (!activeSite || !profile) return;
+    if (!activeSite) return;
     setLoading(true);
     // Same visibility as the main Jobs screen -- queryJobs is already
     // scoped by RLS (can_see_job: assignee, assignee's group, role
@@ -35,14 +120,22 @@ export default function KioskJobs() {
     // narrowing here. Previously filtered down to direct assignee/group
     // membership only, which was narrower than what the same person
     // sees signed into the main app -- not what the kiosk is meant to be.
-    const [allJobs, { data: statusRows }] = await Promise.all([
-      queryJobs(activeSite.id, {}),
-      supabase.from("job_statuses").select("id, name, is_completed").eq("org_id", profile.org_id),
-    ]);
+    //
+    // Default view matches the main Jobs screen: open/in-progress only,
+    // Completed reachable via the Filters chip row, not shown by default
+    // (Andy: "should not show completed jobs, but should allow the
+    // viewing of completed jobs when the filter button is pressed").
+    const filters = {};
+    if (activeStatusId) {
+      filters.statusIds = [activeStatusId];
+    } else if (statuses.length) {
+      const openStatusIds = statuses.filter((s) => !s.is_completed).map((s) => s.id);
+      if (openStatusIds.length) filters.statusIds = openStatusIds;
+    }
+    const allJobs = await queryJobs(activeSite.id, filters);
     setJobs(allJobs);
-    setStatuses(statusRows || []);
     setLoading(false);
-  }, [activeSite, profile]);
+  }, [activeSite, activeStatusId, statuses]);
 
   useEffect(() => {
     refresh().catch((err) => setError(err.message));
@@ -51,15 +144,13 @@ export default function KioskJobs() {
   async function openJob(job) {
     setError(null);
     setCompleteComment("");
-    setProgressPercent(50);
+    setProgressPercent(0);
     setProgressLogged(false);
     setSelectedJob(job);
-    const { data } = await supabase
-      .from("job_subtasks")
-      .select("id, label, is_checked, sort_order")
-      .eq("job_id", job.id)
-      .order("sort_order");
-    setSubtasks(data || []);
+    const { subtasks: subtaskRows, activityTypes: types, documentsByActivityType: docs } = await loadJobForPrint(job.id);
+    setSubtasks(subtaskRows);
+    setActivityTypes(types);
+    setDocumentsByActivityType(docs);
   }
 
   async function toggleSubtask(subtask) {
@@ -134,6 +225,23 @@ export default function KioskJobs() {
             </div>
           </div>
         </div>
+
+        {activityTypes.length > 0 && (
+          <div style={{ ...kioskCardStyle, marginBottom: "20px", border: `2px solid ${colors.immediate}` }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.immediate, marginTop: 0 }}>⚠ Safety</h2>
+            {activityTypes.map((t) => (
+              <div key={t.id} style={{ marginBottom: "10px" }}>
+                <div style={{ fontWeight: 700, fontSize: "16px" }}>{t.name}</div>
+                {(documentsByActivityType[t.id] || []).length === 0 && (
+                  <p style={{ color: colors.inkSoft, fontSize: "14px", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
+                )}
+                {(documentsByActivityType[t.id] || []).map((doc) => (
+                  <SafetyDocumentLink key={doc.id} doc={doc} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
           <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Checklist</h2>
@@ -215,39 +323,31 @@ export default function KioskJobs() {
 
   return (
     <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => navigate("/kiosk")}>
-        ← Menu
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px" }} onClick={() => navigate("/kiosk")}>
+          ← Menu
+        </button>
+        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px" }} onClick={() => setShowFilters((v) => !v)}>
+          Filters{activeStatusId ? " •" : ""}
+        </button>
+      </div>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Your jobs</h1>
+
+      {showFilters && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
+          <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="Open" />
+          {statuses.map((s) => (
+            <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
+          ))}
+        </div>
+      )}
 
       {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
       {error && <p style={{ color: colors.immediate }}>{error}</p>}
-      {!loading && jobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs assigned to you or your groups.</p>}
+      {!loading && jobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs to show.</p>}
 
       {jobs.map((job) => (
-        <button
-          key={job.id}
-          onClick={() => openJob(job)}
-          style={{
-            ...kioskCardStyle,
-            display: "flex",
-            gap: "12px",
-            width: "100%",
-            textAlign: "left",
-            marginBottom: "14px",
-            cursor: "pointer",
-            font: "inherit",
-          }}
-        >
-          <div style={priorityBarStyle(job.priority)} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
-              <span style={{ fontWeight: 700, fontSize: "18px" }}>{job.description}</span>
-              <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
-            </div>
-            {job.due_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "14px", margin: "6px 0 0" }}>Due {job.due_date}</p>}
-          </div>
-        </button>
+        <JobRow key={job.id} job={job} onClick={() => openJob(job)} />
       ))}
     </div>
   );

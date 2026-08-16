@@ -25,12 +25,14 @@ const iconButtonStyle = {
   fontSize: "13px",
 };
 
-const blank = { id: null, name: "", pre_use_checklist: [], allow_multi_checkout: false };
+const blank = { id: null, name: "", pre_use_checklist: [], allow_multi_checkout: false, documentIds: [] };
 
 export default function EquipmentTypesTab() {
   const { org } = useAuth();
   const [types, setTypes] = useState([]);
   const [counts, setCounts] = useState({});
+  const [documents, setDocuments] = useState([]);
+  const [linksByType, setLinksByType] = useState({});
   const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
   const [copyFromId, setCopyFromId] = useState("");
@@ -39,7 +41,9 @@ export default function EquipmentTypesTab() {
     Promise.all([
       supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout, sort_order").eq("org_id", org.id).order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
-    ]).then(([{ data: t, error: err }, { data: eq }]) => {
+      supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id),
+      supabase.from("equipment_type_documents").select("equipment_type_id, document_id"),
+    ]).then(([{ data: t, error: err }, { data: eq }, { data: docs }, { data: links }]) => {
       if (err) setError(err.message);
       else setTypes(t || []);
       const grouped = {};
@@ -47,6 +51,12 @@ export default function EquipmentTypesTab() {
         if (row.equipment_type_id) grouped[row.equipment_type_id] = (grouped[row.equipment_type_id] || 0) + 1;
       }
       setCounts(grouped);
+      setDocuments(docs || []);
+      const linkGroups = {};
+      for (const link of links || []) {
+        linkGroups[link.equipment_type_id] = [...(linkGroups[link.equipment_type_id] || []), link.document_id];
+      }
+      setLinksByType(linkGroups);
     });
   }
 
@@ -68,7 +78,20 @@ export default function EquipmentTypesTab() {
   function editType(t) {
     setError(null);
     setCopyFromId("");
-    setForm({ id: t.id, name: t.name, pre_use_checklist: t.pre_use_checklist || [], allow_multi_checkout: t.allow_multi_checkout || false });
+    setForm({
+      id: t.id,
+      name: t.name,
+      pre_use_checklist: t.pre_use_checklist || [],
+      allow_multi_checkout: t.allow_multi_checkout || false,
+      documentIds: linksByType[t.id] || [],
+    });
+  }
+
+  function toggleDocument(docId) {
+    setForm((f) => ({
+      ...f,
+      documentIds: f.documentIds.includes(docId) ? f.documentIds.filter((id) => id !== docId) : [...f.documentIds, docId],
+    }));
   }
 
   function copyChecklistFrom(sourceId) {
@@ -86,13 +109,24 @@ export default function EquipmentTypesTab() {
     if (!form.id) {
       payload.sort_order = types.length > 0 ? Math.max(...types.map((t) => t.sort_order)) + 1 : 0;
     }
-    const { error: err } = form.id
-      ? await supabase.from("equipment_types").update(payload).eq("id", form.id)
-      : await supabase.from("equipment_types").insert(payload);
+    const { data: saved, error: err } = form.id
+      ? await supabase.from("equipment_types").update(payload).eq("id", form.id).select().single()
+      : await supabase.from("equipment_types").insert(payload).select().single();
     if (err) {
       setError(err.message);
       return;
     }
+
+    const previousLinks = linksByType[saved.id] || [];
+    const toAdd = form.documentIds.filter((id) => !previousLinks.includes(id));
+    const toRemove = previousLinks.filter((id) => !form.documentIds.includes(id));
+    if (toAdd.length > 0) {
+      await supabase.from("equipment_type_documents").insert(toAdd.map((document_id) => ({ equipment_type_id: saved.id, document_id })));
+    }
+    for (const document_id of toRemove) {
+      await supabase.from("equipment_type_documents").delete().eq("equipment_type_id", saved.id).eq("document_id", document_id);
+    }
+
     setForm(null);
     refresh();
   }
@@ -118,7 +152,7 @@ export default function EquipmentTypesTab() {
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
-              {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""}
+              {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""} · {(linksByType[t.id] || []).length} RA/MS document(s) linked
             </div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
@@ -203,6 +237,17 @@ export default function EquipmentTypesTab() {
                 For kit like batteries that the team takes out and swaps in a group. On the kiosk, staff will tick as
                 many units as they need before continuing, instead of picking one at a time.
               </p>
+
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, margin: "14px 0 6px" }}>
+                Linked RA/MS documents
+              </label>
+              {documents.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No documents in the library yet — add some in the Safety Library tab first.</p>}
+              {documents.map((d) => (
+                <label key={d.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
+                  <input type="checkbox" checked={form.documentIds.includes(d.id)} onChange={() => toggleDocument(d.id)} />
+                  <span style={{ fontSize: "12px", color: colors.inkSoft, textTransform: "capitalize" }}>{d.type.replace("_", " ")}</span> {d.title}
+                </label>
+              ))}
 
               {error && <p style={{ color: colors.immediate, fontSize: "13px", marginTop: "10px" }}>{error}</p>}
 

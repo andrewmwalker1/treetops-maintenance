@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
@@ -25,7 +25,7 @@ function useViewAsCandidates() {
   const [people, setPeople] = useState([]);
   const [roles, setRoles] = useState([]);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     if (viewingAs || !permissions.has("can_manage_users")) {
       setPeople([]);
       setRoles([]);
@@ -48,13 +48,20 @@ function useViewAsCandidates() {
       .then(({ data, error }) => setRoles(error ? [] : data || []));
   }, [viewingAs, permissions, realProfile?.id, realProfile?.org_id]);
 
-  return { people, roles };
+  // Layout (and this picker with it) mounts once for the whole session --
+  // it never remounts just from navigating around the app -- so a fetch
+  // on mount alone would go stale the moment someone's invited mid-session
+  // and go looking for them in "View as" without a page reload. Refetch on
+  // mount AND every time the dropdown is actually opened.
+  useEffect(refresh, [refresh]);
+
+  return { people, roles, refresh };
 }
 
 export function ViewAsPicker() {
   const { startViewingAs } = useAuth();
   const [picked, setPicked] = useState("");
-  const { people, roles } = useViewAsCandidates();
+  const { people, roles, refresh } = useViewAsCandidates();
 
   if (people.length === 0 && roles.length === 0) return null;
 
@@ -85,6 +92,7 @@ export function ViewAsPicker() {
     <select
       value={picked}
       onChange={handleChange}
+      onFocus={refresh}
       style={{
         border: `1px solid ${colors.lineStrong}`,
         borderRadius: "999px",
