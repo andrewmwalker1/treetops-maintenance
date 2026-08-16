@@ -53,6 +53,10 @@ export default function JobDetail() {
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [jobTypes, setJobTypes] = useState([]);
+  const [showRecallModal, setShowRecallModal] = useState(false);
+  const [recallTemplateId, setRecallTemplateId] = useState("");
+  const [recalling, setRecalling] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
   const [progressPercent, setProgressPercent] = useState(50);
   const [loggingProgress, setLoggingProgress] = useState(false);
@@ -85,6 +89,7 @@ export default function JobDetail() {
     supabase.from("profiles").select("id, display_name").eq("org_id", org.id).then(({ data }) => setPeople(data || []));
     supabase.from("groups").select("id, name").eq("org_id", org.id).then(({ data }) => setGroups(data || []));
     supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
+    supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).order("name").then(({ data }) => setJobTypes(data || []));
   }, [org]);
 
   async function toggleSubtask(subtask) {
@@ -164,6 +169,41 @@ export default function JobDetail() {
       .update({ template_schema: subtasks.map((s) => s.label) })
       .eq("id", job.job_type.id);
     if (err) setError(err.message);
+  }
+
+  // "Recall checklist" pulls a job_type's template_schema onto this job's
+  // actual job_subtasks. Overwrite deletes the existing rows first;
+  // append just continues sort_order from whatever's already there --
+  // either way the insert itself is the same shape.
+  async function handleRecallChecklist(mode) {
+    const template = jobTypes.find((t) => t.id === recallTemplateId);
+    const items = template?.template_schema || [];
+    if (items.length === 0) return;
+
+    setRecalling(true);
+    setError(null);
+
+    if (mode === "overwrite" && subtasks.length > 0) {
+      const { error: delErr } = await supabase.from("job_subtasks").delete().eq("job_id", job.id);
+      if (delErr) {
+        setRecalling(false);
+        setError(delErr.message);
+        return;
+      }
+    }
+
+    const startOrder = mode === "append" && subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
+    const rows = items.map((label, i) => ({ job_id: job.id, label, sort_order: startOrder + i }));
+    const { error: insErr } = await supabase.from("job_subtasks").insert(rows);
+    setRecalling(false);
+    if (insErr) {
+      setError(insErr.message);
+      return;
+    }
+
+    setShowRecallModal(false);
+    setRecallTemplateId("");
+    loadAll();
   }
 
   async function handleStatusChange(newStatusId) {
@@ -655,6 +695,13 @@ export default function JobDetail() {
               <button type="submit" style={buttonStyle.secondary}>Add</button>
             </form>
           )}
+          {permissions.has("can_edit_job_checklist") && (
+            <div style={{ marginTop: "10px" }}>
+              <button type="button" onClick={() => setShowRecallModal(true)} style={buttonStyle.secondary}>
+                Recall checklist…
+              </button>
+            </div>
+          )}
           {canManageTemplates && (
             <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
               <button type="button" onClick={() => setShowSaveAsModal(true)} style={buttonStyle.secondary}>
@@ -790,6 +837,48 @@ export default function JobDetail() {
               <button type="submit" disabled={savingTemplate} style={buttonStyle.primary}>{savingTemplate ? "Saving…" : "Save"}</button>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {showRecallModal && (
+        <Modal title="Recall checklist" onClose={() => { setShowRecallModal(false); setRecallTemplateId(""); }}>
+          <label style={modalLabelStyle}>Template</label>
+          <select value={recallTemplateId} onChange={(e) => setRecallTemplateId(e.target.value)} style={selectStyle}>
+            <option value="">Choose a template…</option>
+            {jobTypes.filter((t) => (t.template_schema || []).length > 0).map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name} ({t.template_schema.length} item{t.template_schema.length === 1 ? "" : "s"})
+              </option>
+            ))}
+          </select>
+          {jobTypes.filter((t) => (t.template_schema || []).length > 0).length === 0 && (
+            <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No job templates have a checklist yet.</p>
+          )}
+          {recallTemplateId && subtasks.length > 0 && (
+            <p style={{ fontSize: "13px", color: colors.inkSoft }}>
+              This job already has {subtasks.length} checklist item{subtasks.length === 1 ? "" : "s"}. Append the
+              template's items to the end, or overwrite the existing checklist entirely?
+            </p>
+          )}
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "14px" }}>
+            <button type="button" onClick={() => { setShowRecallModal(false); setRecallTemplateId(""); }} style={buttonStyle.secondary}>
+              Cancel
+            </button>
+            {subtasks.length > 0 ? (
+              <>
+                <button type="button" disabled={!recallTemplateId || recalling} onClick={() => handleRecallChecklist("append")} style={buttonStyle.secondary}>
+                  {recalling ? "Working…" : "Append"}
+                </button>
+                <button type="button" disabled={!recallTemplateId || recalling} onClick={() => handleRecallChecklist("overwrite")} style={buttonStyle.primary}>
+                  {recalling ? "Working…" : "Overwrite"}
+                </button>
+              </>
+            ) : (
+              <button type="button" disabled={!recallTemplateId || recalling} onClick={() => handleRecallChecklist("append")} style={buttonStyle.primary}>
+                {recalling ? "Working…" : "Apply"}
+              </button>
+            )}
+          </div>
         </Modal>
       )}
 
