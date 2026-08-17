@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
+import { flushQueue, getQueueStatus } from "../platform/syncQueue.js";
 import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
 
 const navLinkStyle = ({ isActive }) => ({
@@ -20,6 +21,36 @@ export default function Layout({ children }) {
   const permissions = usePermissions();
   const [dnd, setDnd] = useState(Boolean(profile?.dnd_enabled));
   const [pushStatus, setPushStatus] = useState("idle"); // idle | subscribing | on | error
+  const [queueStatus, setQueueStatus] = useState({ pendingCount: 0, online: navigator.onLine });
+
+  // syncQueue.js documents flush-on-load and flush-on-reconnect as its
+  // intended behaviour, but nothing previously called flushQueue() except
+  // queueJob() itself right after queuing -- a job created offline that
+  // never triggers another offline save would sit queued forever. Layout
+  // mounts for the whole authenticated app, so this is the one place to
+  // drive both the flush and the "N jobs queued" indicator below.
+  useEffect(() => {
+    let cancelled = false;
+    function refreshStatus() {
+      getQueueStatus().then((status) => {
+        if (!cancelled) setQueueStatus(status);
+      });
+    }
+    refreshStatus();
+    flushQueue().then(refreshStatus);
+    const interval = setInterval(refreshStatus, 5000);
+    function handleOnline() {
+      flushQueue().then(refreshStatus);
+    }
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", refreshStatus);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", refreshStatus);
+    };
+  }, []);
 
   async function handleDndToggle() {
     const next = !dnd;
@@ -78,6 +109,22 @@ export default function Layout({ children }) {
           )}
         </nav>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          {queueStatus.pendingCount > 0 && (
+            <span
+              style={{
+                fontSize: "12px",
+                fontWeight: 600,
+                color: "#fff",
+                background: queueStatus.online ? colors.gold : colors.clay,
+                borderRadius: "999px",
+                padding: "5px 12px",
+              }}
+            >
+              {queueStatus.online
+                ? `Syncing ${queueStatus.pendingCount} job${queueStatus.pendingCount === 1 ? "" : "s"}…`
+                : `${queueStatus.pendingCount} job${queueStatus.pendingCount === 1 ? "" : "s"} queued — offline`}
+            </span>
+          )}
           <ViewAsPicker />
           {!viewingAs && (
             <>

@@ -12,10 +12,11 @@
 //   DTSTART:20260101T000000Z\nRRULE:FREQ=WEEKLY;BYDAY=MO
 // A bare "FREQ=..." string with no DTSTART will fail to parse.
 //
-// Section 3 doesn't define a pause/active flag on `schedules`, so every
-// row is currently treated as active — add an `is_active` column and
-// filter on it here if Andy wants to pause a schedule without deleting
-// it.
+// `is_active` (30-schedule-pause-resume.sql) lets a schedule be paused
+// without deleting it. On resume, SchedulesTab.jsx resets
+// last_generated_date to yesterday so this function picks up only from
+// the next due occurrence onward, rather than bursting out a job for
+// every occurrence missed while paused.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { RRule } from "npm:rrule@2";
@@ -38,7 +39,8 @@ function addDays(date: Date, days: number) {
 Deno.serve(async () => {
   const { data: schedules, error: schedulesError } = await supabase
     .from("schedules")
-    .select("id, org_id, site_id, job_type_id, rrule, lead_in_days, last_generated_date, job_types(name)");
+    .select("id, org_id, site_id, job_type_id, rrule, lead_in_days, last_generated_date, job_types(name)")
+    .eq("is_active", true);
 
   if (schedulesError) {
     return new Response(JSON.stringify({ error: schedulesError.message }), { status: 500 });

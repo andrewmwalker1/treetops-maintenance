@@ -114,7 +114,7 @@ export default function SchedulesTab() {
 
   function refresh() {
     Promise.all([
-      supabase.from("schedules").select("id, job_type_id, site_id, rrule, lead_in_days, last_generated_date, job_types(name)").eq("org_id", org.id),
+      supabase.from("schedules").select("id, job_type_id, site_id, rrule, lead_in_days, last_generated_date, is_active, job_types(name)").eq("org_id", org.id),
       supabase.from("job_types").select("id, name").eq("org_id", org.id),
       supabase.from("sites").select("id, name").eq("org_id", org.id),
     ]).then(([{ data: s, error: err }, { data: jt }, { data: st }]) => {
@@ -186,20 +186,44 @@ export default function SchedulesTab() {
     else refresh();
   }
 
+  async function handleToggleActive(s) {
+    const resuming = !s.is_active;
+    const payload = { is_active: resuming };
+    if (resuming) {
+      // Resume from the next due occurrence, not a backlog burst of every
+      // occurrence missed while paused -- see generate-scheduled-jobs'
+      // comment on last_generated_date.
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      payload.last_generated_date = yesterday.toISOString().slice(0, 10);
+    }
+    const { error: err } = await supabase.from("schedules").update(payload).eq("id", s.id);
+    if (err) setError(err.message);
+    else refresh();
+  }
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
       <div>
         <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Recurring jobs</h2>
         {schedules.map((s) => (
-          <div key={s.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div key={s.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: s.is_active ? 1 : 0.6 }}>
             <div>
-              <div style={{ fontWeight: 600 }}>{s.job_types?.name || "Untitled job type"}</div>
+              <div style={{ fontWeight: 600 }}>
+                {s.job_types?.name || "Untitled job type"}
+                {!s.is_active && (
+                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.inkSoft, border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "1px 8px" }}>
+                    PAUSED
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: "12px", color: colors.inkSoft }}>
                 {describeRule(s.rrule)} · {s.lead_in_days} day lead-in
                 {s.last_generated_date ? ` · last created ${s.last_generated_date}` : " · never generated yet"}
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={() => handleToggleActive(s)} style={buttonStyle.secondary}>{s.is_active ? "Pause" : "Resume"}</button>
               <button onClick={() => editSchedule(s)} style={buttonStyle.secondary}>Edit</button>
               <button onClick={() => handleDelete(s.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
             </div>

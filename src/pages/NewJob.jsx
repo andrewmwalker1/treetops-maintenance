@@ -5,6 +5,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { queueJob } from "../platform/syncQueue.js";
 import { capturePhoto } from "../platform/camera.js";
+import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import Modal from "../components/Modal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
@@ -247,6 +248,11 @@ export default function NewJob() {
 
       // Best-effort follow-up writes — the job itself is already
       // created, so a failure here shouldn't block navigation.
+      if (jobData.assignee_profile_id || jobData.assignee_group_id) {
+        notifyJobAssigned({ job: jobData, actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err) =>
+          console.error("Failed to send job-assignment notification", err)
+        );
+      }
       if (photoFile) {
         try {
           await uploadPhotoForJob(jobData.id);
