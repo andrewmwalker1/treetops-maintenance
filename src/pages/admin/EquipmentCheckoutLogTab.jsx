@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { queryEquipmentCheckouts } from "../../lib/equipmentCheckoutsQuery.js";
+import { queryEquipmentHistory } from "../../lib/equipmentCheckoutsQuery.js";
 import { exportEquipmentCheckoutsCsv } from "../../lib/csvExport.js";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+
+const EVENT_TYPE = {
+  checkout: { label: "Checkout", color: colors.gold },
+  fault: { label: "Fault", color: colors.immediate },
+  repair: { label: "Repair", color: colors.moss },
+};
 
 const fieldStyle = {
   padding: "8px 12px",
@@ -47,7 +53,7 @@ export default function EquipmentCheckoutLogTab() {
   const [equipmentTypes, setEquipmentTypes] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [people, setPeople] = useState([]);
-  const [checkouts, setCheckouts] = useState([]);
+  const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
@@ -60,7 +66,7 @@ export default function EquipmentCheckoutLogTab() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState({ field: "checked_out_at", direction: "desc" });
+  const [sort, setSort] = useState({ field: "date", direction: "desc" });
 
   useEffect(() => {
     if (!org) return;
@@ -86,8 +92,8 @@ export default function EquipmentCheckoutLogTab() {
   const refresh = useCallback(() => {
     setLoading(true);
     setError(null);
-    queryEquipmentCheckouts(filters)
-      .then(setCheckouts)
+    queryEquipmentHistory(filters)
+      .then(setEvents)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [filters]);
@@ -96,30 +102,30 @@ export default function EquipmentCheckoutLogTab() {
 
   const visibleEquipment = equipmentTypeId ? equipment.filter((e) => e.equipment_type_id === equipmentTypeId) : equipment;
 
-  const visibleCheckouts = useMemo(() => {
-    let rows = checkouts;
+  const visibleEvents = useMemo(() => {
+    let rows = events;
     const q = search.trim().toLowerCase();
     if (q) {
-      rows = rows.filter((c) =>
-        [c.equipment?.name, c.checked_out_by?.display_name, c.checked_in_by_profile?.display_name, c.fault?.description]
+      rows = rows.filter((e) =>
+        [e.equipment?.name, e.person, e.details]
           .filter(Boolean)
           .some((v) => v.toLowerCase().includes(q))
       );
     }
 
     const dir = sort.direction === "asc" ? 1 : -1;
-    const getValue = (c) => {
+    const getValue = (e) => {
       switch (sort.field) {
         case "equipment":
-          return c.equipment?.name || "";
-        case "checked_out_by":
-          return c.checked_out_by?.display_name || "";
-        case "checked_in_at":
-          return c.checked_in_at || "";
-        case "fault":
-          return c.fault ? 1 : 0;
+          return e.equipment?.name || "";
+        case "type":
+          return EVENT_TYPE[e.type]?.label || "";
+        case "details":
+          return e.details || "";
+        case "person":
+          return e.person || "";
         default:
-          return c.checked_out_at || "";
+          return e.date || "";
       }
     };
     return [...rows].sort((a, b) => {
@@ -129,7 +135,7 @@ export default function EquipmentCheckoutLogTab() {
       if (va > vb) return 1 * dir;
       return 0;
     });
-  }, [checkouts, search, sort]);
+  }, [events, search, sort]);
 
   function toggleSort(field) {
     setSort((prev) => (prev.field === field ? { field, direction: prev.direction === "asc" ? "desc" : "asc" } : { field, direction: "asc" }));
@@ -162,13 +168,13 @@ export default function EquipmentCheckoutLogTab() {
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Equipment checkout log</h2>
+        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Equipment history</h2>
         <button onClick={handleExport} disabled={exporting || loading} style={buttonStyle.secondary}>
           {exporting ? "Exporting…" : "Export CSV"}
         </button>
       </div>
       <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
-        Who checked what out and back in, when, and any fault logged against a check-in.
+        Every checkout, fault, and repair, so you can see a machine's full history in one place.
       </p>
 
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
@@ -192,7 +198,7 @@ export default function EquipmentCheckoutLogTab() {
         ))}
         <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: colors.inkSoft, marginLeft: "4px" }}>
           <input type="checkbox" checked={faultsOnly} onChange={(e) => setFaultsOnly(e.target.checked)} />
-          Faults only
+          Faults &amp; repairs only
         </label>
       </div>
 
@@ -238,54 +244,43 @@ export default function EquipmentCheckoutLogTab() {
 
       {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
       {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-      {!loading && visibleCheckouts.length === 0 && <p style={{ color: colors.inkSoft }}>No checkouts match this view.</p>}
+      {!loading && visibleEvents.length === 0 && <p style={{ color: colors.inkSoft }}>No history matches this view.</p>}
 
-      {!loading && visibleCheckouts.length > 0 && (
+      {!loading && visibleEvents.length > 0 && (
         <div style={{ ...cardStyle, overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
                 <th style={thStyle} onClick={() => toggleSort("equipment")}>Equipment{sortIndicator("equipment")}</th>
-                <th style={thStyle} onClick={() => toggleSort("checked_out_by")}>Checked out by{sortIndicator("checked_out_by")}</th>
-                <th style={thStyle} onClick={() => toggleSort("checked_out_at")}>Checked out at{sortIndicator("checked_out_at")}</th>
-                <th style={thStyle} onClick={() => toggleSort("checked_in_at")}>Checked in{sortIndicator("checked_in_at")}</th>
-                <th style={thStyle} onClick={() => toggleSort("fault")}>Fault{sortIndicator("fault")}</th>
+                <th style={thStyle} onClick={() => toggleSort("type")}>Event{sortIndicator("type")}</th>
+                <th style={thStyle} onClick={() => toggleSort("details")}>Details{sortIndicator("details")}</th>
+                <th style={thStyle} onClick={() => toggleSort("person")}>Person{sortIndicator("person")}</th>
+                <th style={thStyle} onClick={() => toggleSort("date")}>Date{sortIndicator("date")}</th>
                 <th style={thStyle} />
               </tr>
             </thead>
             <tbody>
-              {visibleCheckouts.map((c) => (
-                <tr key={c.id}>
+              {visibleEvents.map((e) => (
+                <tr key={e.id}>
                   <td style={tdStyle}>
-                    <div style={{ fontWeight: 600 }}>{c.equipment?.name}</div>
-                    {c.equipment?.equipment_type?.name && <div style={{ fontSize: "12px", color: colors.inkSoft }}>{c.equipment.equipment_type.name}</div>}
+                    <div style={{ fontWeight: 600 }}>{e.equipment?.name}</div>
+                    {e.equipment?.equipment_type?.name && <div style={{ fontSize: "12px", color: colors.inkSoft }}>{e.equipment.equipment_type.name}</div>}
                   </td>
-                  <td style={tdStyle}>{c.checked_out_by?.display_name || "—"}</td>
-                  <td style={tdStyle}>{formatDateTime(c.checked_out_at)}</td>
                   <td style={tdStyle}>
-                    {c.checked_in_at ? (
-                      <>
-                        {formatDateTime(c.checked_in_at)}
-                        {c.checked_in_by_profile?.display_name && (
-                          <div style={{ fontSize: "12px", color: colors.inkSoft }}>by {c.checked_in_by_profile.display_name}</div>
-                        )}
-                      </>
+                    <span style={{ color: EVENT_TYPE[e.type]?.color, fontWeight: 600 }}>{EVENT_TYPE[e.type]?.label || e.type}</span>
+                  </td>
+                  <td style={tdStyle} title={e.details}>
+                    {e.type === "checkout" && !e.raw.checked_in_at ? (
+                      <span style={{ color: colors.clay, fontWeight: 600 }}>{e.details}</span>
                     ) : (
-                      <span style={{ color: colors.clay, fontWeight: 600 }}>Still out</span>
+                      e.details || "—"
                     )}
                   </td>
+                  <td style={tdStyle}>{e.person || "—"}</td>
+                  <td style={tdStyle}>{formatDateTime(e.date)}</td>
                   <td style={tdStyle}>
-                    {c.fault ? (
-                      <span style={{ color: colors.immediate }} title={c.fault.description}>
-                        {c.fault.description}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td style={tdStyle}>
-                    {!c.checked_in_at && (
-                      <button onClick={() => handleForceCheckIn(c.id)} style={{ ...buttonStyle.secondary, padding: "4px 12px", fontSize: "12px" }}>
+                    {e.type === "checkout" && !e.raw.checked_in_at && (
+                      <button onClick={() => handleForceCheckIn(e.raw.id)} style={{ ...buttonStyle.secondary, padding: "4px 12px", fontSize: "12px" }}>
                         Force check-in
                       </button>
                     )}

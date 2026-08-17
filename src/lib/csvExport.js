@@ -1,4 +1,4 @@
-// CSV export (Section 7) — reuses queryJobs/queryEquipmentCheckouts so this
+// CSV export (Section 7) — reuses queryJobs/queryEquipmentHistory so this
 // can never drift from what the job list/dashboard or admin checkout log
 // show. Writes an export_logs row *before* returning data; if that insert
 // is rejected by RLS (no can_export_jobs / can_manage_equipment_status
@@ -8,7 +8,7 @@
 
 import { supabase } from "./supabaseClient.js";
 import { queryJobs } from "./jobsQuery.js";
-import { queryEquipmentCheckouts } from "./equipmentCheckoutsQuery.js";
+import { queryEquipmentHistory } from "./equipmentCheckoutsQuery.js";
 
 function toCsvValue(value) {
   if (value == null) return "";
@@ -63,38 +63,22 @@ export async function exportEquipmentCheckoutsCsv({ orgId, profileId, filters = 
     throw new Error(`Export not permitted: ${logError.message}`);
   }
 
-  const checkouts = await queryEquipmentCheckouts(filters);
+  const events = await queryEquipmentHistory(filters);
 
-  const columns = [
-    "equipment",
-    "equipment_type",
-    "checked_out_by",
-    "checked_out_date",
-    "checked_out_time",
-    "checked_in_by",
-    "checked_in_date",
-    "checked_in_time",
-    "status",
-    "fault_reported",
-    "fault_description",
-  ];
-  const rows = checkouts.map((c) => {
-    const outAt = new Date(c.checked_out_at);
-    const inAt = c.checked_in_at ? new Date(c.checked_in_at) : null;
+  const columns = ["equipment", "equipment_type", "event", "date", "time", "person", "details"];
+  const eventLabel = { checkout: "Checkout", fault: "Fault", repair: "Repair" };
+  const rows = events.map((e) => {
+    const at = new Date(e.date);
     return [
-      c.equipment?.name || "",
-      c.equipment?.equipment_type?.name || "",
-      c.checked_out_by?.display_name || "",
-      outAt.toLocaleDateString("en-GB"),
-      outAt.toLocaleTimeString("en-GB"),
-      c.checked_in_by_profile?.display_name || "",
-      inAt ? inAt.toLocaleDateString("en-GB") : "",
-      inAt ? inAt.toLocaleTimeString("en-GB") : "",
-      c.checked_in_at ? "Checked in" : "Still checked out",
-      c.fault ? "Yes" : "No",
-      c.fault?.description || "",
+      e.equipment?.name || "",
+      e.equipment?.equipment_type?.name || "",
+      eventLabel[e.type] || e.type,
+      at.toLocaleDateString("en-GB"),
+      at.toLocaleTimeString("en-GB"),
+      e.person || "",
+      e.details || "",
     ];
   });
 
-  downloadCsv(columns, rows, "equipment-checkout-log");
+  downloadCsv(columns, rows, "equipment-history");
 }
