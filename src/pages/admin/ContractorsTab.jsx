@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
+import ContractorDocumentsModal from "./ContractorDocumentsModal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -28,6 +29,7 @@ export default function ContractorsTab() {
   const { org } = useAuth();
   const [contractors, setContractors] = useState([]);
   const [form, setForm] = useState(null); // null = modal closed
+  const [docsFor, setDocsFor] = useState(null); // contractor whose documents modal is open, or null
   const [error, setError] = useState(null);
 
   function refresh() {
@@ -103,12 +105,15 @@ export default function ContractorsTab() {
             </div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
+            <button onClick={() => setDocsFor(c)} style={buttonStyle.secondary}>Documents</button>
             <button onClick={() => editItem(c)} style={buttonStyle.secondary}>Edit</button>
             <button onClick={() => handleDelete(c.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
           </div>
         </div>
       ))}
       {contractors.length === 0 && <p style={{ color: colors.inkSoft }}>No contractors set up yet.</p>}
+
+      {docsFor && <ContractorDocumentsModal contractor={docsFor} orgId={org.id} onClose={() => setDocsFor(null)} />}
 
       {form && (
         <div
