@@ -32,7 +32,6 @@ export default function KioskCheckOut() {
   }, [org]);
 
   function openCategory(type) {
-    if (type.availableCount === 0) return;
     setError(null);
     setSelectedType(type);
     setSelectedIds(new Set());
@@ -357,11 +356,9 @@ export default function KioskCheckOut() {
           <button
             key={c.id}
             onClick={() => openCategory(c)}
-            disabled={c.availableCount === 0}
             style={{
               ...kioskButtonStyle,
-              opacity: c.availableCount === 0 ? 0.45 : 1,
-              cursor: c.availableCount === 0 ? "not-allowed" : "pointer",
+              opacity: c.availableCount === 0 ? 0.6 : 1,
               display: "flex",
               flexDirection: "column",
               gap: "6px",
