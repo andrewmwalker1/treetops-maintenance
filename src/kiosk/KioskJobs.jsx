@@ -1,11 +1,14 @@
 import { useEffect, useState, useCallback, useRef, useLayoutEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
+import { capturePhoto } from "../platform/camera.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
+import PhotoThumb from "../components/PhotoThumb.jsx";
 import { colors, fonts, statusColor, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "./kioskTheme.js";
 
@@ -100,6 +103,7 @@ function FilterChip({ active, onClick, label }) {
 export default function KioskJobs() {
   const navigate = useNavigate();
   const { profile, activeSite, terminology } = useAuth();
+  const permissions = usePermissions();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -112,6 +116,8 @@ export default function KioskJobs() {
   const [documentsByActivityType, setDocumentsByActivityType] = useState({});
   const [completing, setCompleting] = useState(false);
   const [completeComment, setCompleteComment] = useState("");
+  const [photos, setPhotos] = useState([]);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [loggingProgress, setLoggingProgress] = useState(false);
   const [progressLogged, setProgressLogged] = useState(false);
@@ -165,11 +171,40 @@ export default function KioskJobs() {
     setCompleteComment("");
     setProgressPercent(0);
     setProgressLogged(false);
+    setPhotos([]);
     setSelectedJob(job);
-    const { subtasks: subtaskRows, activityTypes: types, documentsByActivityType: docs } = await loadJobForPrint(job.id);
+    // The list row (queryJobs) doesn't select requires_photo -- reload via
+    // loadJobForPrint (same source as the desktop detail screen) so the
+    // hard per-job photo requirement (supabase/19-job-completion-photo-
+    // requirement.sql) is known before the user tries to complete it.
+    const { job: freshJob, subtasks: subtaskRows, activityTypes: types, documentsByActivityType: docs, photos: photoRows } = await loadJobForPrint(job.id);
     setSubtasks(subtaskRows);
     setActivityTypes(types);
     setDocumentsByActivityType(docs);
+    setPhotos(photoRows);
+    setSelectedJob((prev) => (prev && prev.id === freshJob.id ? { ...prev, ...freshJob } : prev));
+  }
+
+  async function handleAddPhoto() {
+    setUploadingPhoto(true);
+    setError(null);
+    try {
+      const file = await capturePhoto();
+      const path = `${selectedJob.id}/${crypto.randomUUID()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: photoRow, error: insertError } = await supabase
+        .from("job_photos")
+        .insert({ job_id: selectedJob.id, storage_path: path, uploaded_by: profile.id })
+        .select("id, storage_path, uploaded_at")
+        .single();
+      if (insertError) throw insertError;
+      setPhotos((prev) => [...prev, photoRow]);
+    } catch (err) {
+      if (err.message !== "Photo capture cancelled.") setError(err.message);
+    } finally {
+      setUploadingPhoto(false);
+    }
   }
 
   async function toggleSubtask(subtask) {
@@ -202,6 +237,10 @@ export default function KioskJobs() {
     const completedStatus = statuses.find((s) => s.name === "Completed");
     if (!completedStatus) {
       setError('No "Completed" status is configured for this site.');
+      return;
+    }
+    if (selectedJob.requires_photo && photos.length === 0 && !permissions.has("can_complete_job_without_photo")) {
+      setError("This job requires a photo before it can be completed. Add one below.");
       return;
     }
     setCompleting(true);
@@ -281,6 +320,25 @@ export default function KioskJobs() {
         </div>
 
         {error && <p style={{ color: colors.immediate }}>{error}</p>}
+
+        {(photos.length > 0 || !isCompleted) && (
+          <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Photos</h2>
+            {selectedJob.requires_photo && photos.length === 0 && (
+              <p style={{ color: colors.immediate, fontSize: "14px", marginTop: 0 }}>Photo required before this job can be completed.</p>
+            )}
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+              {photos.map((p) => (
+                <PhotoThumb key={p.id} path={p.storage_path} size={72} />
+              ))}
+            </div>
+            {!isCompleted && (
+              <button type="button" style={kioskSecondaryButtonStyle} onClick={handleAddPhoto} disabled={uploadingPhoto}>
+                {uploadingPhoto ? "Uploading…" : "Add photo"}
+              </button>
+            )}
+          </div>
+        )}
 
         {!isCompleted && (
           <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
