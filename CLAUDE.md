@@ -56,7 +56,22 @@ with Andy rather than assuming it's still accurate)
 Already built: job creation/scheduling, offline sync with RLS fixes,
 equipment CRUD (Admin, with Make/Model/serial/other ID/date added,
 filter by type, popout modal for mobile), Roles & Permissions admin
-screen, checklist item editing, template activities, user admin.
+screen, checklist item editing, template activities, user admin, RA/MS
+documents on equipment types (mirrors activity types, same admin pattern),
+and a kiosk Health & Safety screen (browse/filter every RA/MS document by
+activity or equipment type) plus a Health & Safety button on kiosk
+check-out (now reachable even when a type has zero available units, not
+just once units exist). Kiosk jobs list now matches the main app's default
+(open jobs only, Completed behind a Filters toggle) and shows the same
+location/assignee detail line as the desktop job cards. Kiosk check-in now
+supports the same tick-many-then-continue flow as check-out for
+multi-checkout equipment types. The admin "Checkout Log" is now "Equipment
+history" — checkouts, faults, and repairs merged into one chronological,
+filterable log per machine. Contractors can now have documents (proof of
+qualifications/insurance/H&S, each with an optional expiry) attached via a
+"Documents" button; `contractor-document-reminders` (daily cron, not yet
+deployed/scheduled — see RUNBOOK.md) raises an Office job and emails the
+contractor 7 days before each document's expiry.
 
 Still open per RUNBOOK.md: pitch CSV not yet supplied (pitches table has
 only `pitch_number_or_name` until Andy sends real data), genuine offline

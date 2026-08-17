@@ -103,6 +103,7 @@ supabase/
     manage-users/               -- invite / deactivate / reactivate users (Auth Admin API)
     rfid-login/                 -- turns a scanned RFID tag UID into a magic-link session
     send-contractor-job-email/  -- emails a job's details to its assigned contractor
+    contractor-document-reminders/ -- daily cron: Office job + contractor email 7 days before a document expires
 scripts/
   seed-users.mjs                -- one-shot: invites the initial Tree Tops team
 src/
@@ -156,6 +157,7 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 | **platform_admins** | `profile_id→profiles` (PK) | Structurally separate from any org's Admin role — cross-org support access. Table exists and is wired into RLS; not used operationally yet (no UI to add a platform admin). |
 | **admin_access_log** | `id`, `profile_id`, `org_id`, `table_accessed`, `accessed_at` | Intended audit trail for `platform_admins` cross-org reads. Table exists; nothing currently writes to it (deferred — see §17). |
 | **contractors** | `id`, `org_id→organisations`, `name`, `address`, `main_email`, `main_phone`, `notes`, `created_at` | Contractor **companies**, not `profiles`/`auth.users` rows — most contractors never log in. Full CRUD via admin. |
+| **contractor_documents** | `id`, `org_id→organisations`, `contractor_id→contractors`, `description`, `expiry_date` (date, nullable), `storage_path` (nullable), `uploaded_by→profiles`, `uploaded_at`, `reminder_triggered_at` (nullable), `reminder_job_id→jobs` (nullable) | Proof of qualifications/insurance/H&S per contractor — one row per document, each with its own independent expiry. `reminder_triggered_at` gates the daily `contractor-document-reminders` Edge Function so a document's 7-day-before job + email fire once per expiry, not once per day; a trigger resets it to null whenever `expiry_date` changes (a renewed document earns a fresh cycle). Gated behind `can_manage_contractors` for select as well as write, unlike `contractors` itself. |
 | **rfid_tags** | `id`, `tag_uid` (text, unique), `profile_id→profiles`, `created_at` | Maps a physical fob UID to an existing profile (staff only — contractors don't get fobs). Admin-managed. |
 
 ### 4.3 Jobs
@@ -185,7 +187,8 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 
 | Table | Key columns | Notes |
 |---|---|---|
-| **equipment_types** | `id`, `org_id`, `name`, unique(`org_id`,`name`), `pre_use_checklist` (jsonb, same shape as `job_types.template_schema`), `sort_order` (int) | Groups individual units by what they are (e.g. all of ST1/ST2/ST3 are "Strimmer"). `pre_use_checklist` is shown read-only on the kiosk before checkout. `sort_order` controls the kiosk's checkout category grid order. |
+| **equipment_types** | `id`, `org_id`, `name`, unique(`org_id`,`name`), `pre_use_checklist` (jsonb, same shape as `job_types.template_schema`), `sort_order` (int), `allow_multi_checkout` (bool, default false) | Groups individual units by what they are (e.g. all of ST1/ST2/ST3 are "Strimmer"). `pre_use_checklist` is shown read-only on the kiosk before checkout. `sort_order` controls the kiosk's checkout category grid order. `allow_multi_checkout` switches the kiosk's unit picker to a tick-many-then-continue flow (e.g. batteries). |
+| **equipment_type_documents** | `equipment_type_id→equipment_types`, `document_id→ra_ms_documents`, PK(both) | Many-to-many, same shape as `activity_type_documents` (§4.4) — lets an equipment type (not just an activity type) carry its own linked RA/MS documents. Managed from the Equipment Types admin tab (§11); surfaced as a "Health & Safety" button on the kiosk check-out screen (§12.5) and browsable stand-alone from the kiosk's Health & Safety screen (§12.8). |
 | **equipment** | `id`, `org_id`, `site_id` (nullable), `held_by_profile_id→profiles` (nullable — long-term personal issue, distinct from kiosk checkouts, nothing currently writes it from the UI), `name` ("Kit ID" in the UI, e.g. `ST1`), `status` (`equipment_status`, default in_service), `check_frequency_days` (int, nullable — loaded but never surfaced in any UI), `equipment_type_id→equipment_types` (nullable), `make`, `model` (text, nullable), `serial_number`, `other_id_number` (text, nullable), `date_added` (date, nullable) | |
 | **equipment_checks** | `id`, `equipment_id→equipment`, `checked_by→profiles`, `checked_at`, `passed` (bool) | Any signed-in user (not permission-gated) can log a pass/fail check from the Equipment Detail page. |
 | **fault_reports** | `id`, `equipment_id→equipment`, `reported_by→profiles`, `description`, `appointed_person_id→profiles` (nullable — loaded nowhere currently, dead field), `created_at` | |
@@ -231,7 +234,7 @@ matching server-side policy, trigger, or security-definer RPC.**
 |---|---|
 | `can_reallocate_jobs` | Changing a job's assignee (person/group/contractor) |
 | `can_export_jobs` | CSV export of the jobs list |
-| `can_manage_equipment_status` | Equipment status changes, equipment/equipment-type/common-fault CRUD, repair records, force check-in, equipment checkout CSV export |
+| `can_manage_equipment_status` | Equipment status changes, equipment/equipment-type/common-fault CRUD, equipment-type RA/MS document links, repair records, force check-in, equipment checkout CSV export |
 | `can_see_all_jobs` | Org-wide job visibility regardless of `role_visibility` |
 | `can_edit_job_checklist` | Renaming/reordering/deleting checklist items on an existing job (checking one off is always allowed) |
 | `can_manage_reference_data` | Job templates, activity types, safety library, schedules |
@@ -421,6 +424,7 @@ Function" message.
 | **manage-users** | Called from `UsersTab.jsx` | Bearer token → resolves caller's profile → requires `can_manage_users` enabled for their role | `action: "invite"` — `auth.admin.inviteUserByEmail`, then inserts `profiles` + `site_scope` rows. `action: "deactivate"/"reactivate"` — sets `profiles.is_active` **and** bans/unbans the `auth.users` row (`ban_duration: "876000h"` ≈ 100 years, or `"none"`) so an existing session is cut off immediately, not just on next profile check. |
 | **rfid-login** | Called from `KioskSignIn.jsx`, **no session required** (this is how a kiosk session is created) | Rate-limited only: 8 failed attempts per `tag_uid` in a rolling 15-minute window locks that tag out (`rfid_login_attempts`, logged for every attempt, success or failure) | Looks up `tag_uid` → `profile_id`, checks the profile is active, then `auth.admin.generateLink({type:"magiclink", email, redirectTo})` and returns the resulting `action_link` for the client to navigate to directly (`window.location.href`, a full page load through Supabase's own magic-link verification — not a client-side `verifyOtp` call). |
 | **send-contractor-job-email** | Called from `JobDetail.jsx`'s "Send email to contractor" button | Bearer token → requires `can_manage_contractors` | Loads the job + checklist, requires the job to have a contractor assignee with a `main_email`, sends via **Resend** (`from: "Tree Tops Maintenance <noreply@treetopscaravanpark.co.uk>"`, HTML body: description/priority/due date/location/requester/checklist), then logs a `job_activity` row with `event_type: "contractor_email"`. No dedicated "resend" — calling again just sends again and adds another log entry, giving a full send history. |
+| **contractor-document-reminders** | Daily cron (Supabase Dashboard → Edge Functions → Cron, same pattern as `generate-scheduled-jobs`) | none (service role, no logged-in user) | For every `contractor_documents` row with a non-null `expiry_date` within 7 days (or already past) and `reminder_triggered_at` still null: creates a `jobs` row assigned to the org's "Office" group (priority `high`, due date = the document's expiry date, on the org's first site since documents aren't site-scoped), sends a **Resend** email to the contractor if `main_email` is set (skipped, not retried, if not), then stamps `reminder_triggered_at`/`reminder_job_id` so it isn't repeated tomorrow. Each document is processed independently, so a contractor with several documents gets a separate job/email per document as each one individually crosses the 7-day mark. |
 
 ---
 
@@ -692,11 +696,11 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | Safety Library | `can_manage_reference_data` | `ra_ms_documents`: type radio, title, description, PDF upload (client-generated id so the storage path is known before upload, upsert-with-`{upsert:true}`) |
 | Recurring Jobs (Schedules) | `can_manage_reference_data` | `schedules`: template, site (if >1), frequency (daily/weekly/monthly + interval), weekly weekday checkboxes, monthly day-of-month or Nth-weekday-of-month, start date, lead-in days. Built on the `rrule` package (`buildRule`/`parseRule`/`describeRule` via `RRule.toText()`). |
 | Equipment | `can_manage_equipment_status` | `equipment`: Kit ID, type, make, model, serial number, other ID number, date added; new items default to `in_service`. Inline "Force check-in" per open checkout. Delete cleans up fault-photo storage objects explicitly (DB rows cascade; storage does not). |
-| Equipment Types | `can_manage_equipment_status` | `equipment_types`: name, pre-use checklist, manual reorder (↑/↓), a "Copy checklist from…" merge-in-without-duplicating action |
+| Equipment Types | `can_manage_equipment_status` | `equipment_types`: name, pre-use checklist, manual reorder (↑/↓), a "Copy checklist from…" merge-in-without-duplicating action, allow-multi-checkout checkbox, linked RA/MS documents (diffed, same pattern as Activity Types) |
 | Common Faults | `can_manage_equipment_status` | `common_fault_descriptions`, scoped per equipment type via a type-selector pill row; reorderable picklist |
-| Checkout Log | `can_manage_equipment_status` | Read-mostly log over `equipment_checkouts`: status/faults-only filters, equipment/type/person filters, date range, free-text search, sortable columns, per-row force-check-in, CSV export |
+| Checkout Log (now "Equipment history") | `can_manage_equipment_status` | Read-mostly, merging three tables into one chronological log: `equipment_checkouts`, `fault_reports`, and `repair_records` (each fault/repair is its own row, not folded into its checkout — they land adjacent once sorted by date instead of being described twice). Status filter (open/closed) only narrows checkout rows, since it has no meaning for a fault/repair; "Faults & repairs only" hides checkouts entirely instead. Equipment/type/person filters, date range, free-text search, sortable columns, per-row force-check-in (checkout rows only), CSV export. |
 | RFID Fobs | `can_manage_users` | `rfid_tags`: scan-to-register flow (hidden `RfidScanListener`, assign scanned UID to a profile via select), list + revoke. Friendly duplicate-UID error identifying the existing owner. |
-| Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes. Delete warns that assigned jobs become unassigned. |
+| Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes. Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal`: `contractor_documents` list (signed-URL link, expiry countdown colour-coded within 7 days/expired) + an add-document form (description, optional expiry date, file) uploading to the private `contractor-documents` bucket at `<contractor_id>/<filename>`. |
 | Groups | `can_manage_users` | `groups` + `group_members`: name, member checkbox list (diffed). Delete warns that assigned jobs become unassigned. |
 | Roles & Permissions | `can_manage_roles_and_permissions` | Permission×role matrix (checkbox toggles `role_permissions`), add role, inline-rename role (click header), delete role (surfaces the "still in use" trigger error verbatim if applicable) |
 | Users | `can_manage_users` | List via `list_org_users()` RPC. Invite form (email, display name, role, contractor checkbox, site-access checkboxes) → `manage-users` Edge Function. Inline edit (name/role/contractor/site-scope) writes directly to `profiles`/`site_scope`, bypassing the Edge Function. Deactivate/Reactivate → `manage-users` Edge Function. |
@@ -735,25 +739,38 @@ a shared device doesn't stay open indefinitely under the wrong identity.
 
 ### 12.3 Menu (`/kiosk`)
 
-"Hi `<name>`" + 2×2 grid: View Jobs, Check-out Kit, Check-in Kit, and a
-red Sign out button (immediate, no confirm).
+"Hi `<name>`" + 2×2 grid: View Jobs, Check-out Kit, Check-in Kit, Health &
+Safety — with a red Sign out button (immediate, no confirm) below the
+grid, not part of it.
 
 ### 12.4 View Jobs (`/kiosk/jobs`)
 
-Reuses `queryJobs(activeSite.id, {})` — i.e. **exactly** the same
-RLS-determined visibility as the main Jobs list for that person (direct
-assignee, group, role-visibility, or `can_see_all_jobs`), not a
-kiosk-narrowed subset. List → tap a job → read-only checklist + optional
-comment + "Mark job complete" (shared `writeJobCompletion`). **No photo
-capability at all in the kiosk job flow** — the design assumption is
-that photo-required job templates are simply never assigned to kiosk-only
+Reuses `queryJobs`, defaulting to the same open/in-progress-only filter
+the main Jobs list applies (`job_statuses` where `is_completed = false`)
+rather than every visible job — a **Filters** toggle button reveals a
+status chip row (`Open` + one chip per status, including Completed) to
+see anything else, matching the main list's status-chip behaviour. Row
+status is normally a coloured pill with the status name; a row whose
+description wraps onto 2+ lines (measured via `getClientRects().length`
+on the description span) swaps the pill for a plain colour-coded dot
+instead, so a long description doesn't force the row taller than it
+needs to be — status name still available via the dot's `title` tooltip.
+
+List → tap a job → checklist (same as before) + a **⚠ Safety** section
+(via `loadJobForPrint`) listing RA/MS documents for the job's linked
+activity type(s), same shape as the main `JobDetail.jsx` screen + optional
+comment + "Mark job complete" (shared `writeJobCompletion`). Progress
+slider starts at **0%** (previously defaulted to a hardcoded 50% both on
+first render and every time a new job was opened). **No photo capability
+at all in the kiosk job flow** — the design assumption is that
+photo-required job templates are simply never assigned to kiosk-only
 staff, so the kiosk never needs to satisfy or bypass a photo requirement.
 
 ### 12.5 Check-out (`/kiosk/checkout`) — 3-view flow
 
 1. **Categories** — grid of equipment types with live available-count, disabled (dimmed, not clickable) at zero.
-2. **Units** — list of specific available units for the chosen type ("Nothing available right now." if empty).
-3. **Confirm** — shows the unit's pre-use checklist read-only (if the type has one) under "Before you take it," then: primary **Check Out** (insert into `equipment_checkouts`; a unique-violation from the concurrency guard shows "That unit was just checked out by someone else." and bounces back to a refreshed units list), danger **Report an Issue** (opens `ReportIssueForm`, calls `report_equipment_fault` with no checkout id to close since nothing's checked out yet), secondary **Cancel**.
+2. **Units** — list of specific available units for the chosen type ("Nothing available right now." if empty). A **⚠ Health & Safety** button appears here (immediately after picking a type) whenever that type has any linked `equipment_type_documents`, opening a modal listing them via the shared `SafetyDocumentLink` component. If the type has `allow_multi_checkout` set, units render as tickable checkboxes with a sticky "Continue (N)" bar instead of tap-to-select-one.
+3. **Confirm** — shows the unit's pre-use checklist read-only (if the type has one) under "Before you take it," then: primary **Check Out** (insert into `equipment_checkouts` for every selected unit; a unique-violation from the concurrency guard on any one of them reports per-unit success/failure on a **Results** view rather than failing the whole batch), danger **Report an Issue** (opens `ReportIssueForm`, calls `report_equipment_fault` with no checkout id to close since nothing's checked out yet), secondary **Cancel**.
 
 ### 12.6 Check-in (`/kiosk/checkin`)
 
@@ -774,6 +791,18 @@ remember to pink ticket the defective machine."** — a literal
 instruction referring to the business's existing paper fault-tag
 process; keep this exact copy, it's operationally meaningful, not
 decorative.
+
+### 12.8 Health & Safety (`/kiosk/safety`)
+
+Stand-alone RA/MS browser, reachable from the kiosk menu without going
+via a job or a checkout at all — for staff asked to do something that
+isn't logged as a job in the system, who still need the right paperwork.
+Lists every `ra_ms_documents` row for the org (via `SafetyDocumentLink`),
+narrowable by two independent `<select>` filters — activity type
+(`activity_type_documents`) and equipment type (`equipment_type_documents`)
+— that combine as **OR, not AND**: picking both shows anything matching
+either, since the point is finding the right document quickly rather than
+precise narrowing. No filter selected shows every document in the library.
 
 ---
 

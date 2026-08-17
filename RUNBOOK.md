@@ -61,6 +61,10 @@ supabase link --project-ref <your-project-ref>
 supabase functions deploy generate-scheduled-jobs
 supabase functions deploy send-notice-push
 supabase functions deploy flush-dnd-notifications
+supabase functions deploy manage-users
+supabase functions deploy rfid-login
+supabase functions deploy send-contractor-job-email
+supabase functions deploy contractor-document-reminders
 ```
 
 ## 6. Set Edge Function secrets
@@ -69,19 +73,45 @@ supabase functions deploy flush-dnd-notifications
 supabase secrets set VAPID_PUBLIC_KEY=<public key from step 4>
 supabase secrets set VAPID_PRIVATE_KEY=<private key from step 4>
 supabase secrets set VAPID_SUBJECT=mailto:andy@treetopscaravanpark.co.uk
+supabase secrets set RESEND_API_KEY=<your Resend API key>
 ```
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically
-for every Edge Function — no need to set those yourself.
+for every Edge Function — no need to set those yourself. `RESEND_API_KEY`
+is needed by `send-contractor-job-email` and `contractor-document-reminders`
+(both send via Resend) — get one from resend.com and verify the
+`treetopscaravanpark.co.uk` sending domain there first, or emails will fail.
 
-## 7. Schedule the daily job generator
+## 7. Schedule the daily cron functions
 
-Simplest option: Dashboard → Edge Functions → `generate-scheduled-jobs`
-→ Cron tab → add a daily schedule (e.g. `0 6 * * *` for 6am).
+This project has no Cron UI in the Dashboard (not under Edge Functions,
+not under Database) — scheduling is done directly via SQL (`pg_cron` +
+`pg_net`, both already enabled on this project). Two functions need this:
+- `generate-scheduled-jobs` — expands recurring job schedules.
+- `contractor-document-reminders` — raises an Office job + emails the
+  contractor 7 days before a contractor document expires.
 
-(If you'd rather do it in SQL via `pg_cron` + `pg_net` instead of the
-dashboard UI, ask me once the function is deployed and I'll write the
-exact statement — it needs the deployed function's URL and a bearer
-token, which only exist after step 5.)
+Dashboard → SQL Editor → run, once per function (needs a service-role
+secret key from Settings → API — the `sb_secret_...` one, not the anon
+key):
+
+```sql
+select cron.schedule(
+  '<function-name>-daily',
+  '0 6 * * *',
+  $$
+  select
+    net.http_post(
+        url:='https://<project-ref>.supabase.co/functions/v1/<function-name>',
+        headers:='{"Authorization":"Bearer <service-role secret key>"}'::jsonb,
+        timeout_milliseconds:='5000'
+    );
+  $$
+);
+```
+
+Check what's currently scheduled with `select jobname, schedule, active
+from cron.job;`; remove one with `select
+cron.unschedule('<function-name>-daily');`.
 
 ## 8. Local dev
 
