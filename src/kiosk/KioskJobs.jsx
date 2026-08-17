@@ -20,7 +20,7 @@ function today() {
 // (name available via the dot's title tooltip). Detected by rendered
 // line count, not word/character count, so it tracks the real column
 // width rather than an arbitrary guess.
-function JobRow({ job, onClick }) {
+function JobRow({ job, terminology = {}, onClick }) {
   const descRef = useRef(null);
   const [wrapped, setWrapped] = useState(false);
 
@@ -29,6 +29,12 @@ function JobRow({ job, onClick }) {
     if (!el) return;
     setWrapped(el.getClientRects().length > 1);
   }, [job.description]);
+
+  const location = job.pitch
+    ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}`
+    : job.area
+    ? job.area.name
+    : null;
 
   return (
     <button
@@ -57,7 +63,15 @@ function JobRow({ job, onClick }) {
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
           )}
         </div>
-        {job.due_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "14px", margin: "6px 0 0" }}>Due {job.due_date}</p>}
+        {(location || job.assignee || job.assignee_group || job.assignee_contractor || job.due_date) && (
+          <div style={{ fontSize: "14px", color: colors.inkSoft, marginTop: "6px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+            {location && <span>{location}</span>}
+            {job.assignee && <span>{job.assignee.display_name}</span>}
+            {job.assignee_group && <span>{job.assignee_group.name}</span>}
+            {job.assignee_contractor && <span>{job.assignee_contractor.name}</span>}
+            {job.due_date && <span style={{ fontFamily: fonts.mono }}>Due {job.due_date}</span>}
+          </div>
+        )}
       </div>
     </button>
   );
@@ -85,7 +99,7 @@ function FilterChip({ active, onClick, label }) {
 
 export default function KioskJobs() {
   const navigate = useNavigate();
-  const { profile, activeSite } = useAuth();
+  const { profile, activeSite, terminology } = useAuth();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -352,7 +366,7 @@ export default function KioskJobs() {
       {!loading && jobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs to show.</p>}
 
       {jobs.map((job) => (
-        <JobRow key={job.id} job={job} onClick={() => openJob(job)} />
+        <JobRow key={job.id} job={job} terminology={terminology} onClick={() => openJob(job)} />
       ))}
     </div>
   );
