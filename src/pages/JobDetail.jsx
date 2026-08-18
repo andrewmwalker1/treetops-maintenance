@@ -871,36 +871,6 @@ export default function JobDetail() {
         <Section title="Checklist">
           {subtasks.map((s, i) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", flexWrap: "wrap" }}>
-              {s.requires_photo && !s.is_checked ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <button
-                    type="button"
-                    onClick={() => handleChecklistPhotoCapture(s)}
-                    disabled={uploadingSubtaskId === s.id}
-                    style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
-                  >
-                    {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
-                  </button>
-                  {canCheckOffWithoutPhoto && (
-                    <button
-                      type="button"
-                      onClick={() => handleCheckOffWithoutPhoto(s)}
-                      style={{ background: "none", border: "none", color: colors.inkSoft, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "12px", padding: 0 }}
-                    >
-                      Check off without photo
-                    </button>
-                  )}
-                </div>
-              ) : s.requires_photo ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                  <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-                  {photos.find((p) => p.job_subtask_id === s.id) && (
-                    <PhotoThumb path={photos.find((p) => p.job_subtask_id === s.id).storage_path} size={32} />
-                  )}
-                </div>
-              ) : (
-                <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-              )}
               {permissions.has("can_edit_job_checklist") ? (
                 <input
                   value={s.label}
@@ -908,6 +878,7 @@ export default function JobDetail() {
                   onBlur={() => persistSubtaskLabel(subtasks[i])}
                   style={{
                     flex: 1,
+                    minWidth: "120px",
                     padding: "4px 8px",
                     borderRadius: "6px",
                     border: `1px solid ${colors.lineStrong}`,
@@ -918,8 +889,45 @@ export default function JobDetail() {
                   }}
                 />
               ) : (
-                <span style={{ flex: 1, textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
+                <span style={{ flex: 1, minWidth: "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
               )}
+              {/* Controls live in a fixed-width right-hand column, flush
+                  against the row's right edge (label's flex:1 pushes it
+                  there), so checkboxes and "Add photo" buttons line up in
+                  one column down the list instead of the item text
+                  starting at a different x on every row. */}
+              <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
+                {s.requires_photo && !s.is_checked ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleChecklistPhotoCapture(s)}
+                      disabled={uploadingSubtaskId === s.id}
+                      style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                    >
+                      {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
+                    </button>
+                    {canCheckOffWithoutPhoto && (
+                      <button
+                        type="button"
+                        onClick={() => handleCheckOffWithoutPhoto(s)}
+                        style={{ background: "none", border: "none", color: colors.inkSoft, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "12px", padding: 0 }}
+                      >
+                        Check off without photo
+                      </button>
+                    )}
+                  </>
+                ) : s.requires_photo ? (
+                  <>
+                    {photos.find((p) => p.job_subtask_id === s.id) && (
+                      <PhotoThumb path={photos.find((p) => p.job_subtask_id === s.id).storage_path} size={32} />
+                    )}
+                    <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+                  </>
+                ) : (
+                  <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+                )}
+              </div>
               {canRequireChecklistItemPhoto && permissions.has("can_edit_job_checklist") && (
                 <button
                   type="button"
