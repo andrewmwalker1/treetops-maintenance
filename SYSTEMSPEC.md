@@ -95,7 +95,7 @@ app. **No other file may call these underlying browser APIs directly.**
 
 ```
 supabase/
-  01-schema.sql .. 34-key-station-login-context.sql   -- ordered, idempotent SQL migrations, run once each in sequence
+  01-schema.sql .. 35-desktop-access-permission.sql   -- ordered, idempotent SQL migrations, run once each in sequence
   functions/
     generate-scheduled-jobs/    -- daily cron: expands schedules into job rows
     send-notice-push/           -- sends a single Web Push notification (respects DND)
@@ -478,16 +478,40 @@ Function" message.
 
 ### 8.1 Routing (`src/App.jsx`)
 
-`location.pathname.startsWith("/kiosk")` **or** `session.user.app_metadata?.login_context === "kiosk"` branches into an entirely
-separate render tree **before** the normal session guard, because RFID
-sign-in must be reachable with no session yet. The pathname check alone is
-what makes the route reachable pre-session; the claim check is what keeps
-it there once signed in. Before 34-key-station-login-context.sql, this was
-pathname-only — a scanned-in session was otherwise byte-identical to a
-normal login, so editing the URL by hand reached the full desktop app.
-`app_metadata` can only be written server-side via the Admin API (`rfid-login`
-stamps it, `clear-login-context` clears it — see §7's Edge Functions table),
-so unlike the pathname it can't be spoofed by the client.
+`location.pathname.startsWith("/kiosk")` branches into an entirely separate
+render tree **before** the normal session guard, because RFID sign-in must
+be reachable with no session yet. Before 34-key-station-login-context.sql,
+this pathname check was the *only* gate — a scanned-in session was
+otherwise byte-identical to a normal login, so editing the URL by hand
+reached the full desktop app.
+
+The fix is **not** "also treat a kiosk-claimed session as kiosk regardless
+of path" — an earlier attempt at that tried to auto-clear a stale
+`login_context` claim on any non-kiosk-path load, but a live kiosk session
+being navigated away from by hand (the escape itself) looks *identical* to
+a genuinely stale claim on an otherwise normal session (same pathname, same
+claim present) — there's no way to tell them apart from that state alone,
+and the auto-clear was silently defeating the fix on exactly the escape
+attempt it existed to stop (reproduced live by Andy testing the workshop
+kiosk). The actual fix: if `session.user.app_metadata.login_context ===
+"kiosk"` and the pathname is **not** `/kiosk*`, App.jsx signs the session
+out immediately — no attempt to distinguish stale from live, since signing
+out is always the safe response either way. A stale claim only ever gets
+cleared from a `pendingNormalLogin` flag `Login.jsx` sets immediately
+before `signInWithOtp` and `AuthContext` consumes at most once within two
+minutes — the one moment that's unambiguously a fresh real login rather
+than a page reload or session rehydration. `app_metadata` can only be
+written server-side via the Admin API (`rfid-login` stamps it,
+`clear-login-context` clears it — see §7's Edge Functions table), so unlike
+the pathname it can't be spoofed by the client.
+
+A second, complementary layer (`can_access_desktop`, a normal
+`role_permissions` grant, 35-desktop-access-permission.sql) blocks a
+*role* from ever rendering `<Layout>`, regardless of login method — for a
+role that should never touch the desktop app at all (e.g. a future
+Contractor role). It doesn't replace the session-based fix above: a role
+that legitimately has desktop access (Andy's own Admin role, for instance)
+keeps it, so this alone wouldn't have stopped the kiosk-escape he found.
 
 Non-kiosk routes (all wrapped in `<Layout>`, only reachable once
 `session` exists and the profile isn't deactivated):
@@ -964,7 +988,7 @@ not bugs:
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 34-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 35-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.
