@@ -95,13 +95,13 @@ app. **No other file may call these underlying browser APIs directly.**
 
 ```
 supabase/
-  01-schema.sql .. 36-key-tags-schema.sql   -- ordered, idempotent SQL migrations, run once each in sequence
+  01-schema.sql .. 37-key-checkouts-and-contractor-reasons.sql   -- ordered, idempotent SQL migrations, run once each in sequence
   functions/
     generate-scheduled-jobs/    -- daily cron: expands schedules into job rows
     send-notice-push/           -- sends a single Web Push notification (respects DND)
     flush-dnd-notifications/    -- delivers everything queued behind DND once it's turned off
     manage-users/               -- invite / deactivate / reactivate users (Auth Admin API)
-    rfid-login/                 -- turns a scanned RFID tag UID into a magic-link session, stamping login_context
+    rfid-login/                 -- turns a scanned RFID tag UID into a magic-link session; context "kiosk" or "key_station" sets login_context
     clear-login-context/        -- clears a stale login_context claim on the caller's own profile
     send-contractor-job-email/  -- emails a job's details to its assigned contractor
     contractor-document-reminders/ -- daily cron: Office job + contractor email 7 days before a document expires
@@ -478,32 +478,34 @@ Function" message.
 
 ### 8.1 Routing (`src/App.jsx`)
 
-`location.pathname.startsWith("/kiosk")` branches into an entirely separate
-render tree **before** the normal session guard, because RFID sign-in must
-be reachable with no session yet. Before 34-key-station-login-context.sql,
-this pathname check was the *only* gate — a scanned-in session was
-otherwise byte-identical to a normal login, so editing the URL by hand
-reached the full desktop app.
+`location.pathname.startsWith("/kiosk")` (and, since the key station,
+`.startsWith("/keys")`) branches into its own entirely separate render tree
+**before** the normal session guard, because RFID sign-in must be reachable
+with no session yet. Before 34-key-station-login-context.sql, the pathname
+check was the *only* gate — a scanned-in session was otherwise
+byte-identical to a normal login, so editing the URL by hand reached the
+full desktop app.
 
-The fix is **not** "also treat a kiosk-claimed session as kiosk regardless
+The fix is **not** "also treat a claimed session as its terminal regardless
 of path" — an earlier attempt at that tried to auto-clear a stale
-`login_context` claim on any non-kiosk-path load, but a live kiosk session
-being navigated away from by hand (the escape itself) looks *identical* to
-a genuinely stale claim on an otherwise normal session (same pathname, same
-claim present) — there's no way to tell them apart from that state alone,
-and the auto-clear was silently defeating the fix on exactly the escape
-attempt it existed to stop (reproduced live by Andy testing the workshop
-kiosk). The actual fix: if `session.user.app_metadata.login_context ===
-"kiosk"` and the pathname is **not** `/kiosk*`, App.jsx signs the session
-out immediately — no attempt to distinguish stale from live, since signing
-out is always the safe response either way. A stale claim only ever gets
-cleared from a `pendingNormalLogin` flag `Login.jsx` sets immediately
-before `signInWithOtp` and `AuthContext` consumes at most once within two
-minutes — the one moment that's unambiguously a fresh real login rather
-than a page reload or session rehydration. `app_metadata` can only be
-written server-side via the Admin API (`rfid-login` stamps it,
-`clear-login-context` clears it — see §7's Edge Functions table), so unlike
-the pathname it can't be spoofed by the client.
+`login_context` claim on any non-terminal-path load, but a live terminal
+session being navigated away from by hand (the escape itself) looks
+*identical* to a genuinely stale claim on an otherwise normal session (same
+pathname, same claim present) — there's no way to tell them apart from that
+state alone, and the auto-clear was silently defeating the fix on exactly
+the escape attempt it existed to stop (reproduced live by Andy testing the
+workshop kiosk). The actual fix: `session.user.app_metadata.login_context`
+is `"kiosk"` or `"key_station"`; if it's set and the pathname doesn't match
+that terminal's own prefix, App.jsx signs the session out immediately — no
+attempt to distinguish stale from live, since signing out is always the
+safe response either way. A stale claim only ever gets cleared from a
+`pendingNormalLogin` flag `Login.jsx` sets immediately before
+`signInWithOtp` and `AuthContext` consumes at most once within two minutes
+— the one moment that's unambiguously a fresh real login rather than a page
+reload or session rehydration. `app_metadata` can only be written
+server-side via the Admin API (`rfid-login` stamps it, `clear-login-context`
+clears it — see §7's Edge Functions table), so unlike the pathname it can't
+be spoofed by the client.
 
 A second, complementary layer (`can_access_desktop`, a normal
 `role_permissions` grant, 35-desktop-access-permission.sql) blocks a
@@ -788,8 +790,8 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | Common Faults | `can_manage_equipment_status` | `common_fault_descriptions`, scoped per equipment type via a type-selector pill row; reorderable picklist |
 | Checkout Log (now "Equipment history") | `can_manage_equipment_status` | Read-mostly, merging three tables into one chronological log: `equipment_checkouts`, `fault_reports`, and `repair_records` (each fault/repair is its own row, not folded into its checkout — they land adjacent once sorted by date instead of being described twice). Status filter (open/closed) only narrows checkout rows, since it has no meaning for a fault/repair; "Faults & repairs only" hides checkouts entirely instead. Equipment/type/person filters, date range, free-text search, sortable columns, per-row force-check-in (checkout rows only), CSV export. |
 | RFID Fobs | `can_manage_users` | `rfid_tags`: scan-to-register flow (hidden `RfidScanListener`, assign scanned UID to a profile via select), list + revoke. Friendly duplicate-UID error identifying the existing owner. |
-| Key Tags | `can_manage_keys` | `key_tags` (36-key-tags-schema.sql): same scan-to-register `RfidScanListener` pattern as RFID Fobs, but for the physical-key project — a tag maps to a pitch **or** a `key_special_locations` row (e.g. "Sales keyring"), never both (`key_tags_single_location` check constraint), and multiple tags can share one pitch (a caravan with more than one key). "Move" re-picks the location; "Remove" clears it back to unallocated rather than deleting the tag, freeing it for reuse. Every allocate/move/remove is logged automatically to `key_tag_events` by a trigger on `key_tags` (`log_key_tag_event()`), not by the UI remembering to log it. A small inline form on the same tab manages `key_special_locations` (add-only so far). First slice of a larger key-cupboard/RFID feature — the actual check-out/check-in flow and `key_checkouts` don't exist yet. |
-| Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes. Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal`: `contractor_documents` list (signed-URL link, expiry countdown colour-coded within 7 days/expired) + an add-document form (description, optional expiry date, file) uploading to the private `contractor-documents` bucket at `<contractor_id>/<filename>`. |
+| Key Tags | `can_manage_keys` | `key_tags` (36-key-tags-schema.sql): same scan-to-register `RfidScanListener` pattern as RFID Fobs, but for the physical-key project — a tag maps to a pitch **or** a `key_special_locations` row (e.g. "Sales keyring"), never both (`key_tags_single_location` check constraint), and multiple tags can share one pitch (a caravan with more than one key). "Move" re-picks the location; "Remove" clears it back to unallocated rather than deleting the tag, freeing it for reuse. Every allocate/move/remove is logged automatically to `key_tag_events` by a trigger on `key_tags` (`log_key_tag_event()`), not by the UI remembering to log it. A small inline form on the same tab manages `key_special_locations` (add-only so far). The check-out/check-in flow itself is the key station, §12a — there's no admin activity-log tab yet (full history across all keys, `admin_force_check_in_key`). |
+| Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes, **`is_trusted`** checkbox (37-key-checkouts-and-contractor-reasons.sql — marks the handful, e.g. Kevin Parry/CMT Cleaning, who use the key station unaccompanied; needs no code of its own, just a normal profile + a role holding `can_use_key_system` + a registered fob, same as any staff member). Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal` (as before). A **"Key reasons"** button opens `ContractorReasonsModal`: add/delete `contractor_reasons` rows (label + sort_order) — shown as quick-pick buttons on the key-station check-out screen once this contractor is selected, always alongside a free-text override. |
 | Groups | `can_manage_users` | `groups` + `group_members`: name, member checkbox list (diffed). Delete warns that assigned jobs become unassigned. |
 | Roles & Permissions | `can_manage_roles_and_permissions` | Permission×role matrix (checkbox toggles `role_permissions`), add role, inline-rename role (click header), delete role (surfaces the "still in use" trigger error verbatim if applicable) |
 | Users | `can_manage_users` | List via `list_org_users()` RPC. Invite form (email, display name, role, contractor checkbox, site-access checkboxes) → `manage-users` Edge Function (trims the email client-side; the function trims it again server-side). Inline edit (name/role/contractor/site-scope) writes directly to `profiles`/`site_scope`, bypassing the Edge Function — **except email**, which is diffed against the loaded value and, if changed, sent through `manage-users`' `update_email` action (email lives on `auth.users`, not `profiles`, so it can't be written directly by the client). Deactivate/Reactivate → `manage-users` Edge Function. |
@@ -900,6 +902,64 @@ narrowable by two independent `<select>` filters — activity type
 either, since the point is finding the right document quickly rather than
 precise narrowing. No filter selected shows every document in the library.
 
+## 12a. Key station
+
+A second self-contained, full-screen sub-app (`src/keys/`), reached under
+`/keys/*` — for the physical-key-cupboard terminal, structurally identical
+to §12's kiosk (own `RfidScanListener` sign-in via `rfid-login` with
+`context: "key_station"`, own 3-minute idle auto-sign-out in
+`KeyStationApp.jsx`, reuses `kioskTheme.js` directly rather than a
+duplicate theme file) but a completely different set of screens, since a
+key is identified by scanning **its own** RFID tag (one per physical key,
+`key_tags`, §11's Key Tags admin tab) rather than browsing a category list
+the way workshop equipment is.
+
+`KeyStationApp.jsx` additionally checks `can_use_key_system` itself (via
+`usePermissions()`) once signed in — unlike the workshop kiosk, sign-in
+isn't permission-gated at the `rfid-login` level, so any fob can create a
+session here; a role without the permission sees a clear "doesn't have
+access" screen + sign-out button instead of broken/empty screens.
+
+**`KeySelector.jsx`** (shared by all three screens below): a hidden
+`RfidScanListener` plus a text search/tap-list fallback (filtered by
+pitch/location label) over whatever `tags` array the caller passes in —
+each screen pre-filters that array to what's actually valid for its own
+action before handing it to the selector, rather than the selector
+knowing anything about check-out/check-in/lookup itself.
+
+- **Check out (`/keys/checkout`)** — `KeySelector` over tags with no
+  currently-open `key_checkouts` row. Picking one shows: an issued-to
+  toggle (Me / Contractor / Customer / Guest), a contractor `<select>`
+  (org's `contractors` + an "Other…" free-text fallback) that loads
+  `contractor_reasons` as quick-pick buttons once chosen, name fields for
+  customer/guest, a "Confirmed with the caravan owner" checkbox for guest
+  (a client-side workflow nudge only — not persisted, no ownership/consent
+  data model exists), and a reason field (free text, pre-fillable from a
+  reason quick-pick). Insert into `key_checkouts`; a `23505` from the
+  partial unique index (someone else just took it) surfaces as a friendly
+  message rather than a raw error.
+- **Check in (`/keys/checkin`)** — `KeySelector` over tags with an open
+  checkout (loaded via `key_checkouts` joined to `key_tags`, filtered to
+  the active site). Confirm screen shows who it's out to, the reason, and
+  when/by whom it was checked out, then a single **Confirm check-in**
+  button. No self-only restriction on the `using` side of the RLS
+  policy — deliberately, since Andy's spec is explicit that keys aren't
+  always returned by whoever took them; the `with check` clause still
+  requires `checked_in_by = auth.uid()`, so you can close someone else's
+  checkout but only ever as yourself.
+- **Find a key (`/keys/find`)** — `KeySelector` over every allocated tag;
+  shows only the single most recent `key_checkouts` row for the picked
+  tag ("Checked out … by … — still out" / "Checked in … by … — currently
+  in the cupboard" / "No activity recorded yet"). This is the non-admin
+  answer to "where's this key" from Andy's spec — the full activity log
+  (all events, filterable by pitch) is an admin-only screen (`can_manage_keys`)
+  that doesn't exist yet.
+
+`admin_force_check_in_key(p_checkout_id)` (security-definer RPC, gated
+`can_manage_keys`, mirroring `admin_force_check_in` for equipment) exists
+in the schema for the stuck/lost-key case but has no UI caller yet —
+lands with the admin activity-log tab.
+
 ---
 
 ## 13. Notifications
@@ -989,7 +1049,7 @@ not bugs:
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 36-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 37-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.
