@@ -19,6 +19,12 @@ export default function Login() {
     // a typo problem from the error message alone.
     const trimmedEmail = email.trim();
     setEmail(trimmedEmail);
+    // Tells AuthContext "the next sign-in this tab sees is a real, freshly
+    // completed login" -- see consumePendingNormalLogin() there for why
+    // that's the only safe moment to clear a stale kiosk login_context
+    // claim. Set before the request goes out, not after a link is clicked
+    // or a code verified, so it covers both completion paths from one spot.
+    localStorage.setItem("auth:pendingNormalLogin", String(Date.now()));
     const { error } = await supabase.auth.signInWithOtp({
       email: trimmedEmail,
       options: { emailRedirectTo: window.location.origin },

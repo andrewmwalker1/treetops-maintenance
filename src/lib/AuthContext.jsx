@@ -20,6 +20,23 @@ function loadStoredViewingAs() {
   }
 }
 
+// Set by Login.jsx right before signInWithOtp (which is what sends BOTH the
+// magic link and the 8-digit code, so one flag placement covers whichever
+// one the person completes with). Read once, on the very next sign-in this
+// tab processes -- see loadProfileAndScope for why this, and not "is the
+// pathname non-kiosk", is what's safe to key clearing a stale login_context
+// claim off of. localStorage (not sessionStorage) because the magic-link
+// half of the flow is a full-page redirect through Supabase's own domain,
+// which can land in a fresh tab depending on the browser/email client.
+const PENDING_NORMAL_LOGIN_KEY = "auth:pendingNormalLogin";
+const PENDING_NORMAL_LOGIN_WINDOW_MS = 2 * 60 * 1000;
+
+function consumePendingNormalLogin() {
+  const raw = localStorage.getItem(PENDING_NORMAL_LOGIN_KEY);
+  localStorage.removeItem(PENDING_NORMAL_LOGIN_KEY);
+  return Boolean(raw) && Date.now() - Number(raw) < PENDING_NORMAL_LOGIN_WINDOW_MS;
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined); // undefined = not checked yet, null = signed out
   const [profile, setProfile] = useState(null);
@@ -29,6 +46,13 @@ export function AuthProvider({ children }) {
   const [terminology, setTerminology] = useState({});
   const [loading, setLoading] = useState(true);
   const [deactivated, setDeactivated] = useState(false);
+  // Fetched here (rather than via the async usePermissions() hook every
+  // other permission check uses) specifically so it's settled BEFORE
+  // `loading` goes false -- App.jsx gates the entire desktop <Layout> on
+  // this, and usePermissions()'s own fetch resolving a tick later would
+  // otherwise flash a "no access" screen for every user on every load,
+  // not just the ones actually being restricted.
+  const [canAccessDesktop, setCanAccessDesktop] = useState(true);
   const [viewingAsProfile, setViewingAsProfile] = useState(() => loadStoredViewingAs()?.viewAs ?? null);
   // The real target person's id, kept separate from viewingAsProfile.id
   // (which stays the admin's own id, see startViewingAs below) -- only
@@ -47,12 +71,22 @@ export function AuthProvider({ children }) {
     // server-side by rfid-login -- see 34-key-station-login-context.sql).
     // That's a user-level field, not a session-level one, so it persists
     // across every future login -- including a completely normal desktop
-    // one -- until explicitly cleared. Outside a kiosk path, a leftover
-    // claim would otherwise force App.jsx's isKiosk check to send a normal
-    // login straight back into the kiosk view. clear-login-context resets
-    // it (only ever touching the caller's own row), then refreshSession
-    // mints a fresh token reflecting the change immediately.
-    if (!window.location.pathname.startsWith("/kiosk") && user.app_metadata?.login_context) {
+    // one -- until explicitly cleared.
+    //
+    // IMPORTANT: this must only ever clear on a session that was JUST NOW
+    // established by a real credential (magic link / code), never on a
+    // plain page reload or session rehydration -- "pathname isn't /kiosk"
+    // is NOT a safe signal for that, because a hard reload of an ACTUAL
+    // live kiosk session (e.g. someone editing the URL to escape it) looks
+    // identical from here: same non-kiosk pathname, same claim present.
+    // An earlier version of this check used pathname alone and would
+    // silently clear the claim on exactly that escape attempt, defeating
+    // App.jsx's kiosk confinement the moment someone tried it. The pending-
+    // login flag (set by Login.jsx immediately before signInWithOtp, and
+    // consumed here at most once within a couple of minutes) is what
+    // actually distinguishes "a normal login just happened" from "an
+    // existing session got reloaded."
+    if (consumePendingNormalLogin() && user.app_metadata?.login_context) {
       await supabase.functions.invoke("clear-login-context");
       const { data: refreshed } = await supabase.auth.refreshSession();
       if (refreshed?.session) setSession(refreshed.session);
@@ -81,6 +115,14 @@ export function AuthProvider({ children }) {
 
     setProfile(profileRow);
     loadedUserIdRef.current = userId;
+
+    const { data: desktopGrant } = await supabase
+      .from("role_permissions")
+      .select("enabled")
+      .eq("role_id", profileRow.role_id)
+      .eq("permission_key", "can_access_desktop")
+      .maybeSingle();
+    setCanAccessDesktop(Boolean(desktopGrant?.enabled));
 
     const { data: orgRow, error: orgError } = await supabase
       .from("organisations")
@@ -205,6 +247,7 @@ export function AuthProvider({ children }) {
     terminology,
     loading,
     deactivated,
+    canAccessDesktop,
     signOut,
   };
 
