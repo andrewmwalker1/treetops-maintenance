@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { queryJobs } from "../lib/jobsQuery.js";
@@ -347,20 +347,22 @@ export default function JobsList() {
           onto two lines each and, being inside the sticky panel above,
           permanently ate most of a mobile viewport's height before any
           job was visible. One scrollable line each fixes that without
-          hiding any filter behind an extra tap. */}
-      <div style={{ display: "flex", gap: "8px", flexWrap: "nowrap", overflowX: "auto", marginBottom: "12px", paddingBottom: "2px" }}>
+          hiding any filter behind an extra tap. ScrollHintRow fades the
+          trailing edge whenever there's more to scroll to, so the strip
+          doesn't just look like a short, complete row of chips. */}
+      <ScrollHintRow itemCount={statuses.length}>
         <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
         {statuses.map((s) => (
           <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
         ))}
-      </div>
+      </ScrollHintRow>
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "nowrap", overflowX: "auto", marginBottom: "12px", paddingBottom: "2px" }}>
+      <ScrollHintRow itemCount={PRIORITIES.length}>
         <FilterChip active={activePriority === null} onClick={() => setActivePriority(null)} label="All priorities" />
         {PRIORITIES.map((p) => (
           <FilterChip key={p} active={activePriority === p} onClick={() => setActivePriority(p)} label={p.charAt(0).toUpperCase() + p.slice(1)} />
         ))}
-      </div>
+      </ScrollHintRow>
 
       {/* Only worth showing once the visible jobs actually span more than
           one assignee -- i.e. exactly when this user's role_visibility (or
@@ -462,5 +464,58 @@ function FilterChip({ active, onClick, label }) {
     >
       {label}
     </button>
+  );
+}
+
+// Wraps a horizontally-scrollable chip row and fades its trailing edge
+// whenever there's more content past the visible edge -- otherwise a
+// scrollable strip that happens to fit its first few chips on screen is
+// indistinguishable from a short, complete row, and nothing tells you to
+// swipe. The fade clears itself once you've scrolled to the end.
+function ScrollHintRow({ children, itemCount }) {
+  const scrollRef = useRef(null);
+  const [showFade, setShowFade] = useState(false);
+
+  const updateFade = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // A few px of slack so sub-pixel rounding at the true end doesn't
+    // flicker the fade in and out.
+    setShowFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
+  }, []);
+
+  useEffect(() => {
+    updateFade();
+    window.addEventListener("resize", updateFade);
+    return () => window.removeEventListener("resize", updateFade);
+    // itemCount: the chip list itself can grow after mount (e.g. statuses
+    // load in async), which changes scrollWidth without the container's
+    // own size changing, so re-check whenever the count changes.
+  }, [updateFade, itemCount]);
+
+  return (
+    <div style={{ position: "relative", marginBottom: "12px" }}>
+      <div
+        ref={scrollRef}
+        onScroll={updateFade}
+        style={{ display: "flex", gap: "8px", flexWrap: "nowrap", overflowX: "auto", paddingBottom: "2px" }}
+      >
+        {children}
+      </div>
+      {showFade && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 0,
+            right: 0,
+            bottom: "2px",
+            width: "32px",
+            background: `linear-gradient(to right, transparent, ${colors.bg})`,
+            pointerEvents: "none",
+          }}
+        />
+      )}
+    </div>
   );
 }
