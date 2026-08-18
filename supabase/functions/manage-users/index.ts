@@ -128,6 +128,21 @@ Deno.serve(async (req) => {
 
     const userId = linkData.user.id;
 
+    // generateLink({type: "invite"}) creates the account but leaves
+    // email_confirmed_at null until the person actually completes that
+    // specific invite link. The problem: the invite email's own fallback
+    // text ("open the app and enter this email on the sign-in screen")
+    // uses plain signInWithOtp -- and Supabase's passwordless sign-in
+    // treats completing a never-confirmed account as a fresh signup
+    // internally, which this project's disabled-public-signups setting
+    // then rejects with "Signups not allowed for this instance", even
+    // though the account and the typed email are both completely
+    // correct. Confirming immediately is safe here specifically because
+    // accounts only ever get created by this admin-invite path in the
+    // first place -- there's no public signup to protect against.
+    const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
+    if (confirmError) console.error("Failed to pre-confirm invited user", userId, confirmError);
+
     const { error: profileError } = await supabaseAdmin.from("profiles").insert({
       id: userId,
       org_id: orgId,
@@ -200,6 +215,17 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Could not look up this user's email" }, 500);
     }
     const email = userData.user.email;
+
+    // Backstop for any account still unconfirmed despite the invite
+    // action now confirming immediately (e.g. one invited before that
+    // fix shipped, like Zara was) -- same reasoning as there: without
+    // this, the person can generate a fresh link/code here but still
+    // hit "Signups not allowed for this instance" the moment they try
+    // signInWithOtp with it.
+    if (!userData.user.email_confirmed_at) {
+      const { error: confirmError } = await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
+      if (confirmError) console.error("Failed to pre-confirm user on resend", userId, confirmError);
+    }
 
     // "invite" links only work for accounts that have never signed in --
     // someone who signed in before and just wants a fresh link needs
