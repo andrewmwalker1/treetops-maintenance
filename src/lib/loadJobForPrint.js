@@ -20,8 +20,8 @@ export async function loadJobForPrint(jobId) {
   if (jobError) throw jobError;
 
   const [{ data: subtaskRows }, { data: photoRows }, { data: activityRows }, { data: activityTypeLinks }] = await Promise.all([
-    supabase.from("job_subtasks").select("id, label, is_checked, sort_order").eq("job_id", jobId).order("sort_order"),
-    supabase.from("job_photos").select("id, storage_path, uploaded_at").eq("job_id", jobId).order("uploaded_at"),
+    supabase.from("job_subtasks").select("id, label, is_checked, sort_order, requires_photo").eq("job_id", jobId).order("sort_order"),
+    supabase.from("job_photos").select("id, storage_path, uploaded_at, job_subtask_id").eq("job_id", jobId).order("uploaded_at"),
     supabase
       .from("job_activity")
       .select("id, event_type, previous_value, new_value, created_at, actor:profiles(display_name)")

@@ -29,6 +29,11 @@ export default function NewJob() {
   const navigate = useNavigate();
   const canEditChecklist = permissions.has("can_edit_job_checklist");
   const canRequirePhoto = permissions.has("can_require_job_photo");
+  // Distinct from canRequirePhoto above -- that one is the whole-job "at
+  // least one photo before completing" flag; this gates the per-checklist
+  // -item camera toggle in ChecklistBuilder (see
+  // 32-checklist-item-photo-requirement.sql for why they're separate).
+  const canRequireChecklistItemPhoto = permissions.has("can_require_checklist_item_photo");
   // Same gating as JobDetail's identical buttons -- job_types insert/update
   // is RLS-gated on can_manage_reference_data separately from
   // can_edit_job_checklist, so require both or the server rejects it.
@@ -269,7 +274,7 @@ export default function NewJob() {
       if (checklistItems.length > 0) {
         const { error: checklistError } = await supabase
           .from("job_subtasks")
-          .insert(checklistItems.map((label, i) => ({ job_id: jobData.id, label, sort_order: i })));
+          .insert(checklistItems.map((item, i) => ({ job_id: jobData.id, label: item.label, requires_photo: item.requiresPhoto, sort_order: i })));
         if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
       }
       navigate("/");
@@ -322,7 +327,12 @@ export default function NewJob() {
 
         <label style={labelStyle}>Checklist</label>
         <div style={{ ...cardStyle, padding: "12px 14px", marginBottom: "14px" }}>
-          <ChecklistBuilder items={checklistItems} onChange={setChecklistItems} readOnly={!canEditChecklist} />
+          <ChecklistBuilder
+            items={checklistItems}
+            onChange={setChecklistItems}
+            readOnly={!canEditChecklist}
+            canRequirePhoto={canRequireChecklistItemPhoto}
+          />
           {!canEditChecklist && checklistItems.length === 0 && (
             <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Pick a job template above to attach its checklist.</p>
           )}

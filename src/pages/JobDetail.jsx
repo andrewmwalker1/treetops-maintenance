@@ -34,6 +34,11 @@ export default function JobDetail() {
   // (see 27-job-details-edit-permission.sql) -- this only gates due
   // date/priority/location and jumping status around otherwise.
   const canEditJobDetails = permissions.has("can_edit_job_details");
+  // Distinct from requires_photo on the job itself (that's a whole-job
+  // completion gate) -- these two govern the per-checklist-item camera
+  // button below (see 32-checklist-item-photo-requirement.sql).
+  const canRequireChecklistItemPhoto = permissions.has("can_require_checklist_item_photo");
+  const canCheckOffWithoutPhoto = permissions.has("can_check_off_item_without_photo");
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
@@ -52,8 +57,12 @@ export default function JobDetail() {
   const [areaDraft, setAreaDraft] = useState("");
   const [comment, setComment] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
+  const [newChecklistItemRequiresPhoto, setNewChecklistItemRequiresPhoto] = useState(false);
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
+  // Which subtask (if any) is mid photo-capture -- separate from
+  // `uploading` above, which tracks the whole-job "Add photo" button.
+  const [uploadingSubtaskId, setUploadingSubtaskId] = useState(null);
   const [sendingContractorEmail, setSendingContractorEmail] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completeDate, setCompleteDate] = useState(today());
@@ -117,6 +126,48 @@ export default function JobDetail() {
     else loadAll();
   }
 
+  // Capture + upload + link + check-off as one action, so there's no
+  // separate "now go tick the box" step once the photo's taken.
+  async function handleChecklistPhotoCapture(subtask) {
+    setUploadingSubtaskId(subtask.id);
+    setError(null);
+    try {
+      const file = await capturePhoto();
+      const path = `${job.id}/${crypto.randomUUID()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, file);
+      if (uploadError) throw uploadError;
+      const { error: insertError } = await supabase.from("job_photos").insert({
+        job_id: job.id,
+        storage_path: path,
+        uploaded_by: profile.id,
+        job_subtask_id: subtask.id,
+      });
+      if (insertError) throw insertError;
+      const { error: checkError } = await supabase.from("job_subtasks").update({ is_checked: true }).eq("id", subtask.id);
+      if (checkError) throw checkError;
+      loadAll();
+    } catch (err) {
+      if (err.message !== "Photo capture cancelled.") setError(err.message);
+    } finally {
+      setUploadingSubtaskId(null);
+    }
+  }
+
+  // can_check_off_item_without_photo override -- explicit and visible
+  // (a distinct button, not a silent fallback to an ordinary checkbox)
+  // so using it is always a deliberate, on-the-record choice.
+  async function handleCheckOffWithoutPhoto(subtask) {
+    const { error: err } = await supabase.from("job_subtasks").update({ is_checked: true }).eq("id", subtask.id);
+    if (err) setError(err.message);
+    else loadAll();
+  }
+
+  async function toggleSubtaskRequiresPhoto(subtask) {
+    const { error: err } = await supabase.from("job_subtasks").update({ requires_photo: !subtask.requires_photo }).eq("id", subtask.id);
+    if (err) setError(err.message);
+    else loadAll();
+  }
+
   function editSubtaskLabelLocal(index, text) {
     setSubtasks((prev) => prev.map((s, i) => (i === index ? { ...s, label: text } : s)));
   }
@@ -131,10 +182,13 @@ export default function JobDetail() {
     const label = newChecklistItem.trim();
     if (!label) return;
     const nextSortOrder = subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
-    const { error: err } = await supabase.from("job_subtasks").insert({ job_id: job.id, label, sort_order: nextSortOrder });
+    const { error: err } = await supabase
+      .from("job_subtasks")
+      .insert({ job_id: job.id, label, requires_photo: canRequireChecklistItemPhoto && newChecklistItemRequiresPhoto, sort_order: nextSortOrder });
     if (err) setError(err.message);
     else {
       setNewChecklistItem("");
+      setNewChecklistItemRequiresPhoto(false);
       loadAll();
     }
   }
@@ -166,7 +220,7 @@ export default function JobDetail() {
     const { error: err } = await supabase.from("job_types").insert({
       org_id: job.org_id,
       name,
-      template_schema: subtasks.map((s) => s.label),
+      template_schema: subtasks.map((s) => ({ label: s.label, requiresPhoto: s.requires_photo })),
     });
     setSavingTemplate(false);
     if (err) {
@@ -185,7 +239,7 @@ export default function JobDetail() {
     if (!proceed) return;
     const { error: err } = await supabase
       .from("job_types")
-      .update({ template_schema: subtasks.map((s) => s.label) })
+      .update({ template_schema: subtasks.map((s) => ({ label: s.label, requiresPhoto: s.requires_photo })) })
       .eq("id", job.job_type.id);
     if (err) setError(err.message);
   }
@@ -212,7 +266,7 @@ export default function JobDetail() {
     }
 
     const startOrder = mode === "append" && subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
-    const rows = items.map((label, i) => ({ job_id: job.id, label, sort_order: startOrder + i }));
+    const rows = items.map((item, i) => ({ job_id: job.id, label: item.label, requires_photo: item.requiresPhoto, sort_order: startOrder + i }));
     const { error: insErr } = await supabase.from("job_subtasks").insert(rows);
     setRecalling(false);
     if (insErr) {
@@ -816,8 +870,37 @@ export default function JobDetail() {
       {(subtasks.length > 0 || permissions.has("can_edit_job_checklist")) && (
         <Section title="Checklist">
           {subtasks.map((s, i) => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
-              <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", flexWrap: "wrap" }}>
+              {s.requires_photo && !s.is_checked ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    type="button"
+                    onClick={() => handleChecklistPhotoCapture(s)}
+                    disabled={uploadingSubtaskId === s.id}
+                    style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                  >
+                    {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
+                  </button>
+                  {canCheckOffWithoutPhoto && (
+                    <button
+                      type="button"
+                      onClick={() => handleCheckOffWithoutPhoto(s)}
+                      style={{ background: "none", border: "none", color: colors.inkSoft, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "12px", padding: 0 }}
+                    >
+                      Check off without photo
+                    </button>
+                  )}
+                </div>
+              ) : s.requires_photo ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+                  {photos.find((p) => p.job_subtask_id === s.id) && (
+                    <PhotoThumb path={photos.find((p) => p.job_subtask_id === s.id).storage_path} size={32} />
+                  )}
+                </div>
+              ) : (
+                <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+              )}
               {permissions.has("can_edit_job_checklist") ? (
                 <input
                   value={s.label}
@@ -837,6 +920,21 @@ export default function JobDetail() {
               ) : (
                 <span style={{ flex: 1, textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
               )}
+              {canRequireChecklistItemPhoto && permissions.has("can_edit_job_checklist") && (
+                <button
+                  type="button"
+                  onClick={() => toggleSubtaskRequiresPhoto(s)}
+                  title={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
+                  style={{
+                    ...checklistIconStyle,
+                    background: s.requires_photo ? colors.mossDark : "transparent",
+                    color: s.requires_photo ? "#FFFFFF" : colors.inkSoft,
+                    border: `1px solid ${s.requires_photo ? colors.mossDark : colors.lineStrong}`,
+                  }}
+                >
+                  📷
+                </button>
+              )}
               {permissions.has("can_edit_job_checklist") && (
                 <>
                   <button type="button" onClick={() => moveSubtask(i, -1)} disabled={i === 0} style={checklistIconStyle}>↑</button>
@@ -847,13 +945,19 @@ export default function JobDetail() {
             </div>
           ))}
           {permissions.has("can_edit_job_checklist") && (
-            <form onSubmit={addSubtask} style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
+            <form onSubmit={addSubtask} style={{ display: "flex", gap: "8px", marginTop: "10px", alignItems: "center", flexWrap: "wrap" }}>
               <input
                 value={newChecklistItem}
                 onChange={(e) => setNewChecklistItem(e.target.value)}
                 placeholder="Add an item…"
                 style={{ ...selectStyle, flex: 1, marginBottom: 0 }}
               />
+              {canRequireChecklistItemPhoto && (
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: colors.inkSoft, whiteSpace: "nowrap" }}>
+                  <input type="checkbox" checked={newChecklistItemRequiresPhoto} onChange={(e) => setNewChecklistItemRequiresPhoto(e.target.checked)} />
+                  📷 Requires photo
+                </label>
+              )}
               <button type="submit" style={buttonStyle.secondary}>Add</button>
             </form>
           )}

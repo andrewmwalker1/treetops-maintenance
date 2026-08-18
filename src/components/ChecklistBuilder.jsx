@@ -5,13 +5,19 @@ import { colors, fonts, buttonStyle } from "../lib/theme.js";
 // templates (admin) and for building/editing a job's actual checklist.
 // `readOnly` shows the list without add/remove/reorder controls, for
 // users without can_edit_job_checklist.
-export default function ChecklistBuilder({ items, onChange, readOnly = false }) {
+//
+// items: [{label, requiresPhoto}, ...]. `canRequirePhoto` (separate from
+// can_edit_job_checklist -- see 32-checklist-item-photo-requirement.sql)
+// gates the camera-icon toggle that flags an item as safety-critical;
+// without it the toggle isn't shown at all, matching every other
+// permission-gated control in this codebase (hidden, not disabled).
+export default function ChecklistBuilder({ items, onChange, readOnly = false, canRequirePhoto = false }) {
   const [newItem, setNewItem] = useState("");
 
   function addItem() {
     const text = newItem.trim();
     if (!text) return;
-    onChange([...items, text]);
+    onChange([...items, { label: text, requiresPhoto: false }]);
     setNewItem("");
   }
 
@@ -21,7 +27,13 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false }) 
 
   function editItem(index, text) {
     const next = [...items];
-    next[index] = text;
+    next[index] = { ...next[index], label: text };
+    onChange(next);
+  }
+
+  function toggleRequiresPhoto(index) {
+    const next = [...items];
+    next[index] = { ...next[index], requiresPhoto: !next[index].requiresPhoto };
     onChange(next);
   }
 
@@ -36,13 +48,13 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false }) 
   return (
     <div>
       {items.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No checklist items.</p>}
-      {items.map((label, i) => (
+      {items.map((item, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
           {readOnly ? (
-            <span style={{ flex: 1, fontSize: "14px" }}>{label}</span>
+            <span style={{ flex: 1, fontSize: "14px" }}>{item.label}</span>
           ) : (
             <input
-              value={label}
+              value={item.label}
               onChange={(e) => editItem(i, e.target.value)}
               style={{
                 flex: 1,
@@ -53,6 +65,22 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false }) 
                 fontSize: "14px",
               }}
             />
+          )}
+          {canRequirePhoto && (
+            <button
+              type="button"
+              onClick={() => toggleRequiresPhoto(i)}
+              disabled={readOnly}
+              title={item.requiresPhoto ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
+              style={{
+                ...iconButtonStyle,
+                background: item.requiresPhoto ? colors.mossDark : "transparent",
+                color: item.requiresPhoto ? "#FFFFFF" : colors.inkSoft,
+                borderColor: item.requiresPhoto ? colors.mossDark : colors.lineStrong,
+              }}
+            >
+              📷
+            </button>
           )}
           {!readOnly && (
             <>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
+import { usePermissions } from "../../lib/permissions.js";
 import { supabase } from "../../lib/supabaseClient.js";
 import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
@@ -18,6 +19,8 @@ const blank = { id: null, name: "", requires_completion_photo: false, template_s
 
 export default function JobTemplatesTab() {
   const { org } = useAuth();
+  const permissions = usePermissions();
+  const canRequireChecklistItemPhoto = permissions.has("can_require_checklist_item_photo");
   const [templates, setTemplates] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
   const [linksByType, setLinksByType] = useState({}); // job_type_id -> [task_type_id]
@@ -133,7 +136,11 @@ export default function JobTemplatesTab() {
           </label>
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Default checklist</label>
-          <ChecklistBuilder items={form.template_schema} onChange={(items) => setForm({ ...form, template_schema: items })} />
+          <ChecklistBuilder
+            items={form.template_schema}
+            onChange={(items) => setForm({ ...form, template_schema: items })}
+            canRequirePhoto={canRequireChecklistItemPhoto}
+          />
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, margin: "14px 0 6px" }}>Default activity types</label>
           <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: 0 }}>Ticked automatically when this template is picked on a new job — still editable per job afterward.</p>
