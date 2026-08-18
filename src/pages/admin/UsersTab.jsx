@@ -83,6 +83,7 @@ export default function UsersTab() {
     setEditingId(u.id);
     setEditForm({
       display_name: u.display_name,
+      email: u.email || "",
       role_id: u.role_id || "",
       is_contractor: u.is_contractor,
       siteIds: u.site_ids || [],
@@ -100,6 +101,22 @@ export default function UsersTab() {
     e.preventDefault();
     setError(null);
 
+    const user = users.find((u) => u.id === editingId);
+
+    // Email lives on auth.users, not profiles (see list_org_users in
+    // 10-user-admin.sql) -- changing it needs the Auth Admin API, so it
+    // goes through manage-users rather than a plain table update like
+    // the rest of this form.
+    if (editForm.email && editForm.email !== user?.email) {
+      const { error: emailErr } = await supabase.functions.invoke("manage-users", {
+        body: { action: "update_email", userId: editingId, email: editForm.email },
+      });
+      if (emailErr) {
+        setError(emailErr.message);
+        return;
+      }
+    }
+
     const { error: profileErr } = await supabase
       .from("profiles")
       .update({
@@ -113,7 +130,6 @@ export default function UsersTab() {
       return;
     }
 
-    const user = users.find((u) => u.id === editingId);
     const previousSites = user?.site_ids || [];
     const toAdd = editForm.siteIds.filter((id) => !previousSites.includes(id));
     const toRemove = previousSites.filter((id) => !editForm.siteIds.includes(id));
@@ -154,6 +170,7 @@ export default function UsersTab() {
             {editingId === u.id ? (
               <form onSubmit={handleSaveEdit}>
                 <input required value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} style={fieldStyle} />
+                <input required type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="Email" style={fieldStyle} />
                 <select required value={editForm.role_id} onChange={(e) => setEditForm({ ...editForm, role_id: e.target.value })} style={fieldStyle}>
                   <option value="">Select a role</option>
                   {roles.map((r) => (

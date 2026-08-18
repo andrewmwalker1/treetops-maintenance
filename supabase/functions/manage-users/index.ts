@@ -149,6 +149,34 @@ Deno.serve(async (req) => {
     return jsonResponse({ userId, emailSent: true });
   }
 
+  if (action === "update_email") {
+    const { userId, email } = body;
+    if (!userId || !email) return jsonResponse({ error: "userId and email are required" }, 400);
+
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id")
+      .eq("id", userId)
+      .eq("org_id", orgId)
+      .single();
+    if (profileError || !profile) return jsonResponse({ error: "User not found" }, 404);
+
+    // email_confirm: true -- this is Andy correcting a typo he made
+    // inviting someone (the reason this exists: an invite that went to
+    // the wrong address means "Signups not allowed for this instance"
+    // at sign-in, because the email they actually type never matches an
+    // auth.users row), not the person themselves changing their own
+    // verified address. No need to make them re-confirm an email they
+    // never had a chance to get wrong.
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      email,
+      email_confirm: true,
+    });
+    if (updateError) return jsonResponse({ error: updateError.message }, 500);
+
+    return jsonResponse({ ok: true });
+  }
+
   if (action === "resend") {
     const { userId, redirectTo } = body;
     if (!userId) return jsonResponse({ error: "userId is required" }, 400);
