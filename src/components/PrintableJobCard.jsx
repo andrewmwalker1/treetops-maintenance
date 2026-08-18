@@ -75,11 +75,34 @@ export default function PrintableJobCard({ job, subtasks, photos, activity, acti
       {photos.length === 0 ? (
         <p style={{ margin: 0 }}>No photos attached.</p>
       ) : (
-        <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-          {photos.map((p) => (
-            <PhotoThumb key={p.id} path={p.storage_path} url={p.signedUrl} size={140} />
-          ))}
-        </div>
+        (() => {
+          const subtasksWithPhotos = subtasks.filter((s) => photos.some((p) => p.job_subtask_id === s.id));
+          const otherPhotos = photos.filter((p) => !p.job_subtask_id);
+          return (
+            <>
+              {subtasksWithPhotos.map((s) => (
+                <div key={s.id} style={{ marginBottom: "12px" }}>
+                  <p style={{ fontWeight: 600, margin: "0 0 4px" }}>{s.label}</p>
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    {photos.filter((p) => p.job_subtask_id === s.id).map((p) => (
+                      <PhotoThumb key={p.id} path={p.storage_path} url={p.signedUrl} size={140} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              {otherPhotos.length > 0 && (
+                <div style={{ marginBottom: "12px" }}>
+                  {subtasksWithPhotos.length > 0 && <p style={{ fontWeight: 600, margin: "0 0 4px" }}>Other photos</p>}
+                  <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+                    {otherPhotos.map((p) => (
+                      <PhotoThumb key={p.id} path={p.storage_path} url={p.signedUrl} size={140} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()
       )}
 
       <h2 style={printSectionHeading}>Activity</h2>

@@ -58,6 +58,9 @@ export default function JobDetail() {
   const [comment, setComment] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newChecklistItemRequiresPhoto, setNewChecklistItemRequiresPhoto] = useState(false);
+  // Which checklist item's photo gallery modal is open, if any -- see the
+  // "View photos" button in the checklist section below.
+  const [viewPhotosSubtaskId, setViewPhotosSubtaskId] = useState(null);
   const [error, setError] = useState(null);
   const [uploading, setUploading] = useState(false);
   // Which subtask (if any) is mid photo-capture -- separate from
@@ -126,8 +129,12 @@ export default function JobDetail() {
     else loadAll();
   }
 
-  // Capture + upload + link + check-off as one action, so there's no
-  // separate "now go tick the box" step once the photo's taken.
+  // Capture + upload + link a photo to a checklist item -- does NOT
+  // check the item off. An item's photo requirement is often "document
+  // everything you notice" (several angles, existing faults), not a
+  // single proof-of-work shot, so checking off is now its own separate
+  // action (the checkbox below, once at least one photo exists) rather
+  // than happening automatically after the first capture.
   async function handleChecklistPhotoCapture(subtask) {
     setUploadingSubtaskId(subtask.id);
     setError(null);
@@ -143,8 +150,6 @@ export default function JobDetail() {
         job_subtask_id: subtask.id,
       });
       if (insertError) throw insertError;
-      const { error: checkError } = await supabase.from("job_subtasks").update({ is_checked: true }).eq("id", subtask.id);
-      if (checkError) throw checkError;
       loadAll();
     } catch (err) {
       if (err.message !== "Photo capture cancelled.") setError(err.message);
@@ -885,7 +890,9 @@ export default function JobDetail() {
 
       {(subtasks.length > 0 || permissions.has("can_edit_job_checklist")) && (
         <Section title="Checklist">
-          {subtasks.map((s, i) => (
+          {subtasks.map((s, i) => {
+            const itemPhotos = photos.filter((p) => p.job_subtask_id === s.id);
+            return (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", flexWrap: "wrap" }}>
               {permissions.has("can_edit_job_checklist") ? (
                 <input
@@ -913,17 +920,32 @@ export default function JobDetail() {
                   one column down the list instead of the item text
                   starting at a different x on every row. */}
               <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
-                {s.requires_photo && !s.is_checked ? (
+                {s.requires_photo ? (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => handleChecklistPhotoCapture(s)}
-                      disabled={uploadingSubtaskId === s.id}
-                      style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
-                    >
-                      {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
-                    </button>
-                    {canCheckOffWithoutPhoto && (
+                    {/* Photos accumulate here without checking the item off --
+                        e.g. several angles/faults for "photograph the caravan
+                        before you start". Checking off is a separate, explicit
+                        action once at least one photo exists. */}
+                    {!s.is_checked && (
+                      <button
+                        type="button"
+                        onClick={() => handleChecklistPhotoCapture(s)}
+                        disabled={uploadingSubtaskId === s.id}
+                        style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                      >
+                        {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
+                      </button>
+                    )}
+                    {itemPhotos.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setViewPhotosSubtaskId(s.id)}
+                        style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                      >
+                        🖼 View photos ({itemPhotos.length})
+                      </button>
+                    )}
+                    {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
                       <button
                         type="button"
                         onClick={() => handleCheckOffWithoutPhoto(s)}
@@ -932,13 +954,9 @@ export default function JobDetail() {
                         Check off without photo
                       </button>
                     )}
-                  </>
-                ) : s.requires_photo ? (
-                  <>
-                    {photos.find((p) => p.job_subtask_id === s.id) && (
-                      <PhotoThumb path={photos.find((p) => p.job_subtask_id === s.id).storage_path} size={32} />
+                    {(s.is_checked || itemPhotos.length > 0) && (
+                      <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
                     )}
-                    <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
                   </>
                 ) : (
                   <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
@@ -967,7 +985,8 @@ export default function JobDetail() {
                 </>
               )}
             </div>
-          ))}
+            );
+          })}
           {permissions.has("can_edit_job_checklist") && (
             <form onSubmit={addSubtask} style={{ display: "flex", gap: "8px", marginTop: "10px", alignItems: "center", flexWrap: "wrap" }}>
               <input
@@ -1011,8 +1030,11 @@ export default function JobDetail() {
         {job.requires_photo && photos.length === 0 && (
           <p style={{ color: colors.immediate, fontSize: "13px", marginTop: 0 }}>Photo required before this job can be completed.</p>
         )}
+        {/* Checklist-item photos live under their own item ("View photos"
+            button, above) -- this grid is only general job photos, not
+            tied to a specific item, so the two don't duplicate each other. */}
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
-          {photos.map((p) => (
+          {photos.filter((p) => !p.job_subtask_id).map((p) => (
             <PhotoThumb key={p.id} path={p.storage_path} />
           ))}
         </div>
@@ -1195,6 +1217,20 @@ export default function JobDetail() {
           </div>
         </Modal>
       )}
+
+      {viewPhotosSubtaskId && (() => {
+        const subtask = subtasks.find((s) => s.id === viewPhotosSubtaskId);
+        const itemPhotos = photos.filter((p) => p.job_subtask_id === viewPhotosSubtaskId);
+        return (
+          <Modal title={subtask?.label || "Photos"} onClose={() => setViewPhotosSubtaskId(null)}>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              {itemPhotos.map((p) => (
+                <PhotoThumb key={p.id} path={p.storage_path} size={100} />
+              ))}
+            </div>
+          </Modal>
+        );
+      })()}
 
       {reopenTargetStatusId && (
         <Modal title="Reopen job" onClose={() => setReopenTargetStatusId(null)}>
