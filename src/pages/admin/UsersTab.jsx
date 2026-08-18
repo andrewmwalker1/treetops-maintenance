@@ -49,7 +49,12 @@ export default function UsersTab() {
     const { data, error: err } = await supabase.functions.invoke("manage-users", {
       body: {
         action: "invite",
-        email: invite.email,
+        // A trailing/leading space here becomes a permanent mismatch --
+        // the person can never sign in with the address they actually
+        // type, and it just looks like Supabase rejecting their account
+        // outright (see Login.jsx's identical trim, added after exactly
+        // this happened to Zara).
+        email: invite.email.trim(),
         displayName: invite.displayName,
         roleId: invite.roleId,
         isContractor: invite.isContractor,
@@ -106,10 +111,13 @@ export default function UsersTab() {
     // Email lives on auth.users, not profiles (see list_org_users in
     // 10-user-admin.sql) -- changing it needs the Auth Admin API, so it
     // goes through manage-users rather than a plain table update like
-    // the rest of this form.
-    if (editForm.email && editForm.email !== user?.email) {
+    // the rest of this form. Trimmed for the same reason as the invite
+    // form and Login.jsx -- a stray space here would just recreate the
+    // exact mismatch this edit exists to fix.
+    const trimmedEmail = editForm.email.trim();
+    if (trimmedEmail && trimmedEmail !== user?.email) {
       const { error: emailErr } = await supabase.functions.invoke("manage-users", {
-        body: { action: "update_email", userId: editingId, email: editForm.email },
+        body: { action: "update_email", userId: editingId, email: trimmedEmail },
       });
       if (emailErr) {
         setError(emailErr.message);

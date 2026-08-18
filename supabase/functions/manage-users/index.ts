@@ -100,7 +100,12 @@ Deno.serve(async (req) => {
   const { action } = body;
 
   if (action === "invite") {
-    const { email, displayName, roleId, isContractor, siteIds, redirectTo } = body;
+    const { displayName, roleId, isContractor, siteIds, redirectTo } = body;
+    // Trimmed here, not just in UsersTab.jsx -- this is the actual
+    // trust boundary, and an untrimmed email creates an account nobody
+    // can ever sign into with the address they type (see the fix for
+    // Zara this shipped alongside).
+    const email = (body.email ?? "").trim();
     if (!email || !displayName || !roleId || !Array.isArray(siteIds) || siteIds.length === 0) {
       return jsonResponse({ error: "email, displayName, roleId and at least one site are required" }, 400);
     }
@@ -150,7 +155,8 @@ Deno.serve(async (req) => {
   }
 
   if (action === "update_email") {
-    const { userId, email } = body;
+    const { userId } = body;
+    const email = (body.email ?? "").trim();
     if (!userId || !email) return jsonResponse({ error: "userId and email are required" }, 400);
 
     const { data: profile, error: profileError } = await supabaseAdmin

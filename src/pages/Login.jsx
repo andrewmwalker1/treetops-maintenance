@@ -12,8 +12,15 @@ export default function Login() {
     e.preventDefault();
     setStatus("sending");
     setErrorMessage("");
+    // A trailing space from mobile-keyboard autocomplete makes the typed
+    // email a silent non-match for an existing account -- Supabase then
+    // treats it as a brand new signup attempt and rejects it with
+    // "Signups not allowed for this instance", which looks nothing like
+    // a typo problem from the error message alone.
+    const trimmedEmail = email.trim();
+    setEmail(trimmedEmail);
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: trimmedEmail,
       options: { emailRedirectTo: window.location.origin },
     });
     if (error) {
