@@ -10,6 +10,7 @@ import EquipmentTypesTab from "./admin/EquipmentTypesTab.jsx";
 import EquipmentTab from "./admin/EquipmentTab.jsx";
 import CommonFaultDescriptionsTab from "./admin/CommonFaultDescriptionsTab.jsx";
 import RfidTagsTab from "./admin/RfidTagsTab.jsx";
+import KeyTagsTab from "./admin/KeyTagsTab.jsx";
 import EquipmentCheckoutLogTab from "./admin/EquipmentCheckoutLogTab.jsx";
 import ContractorsTab from "./admin/ContractorsTab.jsx";
 import GroupsTab from "./admin/GroupsTab.jsx";
@@ -25,6 +26,7 @@ const ALL_TABS = [
   { key: "faultDescriptions", label: "Common Faults", Component: CommonFaultDescriptionsTab, permission: "can_manage_equipment_status" },
   { key: "checkoutLog", label: "Checkout Log", Component: EquipmentCheckoutLogTab, permission: "can_manage_equipment_status" },
   { key: "rfid", label: "RFID Fobs", Component: RfidTagsTab, permission: "can_manage_users" },
+  { key: "keyTags", label: "Key Tags", Component: KeyTagsTab, permission: "can_manage_keys" },
   { key: "contractors", label: "Contractors", Component: ContractorsTab, permission: "can_manage_contractors" },
   { key: "groups", label: "Groups", Component: GroupsTab, permission: "can_manage_users" },
   { key: "roles", label: "Roles & Permissions", Component: RolesPermissionsTab, permission: "can_manage_roles_and_permissions" },
