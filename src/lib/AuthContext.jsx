@@ -38,8 +38,26 @@ export function AuthProvider({ children }) {
   const [viewingAsTargetId, setViewingAsTargetId] = useState(() => loadStoredViewingAs()?.targetId ?? null);
   const loadedUserIdRef = useRef(null);
 
-  const loadProfileAndScope = useCallback(async (userId) => {
+  const loadProfileAndScope = useCallback(async (user) => {
     setDeactivated(false);
+    const userId = user.id;
+
+    // A profile that has ever scanned in at a kiosk carries
+    // app_metadata.login_context on its auth.users row (stamped
+    // server-side by rfid-login -- see 34-key-station-login-context.sql).
+    // That's a user-level field, not a session-level one, so it persists
+    // across every future login -- including a completely normal desktop
+    // one -- until explicitly cleared. Outside a kiosk path, a leftover
+    // claim would otherwise force App.jsx's isKiosk check to send a normal
+    // login straight back into the kiosk view. clear-login-context resets
+    // it (only ever touching the caller's own row), then refreshSession
+    // mints a fresh token reflecting the change immediately.
+    if (!window.location.pathname.startsWith("/kiosk") && user.app_metadata?.login_context) {
+      await supabase.functions.invoke("clear-login-context");
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (refreshed?.session) setSession(refreshed.session);
+    }
+
     const { data: profileRow, error: profileError } = await supabase
       .from("profiles")
       .select("id, org_id, role_id, display_name, is_contractor, dnd_enabled, is_active, roles(name)")
@@ -96,7 +114,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
-      if (data.session) loadProfileAndScope(data.session.user.id);
+      if (data.session) loadProfileAndScope(data.session.user);
       else setLoading(false);
     });
 
@@ -113,7 +131,7 @@ export function AuthProvider({ children }) {
         // signed-in user has actually changed.
         if (loadedUserIdRef.current !== newSession.user.id) {
           setLoading(true);
-          loadProfileAndScope(newSession.user.id);
+          loadProfileAndScope(newSession.user);
         }
       } else if (event === "SIGNED_OUT") {
         loadedUserIdRef.current = null;
