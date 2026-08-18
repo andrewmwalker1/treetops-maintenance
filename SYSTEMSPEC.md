@@ -1,7 +1,7 @@
 # Tree Tops Maintenance Platform — System Specification
 
-*Reverse-engineered from the working application as of August 2026 (22 SQL
-migrations, 6 Edge Functions, full React frontend + kiosk). This document
+*Reverse-engineered from the working application as of August 2026 (32 SQL
+migrations, 7 Edge Functions, full React frontend + kiosk). This document
 describes what is actually built and running today, not the original
 build brief — treat it as the authoritative reference for a developer
 tasked with replicating this system exactly, on this stack or another.*
@@ -165,12 +165,13 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 | Table | Key columns | Notes |
 |---|---|---|
 | **job_statuses** | `id`, `org_id`, `name`, `is_completed` (bool), `sort_order`, unique(`org_id`,`name`) | Seed: Open (1), In Progress (2), Completed (3, `is_completed=true`), Cancelled (4, `is_completed=true`). Full CRUD is *not* exposed anywhere — statuses are effectively fixed post-seed. |
-| **job_types** | `id`, `org_id`, `name`, `template_schema` (jsonb — ordered array of checklist-item label strings), `requires_completion_photo` (bool, default false) | "Job templates" in the UI. Picking one on New Job pre-fills description/checklist/default activity types; the checklist remains freely editable afterward. |
+| **job_types** | `id`, `org_id`, `name`, `template_schema` (jsonb — ordered array of `{label, requiresPhoto}` objects), `requires_completion_photo` (bool, default false) | "Job templates" in the UI. Picking one on New Job pre-fills description/checklist/default activity types; the checklist remains freely editable afterward. `template_schema` was originally a plain array of label strings — migration 32 reshaped every existing row to `{label, requiresPhoto: false}` in place so per-item photo requirements (§6.3a) could be carried by a template. |
 | **job_type_task_types** | `job_type_id→job_types`, `task_type_id→task_types`, PK(both) | The *default* activity types a template pre-ticks on New Job — not a hard link; `job_activity_types` (below) is the real per-job source of truth. |
-| **schedules** | `id`, `org_id`, `site_id`, `job_type_id`, `rrule` (text — full RFC5545 string **including DTSTART**), `lead_in_days` (int), `last_generated_date` (date, nullable) | No active/paused flag exists — every row is always "live" (see §17). |
-| **jobs** | `id`, `org_id`, `site_id`, `job_type_id` (nullable), `description` (required), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set — `num_nonnulls(...) <= 1`**), `priority` (`job_priority`, default medium), `status_id` (required), `due_date` (date, nullable), `lead_in_date` (date, nullable), `pitch_id` / `area_id` (nullable), `schedule_id→schedules` (nullable — set only by the generator), `closed_by→profiles` (nullable), `created_by→profiles` (nullable — null for scheduler-generated jobs), `created_at`, `client_generated_id` (uuid, unique — offline creation dedup), `completed_date` (date, nullable — the date work actually happened, may be backdated, distinct from `created_at`), `requires_photo` (bool, default false — hard per-job flag, distinct from `job_type.requires_completion_photo`, see §6.3) | Indexed on (`org_id`,`site_id`), `assignee_profile_id`, `assignee_group_id`, `status_id`. |
-| **job_photos** | `id`, `job_id→jobs`, `storage_path`, `uploaded_by→profiles`, `uploaded_at` | Storage path convention: `<job_id>/<uuid>-<filename>` in the `job-photos` bucket. |
-| **job_subtasks** | `id`, `job_id→jobs`, `label`, `is_checked` (bool), `sort_order` (int) | The per-job checklist. Checking an item off never requires a permission; renaming/reordering/deleting an existing item requires `can_edit_job_checklist` (enforced server-side, not just hidden client-side — see §6.2). |
+| **schedules** | `id`, `org_id`, `site_id`, `job_type_id` (nullable — "no template" is a valid, fully-supported choice), `rrule` (text — full RFC5545 string **including DTSTART**), `lead_in_days` (int), `last_generated_date` (date, nullable), `description` (text, required, **not nullable** — backfilled from the job type's name for any pre-existing row when this column was added), `priority` (`job_priority`, default medium), `assignee_profile_id` / `assignee_group_id` (nullable, **at most one set**, person/group only — deliberately no contractor option for a recurring schedule), `pitch_id` / `area_id` (nullable), `is_active` (bool, default true) | Every field a generated job needs now lives on the schedule itself (full parity with New Job), rather than only a job-type template. Pausing sets `is_active=false`; the generator skips inactive rows entirely. Resuming resets `last_generated_date` to yesterday first, so a schedule paused for weeks doesn't immediately burst out a backlog of missed occurrences on resume — it just picks up from "due as of today." |
+| **schedule_task_types** | `schedule_id→schedules`, `task_type_id→task_types`, PK(both) | The activity types a generated job should carry, mirroring `job_activity_types` the same way `job_type_task_types` mirrors it for templates — set once on the schedule, copied onto every job it generates. |
+| **jobs** | `id`, `org_id`, `site_id`, `job_type_id` (nullable), `description` (required), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set — `num_nonnulls(...) <= 1`**), `priority` (`job_priority`, default medium), `status_id` (required), `due_date` (date, nullable), `lead_in_date` (date, nullable), `pitch_id` / `area_id` (nullable), `schedule_id→schedules` (nullable — set only by the generator), `closed_by→profiles` (nullable), `created_by→profiles` (nullable — null for scheduler-generated jobs), `created_at`, `client_generated_id` (uuid, unique — offline creation dedup), `completed_date` (date, nullable — the date work actually happened, may be backdated, distinct from `created_at`), `requires_photo` (bool, default false — hard per-job flag, distinct from `job_type.requires_completion_photo`, see §6.3), `due_reminder_sent_at` (timestamptz, nullable) | Indexed on (`org_id`,`site_id`), `assignee_profile_id`, `assignee_group_id`, `status_id`. `due_reminder_sent_at` gates the scheduler's same-day due-date push reminder (§7, §13) so it fires once, not once per cron run. |
+| **job_photos** | `id`, `job_id→jobs`, `storage_path`, `uploaded_by→profiles`, `uploaded_at`, `job_subtask_id→job_subtasks` (nullable, `ON DELETE SET NULL`) | Storage path convention: `<job_id>/<uuid>-<filename>` in the `job-photos` bucket. `job_subtask_id` is set when a photo was captured to satisfy a specific checklist item's photo requirement (§6.3a) — null for ordinary job-level photos. |
+| **job_subtasks** | `id`, `job_id→jobs`, `label`, `is_checked` (bool), `sort_order` (int), `requires_photo` (bool, default false) | The per-job checklist. Checking off an item that doesn't require a photo never needs a permission; renaming/reordering/deleting an existing item requires `can_edit_job_checklist` (enforced server-side, not just hidden client-side — see §6.2). Checking off an item where `requires_photo=true` requires either an attached photo (`job_photos.job_subtask_id`) or `can_check_off_item_without_photo` — see §6.3a. Setting `requires_photo` itself requires `can_require_checklist_item_photo` — see §6.3a. |
 | **job_activity** | `id`, `job_id→jobs`, `event_type` (`status_change`/`reallocation`/`comment`/`edit`/`contractor_email`), `actor_profile_id→profiles`, `previous_value` (jsonb), `new_value` (jsonb), `created_at` | **Append-only.** A DB trigger unconditionally blocks `DELETE` on this table (with one narrow, transaction-scoped exception used only by the `delete_job` RPC's cascade — see §6.5). Rows *can* be corrected via `UPDATE`. |
 | **job_activity_types** | `job_id→jobs`, `task_type_id→task_types`, PK(both) | Many-to-many: zero or more activity types per job, chosen independently of `job_type`. Drives which RA/MS documents surface on the job. |
 
@@ -246,9 +247,13 @@ matching server-side policy, trigger, or security-definer RPC.**
 | `can_complete_job_without_photo` | Bypassing a hard `requires_photo` block at completion time |
 | `can_manage_contractors` | Contractor CRUD, sending the "email job to contractor" action |
 | `can_see_contractor_jobs` | Seeing jobs assigned to a contractor |
+| `can_require_checklist_item_photo` | Marking a checklist item (on a job, or a job template) as requiring a photo before it can be checked off |
+| `can_check_off_item_without_photo` | Checking off a photo-required checklist item without attaching a photo — deliberately a **separate** permission from `can_complete_job_without_photo` (the whole-job bypass), not shared with it, since a safety-critical per-item requirement warrants its own explicit grant rather than silently inheriting a coarser existing bypass |
 
 Tree Tops seed grants: **Admin** holds every permission. **Head Gardener**
-and **Office** hold `can_edit_job_checklist` + `can_manage_reference_data`.
+holds `can_edit_job_checklist` + `can_manage_reference_data` +
+`can_require_checklist_item_photo` + `can_check_off_item_without_photo`.
+**Office** holds `can_edit_job_checklist` + `can_manage_reference_data`.
 No other role holds any permission by default — confirm the intended
 final matrix with the business owner before going live with a second
 organisation.
@@ -332,6 +337,33 @@ These are not the same feature and must both be implemented distinctly:
    `job_photos` rows, and the caller lacks
    `can_complete_job_without_photo`, the transaction is rejected outright
    — not a dialog the user can click through.
+
+### 6.3a Per-checklist-item photo requirement — a third, independent mechanism
+Added for H&S-flagged checklist items (e.g. "photograph the guard is
+fitted before checking this off"), distinct from both mechanisms in
+§6.3, which apply to *completing the job*, not to individual checklist
+items:
+
+1. **Setting the flag** (`enforce_checklist_requires_photo_permission`,
+   BEFORE INSERT OR UPDATE trigger on `job_subtasks`): if the row is
+   inserted with `requires_photo=true`, or an existing row's
+   `requires_photo` changes, the caller must hold
+   `can_require_checklist_item_photo` — otherwise rejected. Ordinary
+   label/reorder edits are unaffected.
+2. **Checking it off** (`enforce_checklist_item_photo_requirement`,
+   BEFORE UPDATE trigger on `job_subtasks`, fires only when `is_checked`
+   changes false→true): if `requires_photo=true` and the caller lacks
+   `can_check_off_item_without_photo`, there must be a `job_photos` row
+   with `job_subtask_id` pointing at this item — otherwise rejected
+   outright (no confirm-dialog escape hatch, unlike §6.3's soft rule).
+   The frontend replaces the checkbox for such an item with a camera-icon
+   "Add photo" button (which uploads then checks the item off in one
+   client-side sequence) and, only for holders of
+   `can_check_off_item_without_photo`, an explicit visible "Check off
+   without photo" text button alongside it — chosen deliberately over
+   silently folding the override into a checkbox, so the bypass stays a
+   conscious, visible action rather than indistinguishable from normal
+   ticking.
 
 ### 6.4 Reopen gate
 `enforce_job_reopen_permission` (BEFORE UPDATE trigger on `jobs`, fires
@@ -418,10 +450,10 @@ Function" message.
 
 | Function | Trigger | Auth check | Behavior |
 |---|---|---|---|
-| **generate-scheduled-jobs** | Daily cron (Supabase Dashboard → Edge Functions → Cron, e.g. `0 6 * * *`) | none (service role, no logged-in user) | For every `schedules` row: parses `rrule` (must include a `DTSTART` line — a bare `FREQ=...` string fails), computes occurrences due between `last_generated_date + 1 day` (or `dtstart` if never generated) and `today + lead_in_days`, creates one `jobs` row per due occurrence (org's lowest-`sort_order` non-completed status, priority `medium`, `description` = the job type's name, `schedule_id` set, `created_by` null), then advances `last_generated_date` to the last occurrence created. No pause/active flag exists — every schedule row is always live. |
+| **generate-scheduled-jobs** | Daily cron (`pg_cron` + `pg_net`, see RUNBOOK.md §7 — no Cron UI exists in this project's Dashboard) | none (service role, no logged-in user) | Two passes per invocation, in order: (1) **due-today reminders** — for every open (non-completed-status) job with `due_date = today`, a non-null `schedule_id`, and `due_reminder_sent_at` still null, sends a push to its assignee/group (excluding no one — there's no "actor" to exclude here) and stamps `due_reminder_sent_at`, so a job due today that's still outstanding gets exactly one same-day nudge, run *before* generation so a job generated and due on the same day (zero lead-in) isn't double-notified by both passes; (2) **generation** — for every `is_active=true` `schedules` row: parses `rrule` (must include a `DTSTART` line), computes occurrences due between `last_generated_date + 1 day` (or `dtstart` if never generated) and `today + lead_in_days`, creates one `jobs` row per due occurrence copying the schedule's `description`/`priority`/`assignee_profile_id`/`assignee_group_id`/`pitch_id`/`area_id` (org's lowest-`sort_order` non-completed status, `schedule_id` set, `created_by` null), inserts `job_activity_types` from `schedule_task_types`, sends a "job assigned" push to the new job's assignee/group with the due date in the message body, then advances `last_generated_date` to the last occurrence created. Inactive (paused) schedules are skipped entirely by this pass but still get their existing jobs' due-today reminders from pass (1). |
 | **send-notice-push** | Called from `notifications.js`'s `sendNotification()` | none beyond a valid recipient id (any authenticated caller may trigger a push to any recipient — no sender-side restriction today) | `priority: 'safety_critical'` always sends immediately. `priority: 'operational'` checks the recipient's `dnd_enabled`; if true, inserts the `notifications` row with `delivered_at: null` (queued) and does **not** push. Prunes dead `push_subscriptions` on 410/404. |
 | **flush-dnd-notifications** | Called from `notifications.js` right after `setDNDEnabled(false)` | none | Delivers every queued (`delivered_at is null`) notification for the given `profileId` to every registered subscription, marking each delivered. |
-| **manage-users** | Called from `UsersTab.jsx` | Bearer token → resolves caller's profile → requires `can_manage_users` enabled for their role | `action: "invite"` — `auth.admin.inviteUserByEmail`, then inserts `profiles` + `site_scope` rows. `action: "deactivate"/"reactivate"` — sets `profiles.is_active` **and** bans/unbans the `auth.users` row (`ban_duration: "876000h"` ≈ 100 years, or `"none"`) so an existing session is cut off immediately, not just on next profile check. |
+| **manage-users** | Called from `UsersTab.jsx` | Bearer token → resolves caller's profile → requires `can_manage_users` enabled for their role | `action: "invite"` — `auth.admin.inviteUserByEmail`, then immediately calls `auth.admin.updateUserById(userId, {email_confirm: true})` (see note below), then inserts `profiles` + `site_scope` rows. `action: "deactivate"/"reactivate"` — sets `profiles.is_active` **and** bans/unbans the `auth.users` row (`ban_duration: "876000h"` ≈ 100 years, or `"none"`) so an existing session is cut off immediately, not just on next profile check. `action: "update_email"` — `auth.admin.updateUserById(userId, {email, email_confirm: true})`; email is `.trim()`'d server-side regardless of what the client sent. `action: "resend"` — re-sends the invite; also carries a defensive backstop that force-confirms the email if the account somehow still shows `email_confirmed_at: null`.<br><br>**Why every path force-confirms email**: Supabase's `signInWithOtp` treats a never-confirmed account as a fresh signup attempt internally, which is rejected outright when the project has public signups disabled (as this one does) — producing the misleading error "Signups not allowed for this instance" for an invited user simply trying to sign in normally. Root-caused via a user (Zara) hitting this in production; fixed by never leaving an invited account unconfirmed in the first place, plus the `resend` backstop for any account that predates this fix. |
 | **rfid-login** | Called from `KioskSignIn.jsx`, **no session required** (this is how a kiosk session is created) | Rate-limited only: 8 failed attempts per `tag_uid` in a rolling 15-minute window locks that tag out (`rfid_login_attempts`, logged for every attempt, success or failure) | Looks up `tag_uid` → `profile_id`, checks the profile is active, then `auth.admin.generateLink({type:"magiclink", email, redirectTo})` and returns the resulting `action_link` for the client to navigate to directly (`window.location.href`, a full page load through Supabase's own magic-link verification — not a client-side `verifyOtp` call). |
 | **send-contractor-job-email** | Called from `JobDetail.jsx`'s "Send email to contractor" button | Bearer token → requires `can_manage_contractors` | Loads the job + checklist, requires the job to have a contractor assignee with a `main_email`, sends via **Resend** (`from: "Tree Tops Maintenance <noreply@treetopscaravanpark.co.uk>"`, HTML body: description/priority/due date/location/requester/checklist), then logs a `job_activity` row with `event_type: "contractor_email"`. No dedicated "resend" — calling again just sends again and adds another log entry, giving a full send history. |
 | **contractor-document-reminders** | Daily cron (Supabase Dashboard → Edge Functions → Cron, same pattern as `generate-scheduled-jobs`) | none (service role, no logged-in user) | For every `contractor_documents` row with a non-null `expiry_date` within 7 days (or already past) and `reminder_triggered_at` still null: creates a `jobs` row assigned to the org's "Office" group (priority `high`, due date = the document's expiry date, on the org's first site since documents aren't site-scoped), sends a **Resend** email to the contractor if `main_email` is set (skipped, not retried, if not), then stamps `reminder_triggered_at`/`reminder_job_id` so it isn't repeated tomorrow. Each document is processed independently, so a contractor with several documents gets a separate job/email per document as each one individually crosses the 7-day mark. |
@@ -502,12 +534,14 @@ everywhere the behavior is needed, don't reimplement per-screen.
 - **`equipmentAvailability.js`** → `getEquipmentTypeAvailabilityCounts(orgId)` / `getAvailableUnits(equipmentTypeId)` — a unit counts as "available" only if `status === 'in_service'` AND has no currently-open `equipment_checkouts` row. Deliberately ignores `held_by_profile_id`.
 - **`printJobCards.jsx`** → `openPrintWindow()` (must be called **synchronously** from the triggering click — any `await` before `window.open()` gets silently popup-blocked on iOS Safari) + `writeAndPrintJobBundles(printWindow, bundles, terminology)` (server-renders `PrintableJobCard` via `renderToStaticMarkup` into the new window, one page-break per card, waits for the window's `load` event before calling `.print()` — avoids the documented brokenness of in-page `window.print()`/`@media print` under a service-worker-controlled PWA on iOS Safari).
 - **`completeJob.js`** → `writeJobCompletion({...})` — the single "mark job complete" write path shared by JobDetail and the kiosk: updates `status_id`/`closed_by`/`completed_date`, logs a `status_change` activity row, and an additional `comment` activity row if a comment was supplied. Does not own the photo-confirmation dialog — that stays with each caller.
+- **`jobAssignmentNotify.js`** → `notifyJobAssigned({job, actorProfileId, actorDisplayName})` — resolves the job's assignee (person, or every `group_members` row if group-assigned) and calls `sendNotification()` for each, excluding the actor themself so reassigning your own job doesn't notify you. Called from `NewJob.jsx` on creation and `JobDetail.jsx`'s reallocation handler; the scheduler's generation/due-reminder passes (§7) call `sendNotification()` directly rather than through this module, since there's no "actor" to exclude in a cron context.
+- **`useIsMobile.js`** → `useIsMobile()` — a small hook wrapping `window.matchMedia("(max-width: 640px)")`, reactive to viewport changes. Used by `Layout.jsx` to switch the header's account controls into the collapsed `AccountMenu` (§8.6) below that width, and by `JobsList.jsx`'s chip-strip fade hint.
 
 ### 8.6 Shared components
 
-- **`ChecklistBuilder.jsx`** — reusable ordered-list editor (`{items, onChange, readOnly}`): add via Enter or button, inline-edit, ↑/↓ reorder, ✕ remove. `readOnly` renders plain text with no controls. Reused across New Job, Job Detail, Job Templates admin, Equipment Types admin (pre-use checklist), and the kiosk (always read-only there).
+- **`ChecklistBuilder.jsx`** — reusable ordered-list editor (`{items, onChange, readOnly, canRequirePhoto}`). `items` is `[{label, requiresPhoto}, ...]` (see `job_types.template_schema` / `job_subtasks` note above). Add via Enter or button, inline-edit, ↑/↓ reorder, ✕ remove. `canRequirePhoto` (only true when the caller holds `can_require_checklist_item_photo`) adds a per-item camera-icon toggle button (moss-dark filled when active) that sets `requiresPhoto` — hidden entirely, not disabled, for callers without the permission, matching every other permission-gated control in this codebase. `readOnly` renders plain text with no controls (the icon toggle is also suppressed). Reused across New Job, Job Detail, Job Templates admin, Equipment Types admin (pre-use checklist, always `canRequirePhoto=false` — that checklist isn't a `job_subtasks` row so the photo-requirement mechanism doesn't apply to it), and the kiosk (always read-only there).
 - **`RfidScanListener.jsx`** — a visually-hidden, always-refocused `<input>` that captures HID-keyboard-emulation input from a physical RFID reader (types the UID, then Enter — indistinguishable from real typing, which is how it's tested without hardware). Calls `onScan(uid)` on Enter. Shared by kiosk sign-in and admin fob registration.
-- **`Layout.jsx`** — header (org + site name), nav (Jobs, Equipment, Dashboard, Safety, conditionally Admin), DND toggle, "Enable notifications" button, display name, sign-out. Footer shows build metadata (`v{version} · {git sha} · built {timestamp}`, injected at build time by `vite.config.js`).
+- **`Layout.jsx`** — header (org + site name), nav (Jobs, Equipment, Dashboard, Safety, conditionally Admin), an offline-queue indicator badge (§14), and the account controls (DND toggle, "Enable notifications" button, display name, sign-out). Above 640px viewport width these render inline; at 640px and below (`useIsMobile()`) they collapse into **`AccountMenu`** — a single avatar button (first initial of display name) opening a dropdown panel with the same controls, closed by a click on a full-screen invisible backdrop. Added because on a phone the inline row wrapped onto its own line, eating a full row of vertical space above the job list — with only one job then visible on screen. Footer shows build metadata (`v{version} · {git sha} · built {timestamp}`, injected at build time by `vite.config.js`).
 - **`SafetyDocumentLink.jsx`** — resolves a 1-hour signed URL for a `ra_ms_documents` row's PDF on mount; shows unlinked "(no PDF yet)" text if none uploaded.
 - **`JobCard.jsx`** — the job-list row: priority bar, description, status pill, location, assignee, due date; optional selection checkbox.
 - **`Modal.jsx`** — generic overlay (click-outside-to-close), reused for save-as-template, job completion, and job reopening.
@@ -567,7 +601,7 @@ gloved/dirty hands, not a phone.
 ### 10.1 Login (`/`, unauthenticated)
 
 Passwordless only — **no password field anywhere in the app.**
-1. User enters their email → `supabase.auth.signInWithOtp({email, options:{emailRedirectTo: window.location.origin}})`.
+1. User enters their email (trimmed before use) → `supabase.auth.signInWithOtp({email, options:{emailRedirectTo: window.location.origin}})`.
 2. Screen shows both: a magic-link (click the emailed link) and an **8-digit numeric code** entry form (`inputMode="numeric"`, monospace, letter-spaced) that calls `verifyOtp({email, token, type:"email"})`.
 3. The code path exists specifically because home-screen-installed PWAs on iOS can't hand a link tapped in Mail back to the installed app — it always opens in Safari instead, leaving the installed PWA session-less. The code lets the user stay inside the installed app.
 4. "Use a different email" resets the flow. States: idle → sending → sent/verifying → error.
@@ -597,7 +631,13 @@ site-wide, not whatever's currently filtered on screen.
   and **priority chips** ("All priorities" + the four levels,
   single-select) — an explicit chip choice overrides the quick filter's
   implied status/priority; if no chip is picked, the quick filter's
-  derived filter still applies.
+  derived filter still applies. Each chip row is wrapped in a
+  `ScrollHintRow` (horizontal scroll, `flexWrap: nowrap`, chips given
+  `flexShrink: 0`): on a narrow viewport where the chips overflow, a
+  fading gradient is drawn over the trailing edge whenever there's more
+  content scrolled out of view (`scrollWidth - clientWidth - scrollLeft > 4px`,
+  rechecked on scroll/resize) as a hint that the row scrolls, and clears
+  once scrolled to the end.
 - **"Assign to" select** — shown only if there's more than one distinct
   assignee visible in the currently-loaded (already RLS-narrowed) set.
   Optgroups: By role / By person / By contractor. Filtering here is
@@ -620,7 +660,7 @@ Fields, in this order:
 1. **Job template** (optional select of `job_types`) — picking one fills description (only if the field is still empty/whitespace, never clobbers user input), replaces the checklist with `template_schema`, and replaces selected activity types with the template's defaults from `job_type_task_types`.
 2. **Description** — required textarea.
 3. **Activity types** (optional checkbox list of org `task_types`).
-4. **Checklist** — `ChecklistBuilder`, read-only unless `can_edit_job_checklist`. If the caller also holds `can_manage_reference_data`: "Save as new template" (modal, names a new `job_types` row) and, if a template is selected, "Update `<name>` template" (confirm-guarded overwrite of that template's `template_schema`).
+4. **Checklist** — `ChecklistBuilder`, read-only unless `can_edit_job_checklist`; the per-item camera-icon "requires photo" toggle additionally needs `can_require_checklist_item_photo` (§6.3a). If the caller also holds `can_manage_reference_data`: "Save as new template" (modal, names a new `job_types` row) and, if a template is selected, "Update `<name>` template" (confirm-guarded overwrite of that template's `template_schema`).
 5. **Priority** — Low/Medium/High/Immediate, default Medium.
 6. **Due date** (optional).
 7. **Assign to** — radio Person/Group/Contractor, then a matching select; default Unassigned.
@@ -632,7 +672,7 @@ Submission specifics to replicate exactly:
 - Client generates the row's `id` up front (`crypto.randomUUID()`) and inserts **without** requesting the row back (no `.select()`/RETURNING) — RETURNING re-checks the SELECT RLS policy in the same statement and that self-lookup was found to unreliably miss the just-inserted row, throwing a spurious RLS error even though the write actually succeeded. Client-generating the id avoids ever needing to read it back.
 - **Offline**: if `!navigator.onLine`, the job is queued via `queueJob()` instead of inserted, the user sees "You're offline — this job will save once you're back online." (plus, if a photo was attached, an explicit note that the photo itself was *not* queued and must be added later from the job detail screen), and the user is navigated to `/` immediately.
 - A thrown `TypeError` from the insert attempt (the signature of a genuinely failed fetch, as opposed to a real server-side rejection) is treated identically to offline — queued, not surfaced as a hard error — since any other thrown error represents a real rejection that would fail identically on retry.
-- Once the job row exists, photo upload, activity-type links, and checklist rows are written as best-effort follow-ups (errors logged, not surfaced, don't block navigation).
+- Once the job row exists, photo upload, activity-type links, and checklist rows are written as best-effort follow-ups (errors logged, not surfaced, don't block navigation). If the job has a person or group assignee, `notifyJobAssigned()` (§8.5) sends them a push notification, excluding the creator if they assigned it to themself.
 
 ### 10.5 Job detail (`/jobs/:id`)
 
@@ -646,10 +686,14 @@ the reassignment/status controls.
   1. Selecting a completed status while not already completed → **redirects to the Complete modal** (captures completed date + optional comment + photo together); the dropdown never marks a job complete on its own.
   2. Moving away from a completed/cancelled status ("reopening") → requires `can_reopen_completed_jobs` (else a client error message, no-op); if held, opens a **Reopen modal requiring a mandatory comment** before applying.
   3. Any other plain transition — applies the checks from §6.3 (hard `requires_photo` block, then the soft template-level confirm only when the closer is the assignee themself) before applying directly and logging `status_change`.
-- **Reassign to** — shown as an editable select only with `can_reallocate_jobs`; otherwise read-only text. Logs `reallocation` with a full before/after snapshot of all three assignee columns.
+- **Reassign to** — shown as an editable select only with `can_reallocate_jobs`; otherwise read-only text. Logs `reallocation` with a full before/after snapshot of all three assignee columns, then calls `notifyJobAssigned()` (§8.5) to push the new person/group assignee, excluding whoever made the change.
 - **"Send email to contractor"** — shown only when the job has a contractor assignee and the caller holds `can_manage_contractors`. On success, the activity feed shows "Job details sent to `<contractor>` (`<email>`)".
 - **Safety section** — shown only if the job has ≥1 linked activity type: each type's name plus its `SafetyDocumentLink` list ("No RA/MS documents linked yet." if empty).
-- **Checklist section** — shown if there are subtasks or the caller holds `can_edit_job_checklist`. Completed items get a strikethrough. Editable version adds inline rename, ↑/↓ reorder, remove, and an "Add an item…" field. Same save/update-template buttons as New Job (gated on `can_edit_job_checklist && can_manage_reference_data`).
+- **Checklist section** — shown if there are subtasks or the caller holds `can_edit_job_checklist`. Completed items get a strikethrough. Editable version adds inline rename, ↑/↓ reorder, remove, and an "Add an item…" field (with its own `can_require_checklist_item_photo`-gated "📷 Requires photo" checkbox). Same save/update-template buttons as New Job (gated on `can_edit_job_checklist && can_manage_reference_data`), serialising `{label, requiresPhoto}` back into `template_schema`. Each row renders one of three ways (§6.3a):
+  - Plain item → ordinary checkbox, unchanged.
+  - Photo-required, not yet checked → a "📷 Add photo" button in place of the checkbox (captures via `capturePhoto()`, uploads to `job-photos`, inserts a `job_photos` row with `job_subtask_id` set, then checks the item — all as one action; disabled mid-upload), plus, only for holders of `can_check_off_item_without_photo`, a separate visible "Check off without photo" text button next to it.
+  - Photo-required, checked — checkbox plus a `PhotoThumb` of the linked photo (matched via `job_photos.job_subtask_id`).
+  A camera-icon toggle next to each item's ↑/↓/✕ editor controls (visible only with both `can_require_checklist_item_photo` and `can_edit_job_checklist`) flips `requires_photo` on an existing item directly, independent of the "Add an item" form's own toggle.
 - **Photos section** — red warning banner if `requires_photo && photos.length===0`; grid of thumbnails; "Add photo" button.
 - **Activity section** — comment box + reverse-chronological feed. `contractor_email` events render as "emailed contractor"; every other event type is shown as its raw event-type string (not humanized) — replicate this literally unless asked to improve it.
 - **Complete button** — full-width primary, opens the Complete modal (date defaults to today, optional comment, photo grid with an explicit "(required)"/"(optional)" label depending on `requires_photo`). Re-checks both photo rules from §6.3 before writing.
@@ -691,10 +735,10 @@ buttons; the first permitted tab auto-selects. Full tab list:
 
 | Tab | Permission | CRUD scope |
 |---|---|---|
-| Job Templates | `can_manage_reference_data` | `job_types`: name, `requires_completion_photo` checkbox, checklist builder, default activity types (diffed against `job_type_task_types`) |
+| Job Templates | `can_manage_reference_data` | `job_types`: name, `requires_completion_photo` checkbox, checklist builder (with the `can_require_checklist_item_photo`-gated per-item camera toggle, §6.3a), default activity types (diffed against `job_type_task_types`) |
 | Activity Types | `can_manage_reference_data` | `task_types`: name, equipment category (free text), linked RA/MS documents (diffed) |
 | Safety Library | `can_manage_reference_data` | `ra_ms_documents`: type radio, title, description, PDF upload (client-generated id so the storage path is known before upload, upsert-with-`{upsert:true}`) |
-| Recurring Jobs (Schedules) | `can_manage_reference_data` | `schedules`: template, site (if >1), frequency (daily/weekly/monthly + interval), weekly weekday checkboxes, monthly day-of-month or Nth-weekday-of-month, start date, lead-in days. Built on the `rrule` package (`buildRule`/`parseRule`/`describeRule` via `RRule.toText()`). |
+| Recurring Jobs (Schedules) | `can_manage_reference_data` | `schedules`: template (optional — "no template" is explicitly supported, not just an initial-selection default), site (if >1), frequency (daily/weekly/monthly + interval), weekly weekday checkboxes, monthly day-of-month or Nth-weekday-of-month, start date, lead-in days, **description** (required textarea — save is blocked, not silently backfilled, if left blank), **priority** select, **assignee** (radio Person/Group, matching select — no contractor option), **location** (radio Pitch/Area/None, Area as free text with a `<datalist>` of existing names, creating a new `areas` row on save exactly like New Job does), **activity type checkboxes** (written to `schedule_task_types`). List view shows the priority bar, assignee, and location alongside each schedule. A **Pause/Resume** button toggles `is_active`; resuming resets `last_generated_date` to yesterday first so a long-paused schedule doesn't burst out a backlog of missed jobs on resume. Built on the `rrule` package (`buildRule`/`parseRule`/`describeRule` via `RRule.toText()`). |
 | Equipment | `can_manage_equipment_status` | `equipment`: Kit ID, type, make, model, serial number, other ID number, date added; new items default to `in_service`. Inline "Force check-in" per open checkout. Delete cleans up fault-photo storage objects explicitly (DB rows cascade; storage does not). |
 | Equipment Types | `can_manage_equipment_status` | `equipment_types`: name, pre-use checklist, manual reorder (↑/↓), a "Copy checklist from…" merge-in-without-duplicating action, allow-multi-checkout checkbox, linked RA/MS documents (diffed, same pattern as Activity Types) |
 | Common Faults | `can_manage_equipment_status` | `common_fault_descriptions`, scoped per equipment type via a type-selector pill row; reorderable picklist |
@@ -703,7 +747,7 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes. Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal`: `contractor_documents` list (signed-URL link, expiry countdown colour-coded within 7 days/expired) + an add-document form (description, optional expiry date, file) uploading to the private `contractor-documents` bucket at `<contractor_id>/<filename>`. |
 | Groups | `can_manage_users` | `groups` + `group_members`: name, member checkbox list (diffed). Delete warns that assigned jobs become unassigned. |
 | Roles & Permissions | `can_manage_roles_and_permissions` | Permission×role matrix (checkbox toggles `role_permissions`), add role, inline-rename role (click header), delete role (surfaces the "still in use" trigger error verbatim if applicable) |
-| Users | `can_manage_users` | List via `list_org_users()` RPC. Invite form (email, display name, role, contractor checkbox, site-access checkboxes) → `manage-users` Edge Function. Inline edit (name/role/contractor/site-scope) writes directly to `profiles`/`site_scope`, bypassing the Edge Function. Deactivate/Reactivate → `manage-users` Edge Function. |
+| Users | `can_manage_users` | List via `list_org_users()` RPC. Invite form (email, display name, role, contractor checkbox, site-access checkboxes) → `manage-users` Edge Function (trims the email client-side; the function trims it again server-side). Inline edit (name/role/contractor/site-scope) writes directly to `profiles`/`site_scope`, bypassing the Edge Function — **except email**, which is diffed against the loaded value and, if changed, sent through `manage-users`' `update_email` action (email lives on `auth.users`, not `profiles`, so it can't be written directly by the client). Deactivate/Reactivate → `manage-users` Edge Function. |
 
 Delete-confirmation is inconsistent by design across tabs — some are
 immediate no-confirm deletes (Activity Types, Job Templates, Safety
@@ -765,6 +809,13 @@ first render and every time a new job was opened). **No photo capability
 at all in the kiosk job flow** — the design assumption is that
 photo-required job templates are simply never assigned to kiosk-only
 staff, so the kiosk never needs to satisfy or bypass a photo requirement.
+This extends to per-checklist-item photo requirements (§6.3a) too: a
+kiosk user without `can_check_off_item_without_photo` who taps a
+photo-required checklist item will hit the raw Postgres trigger error
+surfaced verbatim (there's no camera-icon affordance built for the kiosk
+checklist) — accepted as-is under the same assumption, not fixed,
+because the policy is that such templates aren't handed to kiosk-only
+staff in the first place.
 
 ### 12.5 Check-out (`/kiosk/checkout`) — 3-view flow
 
@@ -817,7 +868,13 @@ is always one of `safety_critical` / `operational`.
 - Dead push subscriptions (410/404 responses from the push service) are pruned automatically on next send attempt.
 - `sw.js` handles `push` (shows a notification from the JSON payload) and `notificationclick` (opens `data.url` or `/`) — plus `self.skipWaiting()` + `clientsClaim()` so a freshly deployed service worker takes over immediately rather than waiting for every open tab to close, since this PWA is typically left open all day.
 
-No triggers in the current codebase actually *call* `sendNotification()` from a job-lifecycle event (e.g. "notify the assignee when a job is created/reassigned") — the plumbing exists end-to-end but nothing wires it up yet. Confirm with the business whether automatic triggers are in scope for a rebuild, or whether notifications remain a manually-invoked capability only.
+Job-lifecycle triggers wired to `sendNotification()` today:
+- **Job created** with a person or group assignee — `NewJob.jsx` calls `notifyJobAssigned()` (§8.5), excluding the creator.
+- **Job reassigned** — `JobDetail.jsx`'s reallocation handler calls the same helper, excluding whoever made the change.
+- **Recurring job generated** — the scheduler (§7) pushes the new job's assignee/group with the due date in the message.
+- **Recurring job due today, not yet completed** — the scheduler's due-reminder pass (§7) pushes the assignee/group once per due date, gated by `jobs.due_reminder_sent_at`.
+
+All four resolve a **group** assignee to every member of `group_members` individually (there's no "notify a group" push concept — it's fan-out to members). None of these are `safety_critical` — they're all `operational`, so they queue behind DND like anything else. Equipment-lifecycle events (e.g. "equipment you hold went faulty") still have no trigger — see §17.
 
 ---
 
@@ -826,7 +883,7 @@ No triggers in the current codebase actually *call* `sendNotification()` from a 
 - Installable PWA (`vite-plugin-pwa`, `injectManifest` strategy against a hand-written `sw.js`, not the plugin's generated logic). Manifest: standalone display, portrait orientation lock, `#E7E2CC` background / `#3F5837` theme colour.
 - **Offline job creation only** — no other offline write path exists (no offline job edits, photo uploads, equipment actions, etc.). `syncQueue.js` stores queued jobs in IndexedDB (`treetops-maintenance` DB, `job_queue` store, keyed by `client_generated_id`), flushed on app load and on the browser's `online` event — never via the Background Sync API (unsupported on iOS Safari, so deliberately not relied on).
 - Flush uses a **plain insert**, never upsert — an upsert would additionally need to satisfy the `jobs_update` RLS policy's USING clause, which can never be true for a row that doesn't exist yet server-side. A unique-violation on `client_generated_id` during flush means a prior attempt already synced successfully (its response was just lost) — the local queued copy is deleted without retrying. Any other error leaves it queued for the next attempt.
-- `getQueueStatus()` exists but has **no caller anywhere in the UI** — there is no "N jobs pending sync" indicator; a user's only feedback is the one-time "queued" message shown at creation time. Add a status indicator if replicating with better offline UX in mind.
+- `Layout.jsx` now drives both the flush and a visible indicator: it calls `flushQueue()` on mount and on the browser's `online` event (previously only `queueJob()` itself called `flushQueue()`, right after queuing — a job that never triggered a second offline save would otherwise sit queued indefinitely with no retry). `getQueueStatus()` is polled every 5s and on `online`/`offline` events to drive a header pill: "Syncing N job(s)…" (gold) while online with a nonzero pending count, "N job(s) queued — offline" (clay) while offline; hidden entirely when the queue is empty.
 - GitHub Pages has no server-side routing, so a two-part SPA-fallback trick is required to support deep links (bookmarks, the RFID magic-link redirect straight to `/kiosk`, etc.): `public/404.html` (served by GitHub Pages for any unmatched path) immediately `location.replace`s to `/?redirect=<encoded original path>`; an inline bootstrap script in `index.html` reads that `?redirect=` param and calls `history.replaceState` to restore the real path **before** React Router mounts.
 
 ---
@@ -837,7 +894,7 @@ No triggers in the current codebase actually *call* `sendNotification()` from a 
 - **Backend**: a **dedicated Supabase project**, deliberately separate from any other Supabase project the business runs — the anon key, service role key, and VAPID key pair are project-specific secrets, never shared.
 - **Env vars** (`.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY` — client-safe only. The service role key and both VAPID keys live only as Supabase Edge Function secrets, never in any `VITE_`-prefixed variable or client bundle.
 - **Build-time metadata**: `vite.config.js` injects `__APP_VERSION__` (from `package.json`), `__GIT_SHA__` (`git rev-parse --short HEAD`), `__BUILD_TIME__` — surfaced in the footer for support/debugging.
-- **Migration order matters**: the 22 `supabase/*.sql` files must be run in numeric order against a fresh project; each is idempotent (safe to re-run). Edge Functions are deployed via the Supabase CLI (`supabase functions deploy <name>`) and require their own secrets set separately (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `RESEND_API_KEY` — `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are injected automatically). The daily job generator's cron schedule is configured via the Supabase Dashboard (or `pg_cron`/`pg_net`, not currently used).
+- **Migration order matters**: the 32 `supabase/*.sql` files must be run in numeric order against a fresh project; each is idempotent (safe to re-run). Edge Functions are deployed via the Supabase CLI (`supabase functions deploy <name>`) and require their own secrets set separately (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `RESEND_API_KEY` — `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` are injected automatically). This project has no Cron UI in the Supabase Dashboard; the two daily-cron functions (`generate-scheduled-jobs`, `contractor-document-reminders`) are scheduled directly via `pg_cron`/`pg_net` SQL — see RUNBOOK.md §7 for the exact working `cron.schedule(...)` call.
 
 ---
 
@@ -872,21 +929,22 @@ not bugs:
 1. **No site picker.** The data model supports a user scoped to multiple sites, but the UI only ever auto-selects when exactly one site is in scope; with 0 or 2+, pages needing `activeSite` simply hang. Fine while Tree Tops is single-site; must be built before a second site is onboarded anywhere.
 2. **`role_visibility` beyond Head Gardener is a placeholder.** Confirm the intended visibility matrix for Gardener/Maintenance/Office with the business owner rather than assuming "own role only."
 3. **`admin_access_log` is unused.** The table and RLS carve-out for `platform_admins` exist, but nothing writes an audit row on cross-org access yet. Wire this up before onboarding a second organisation.
-4. **No `schedules` pause/active flag.** Every recurring schedule is always live; there's no way to pause one without deleting it.
+4. ~~No `schedules` pause/active flag.~~ **Resolved** — `schedules.is_active` (migration 30) plus a Pause/Resume button on the admin tab (§11).
 5. **No admin CRUD for `training_videos`.** Content must be inserted directly against the database — no UI exists to manage it, unlike every other reference table.
 6. **`equipment.check_frequency_days` and `fault_reports.appointed_person_id`** are modeled and loaded in places but never surfaced or acted on anywhere in the UI — dead columns as currently built. Either implement their intended behaviour (scheduled recheck reminders; a named responsible person for a fault) or drop them.
 7. **`equipment.held_by_profile_id`** (long-term personal issue) has no write path anywhere in the UI — only the short-term kiosk `equipment_checkouts` concept is actually used day to day.
-8. **No automatic notification triggers.** The full Web Push + DND pipeline works end-to-end, but nothing in the job/equipment lifecycle currently calls `sendNotification()` — it's a manually-invokable capability, not yet wired to events like "job assigned to you" or "equipment you hold went faulty."
-9. **`getQueueStatus()` has no UI caller.** Users get no persistent indicator of pending offline-queued jobs.
+8. **Notification triggers cover jobs, not equipment.** Job assignment/reallocation and scheduled-job generation/due-reminders all push now (§13), but nothing in the equipment lifecycle calls `sendNotification()` yet — e.g. no "equipment you hold went faulty" push.
+9. ~~`getQueueStatus()` has no UI caller.~~ **Resolved** — `Layout.jsx` now shows a live "N jobs queued/syncing" header pill (§14).
 10. **Unused dependencies**: `workbox-routing` and `workbox-strategies` are declared but not used by the hand-written `sw.js` (which only uses `workbox-core`/`workbox-precaching`).
 11. **No automated tests, no lint script.** `package.json` defines only `dev`/`build`/`preview`. Decide whether a rebuild should add test coverage given how much business logic lives in trigger/RLS interactions that are easy to regress silently.
 12. **Activity-feed event labels aren't humanized** in the UI (`status_change`, `edit`, `reallocation` show as raw snake_case-ish strings; only `contractor_email` gets a friendly label). Cosmetic, but worth a deliberate decision either way rather than an accidental carry-over.
+13. **Kiosk checklist has no camera-icon affordance** for per-checklist-item photo requirements (§6.3a) — a kiosk user hitting one gets the raw trigger error rather than the "Add photo"/"Check off without photo" UI built for the main app (§10.5). Accepted under the existing assumption that photo-required templates aren't assigned to kiosk-only staff — revisit if that assumption changes.
 
 ---
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 22-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 32-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.

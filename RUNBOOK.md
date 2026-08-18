@@ -27,6 +27,10 @@ SQL Editor → paste each file's contents → Run. All four are idempotent
    confirmation.
 4. `supabase/04-storage.sql` — creates the `job-photos` and
    `fault-photos` storage buckets and their access policies.
+5. Then run every remaining numbered file in `supabase/` in order
+   (`05-seed-pitches.sql` through the highest-numbered file present) —
+   each is idempotent, safe to re-run. See SYSTEMSPEC.md §4 for what
+   each one adds.
 
 ## 3. Invite the team
 
@@ -123,9 +127,6 @@ npm run dev
 
 ## What's NOT done yet
 
-- No hosting/deploy pipeline chosen (Hub uses GitHub Pages via GitHub
-  Actions on push to `main` — this app has no such workflow yet; ask if
-  you want the same pattern).
 - Pitch CSV not supplied — `pitches` only has a `pitch_number_or_name`
   column until you send the real data.
 - `role_visibility` beyond Head Gardener needs your confirmation (see
@@ -133,3 +134,6 @@ npm run dev
 - Genuine offline testing (aeroplane mode, per Section 10 step 10 of
   BUILD-BRIEF.md) hasn't been done — needs a live project to test
   against first.
+
+Hosting is done: GitHub Pages via GitHub Actions (`.github/workflows/deploy.yml`)
+on push to `main`, live at `jobs.treetops.co.uk`.
