@@ -14,7 +14,7 @@ export default function KioskSignIn() {
     setError(null);
     try {
       const { data, error: invokeError } = await supabase.functions.invoke("rfid-login", {
-        body: { tagUid, redirectTo: `${window.location.origin}/kiosk` },
+        body: { tagUid, redirectTo: `${window.location.origin}/kiosk`, context: "kiosk" },
       });
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);

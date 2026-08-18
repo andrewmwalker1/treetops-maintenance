@@ -1,6 +1,6 @@
 // Tree Tops Maintenance Platform -- RFID kiosk sign-in.
 // Called from src/kiosk/KioskSignIn.jsx via
-// supabase.functions.invoke("rfid-login", { body: { tagUid, redirectTo } }).
+// supabase.functions.invoke("rfid-login", { body: { tagUid, redirectTo, context } }).
 //
 // Uses the service role key deliberately: minting a session from a scanned
 // tag (rather than an emailed link the user clicked) requires
@@ -13,6 +13,15 @@
 // is throttled per tag_uid via rfid_login_attempts (16-rfid-kiosk-and-
 // equipment-checkout.sql) -- 8 failed attempts in 15 minutes locks a tag
 // out rather than allowing unlimited guesses.
+//
+// `context` records which shared terminal this scan happened at (e.g.
+// "kiosk"). It's stamped onto the resulting session as app_metadata
+// (see 34-key-station-login-context.sql) BEFORE the link is generated, so
+// it rides along in the JWT of every session/refresh this login produces.
+// Unlike the pathname the browser happens to be on, app_metadata can only
+// be set server-side via the Admin API -- the client can't edit it -- so
+// src/App.jsx can trust it to keep a scanned-in session confined to its
+// own kiosk surface even if the URL is edited by hand afterwards.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -23,6 +32,7 @@ const supabaseAdmin = createClient(
 
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_FAILURES = 8;
+const ALLOWED_CONTEXTS = ["kiosk"];
 
 // Called directly from the browser (src/kiosk/KioskSignIn.jsx) on a
 // different origin than this function -- see the identical comment in
@@ -51,9 +61,12 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const { tagUid, redirectTo } = await req.json();
+  const { tagUid, redirectTo, context } = await req.json();
   if (!tagUid || !redirectTo) {
     return jsonResponse({ error: "tagUid and redirectTo are required" }, 400);
+  }
+  if (!ALLOWED_CONTEXTS.includes(context)) {
+    return jsonResponse({ error: "Unrecognised sign-in context" }, 400);
   }
 
   const ip = req.headers.get("x-forwarded-for");
@@ -93,6 +106,18 @@ Deno.serve(async (req) => {
   if (userError || !userData?.user?.email) {
     await logAttempt(tagUid, ip, false);
     return jsonResponse({ error: "No account email found for this tag" }, 500);
+  }
+
+  // Stamp login_context into app_metadata before the link is generated so
+  // it's present in the very first session this scan produces -- see the
+  // header comment for why this (not the redirect path) is what App.jsx
+  // trusts to confine the session to this kiosk.
+  const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(tag.profile_id, {
+    app_metadata: { login_context: context },
+  });
+  if (metadataError) {
+    await logAttempt(tagUid, ip, false);
+    return jsonResponse({ error: metadataError.message }, 500);
   }
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({

@@ -17,7 +17,15 @@ import { colors, pageStyle } from "./lib/theme.js";
 function AppShell() {
   const { session, loading, deactivated } = useAuth();
   const location = useLocation();
-  const isKiosk = location.pathname.startsWith("/kiosk");
+  // A session minted by an RFID scan carries login_context in its JWT
+  // app_metadata (stamped server-side by supabase/functions/rfid-login --
+  // the client can never set or edit this). Once that's true the session
+  // is kept on the kiosk branch regardless of pathname, so editing the URL
+  // by hand after scanning in can no longer reach the full desktop app --
+  // the /kiosk path check alone used to be the only gate, and was trivial
+  // to bypass since a scanned-in session was otherwise indistinguishable
+  // from a normal login.
+  const isKiosk = location.pathname.startsWith("/kiosk") || session?.user?.app_metadata?.login_context === "kiosk";
 
   // The kiosk needs its own routing branch reachable BEFORE the normal
   // !session -> <Login/> check below, since RFID sign-in is how a kiosk
