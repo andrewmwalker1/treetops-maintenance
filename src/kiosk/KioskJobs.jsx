@@ -233,10 +233,23 @@ export default function KioskJobs() {
     setProgressLogged(true);
   }
 
+  // Mirrors JobDetail.jsx's outstandingPhotoItems -- see
+  // 33-checklist-photo-blocks-completion.sql for the server-side twin of
+  // this check. The kiosk checklist has no camera-capture affordance
+  // (§12.4/§17 of SYSTEMSPEC.md), so a photo-required item here can only
+  // be cleared via can_check_off_item_without_photo; this just stops
+  // "Mark job complete" from being pressed while one's still outstanding
+  // rather than letting it hit the raw trigger error.
+  const outstandingPhotoItems = subtasks.filter((s) => s.requires_photo && !s.is_checked);
+
   async function handleComplete() {
     const completedStatus = statuses.find((s) => s.name === "Completed");
     if (!completedStatus) {
       setError('No "Completed" status is configured for this site.');
+      return;
+    }
+    if (outstandingPhotoItems.length > 0) {
+      setError(`${outstandingPhotoItems.length} checklist item${outstandingPhotoItems.length === 1 ? "" : "s"} still need${outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.`);
       return;
     }
     if (selectedJob.requires_photo && photos.length === 0 && !permissions.has("can_complete_job_without_photo")) {
@@ -389,7 +402,16 @@ export default function KioskJobs() {
                 marginBottom: "20px",
               }}
             />
-            <button style={kioskButtonStyle} onClick={handleComplete} disabled={completing}>
+            {outstandingPhotoItems.length > 0 && (
+              <p style={{ color: colors.immediate, fontSize: "14px", textAlign: "center", marginBottom: "8px" }}>
+                {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.
+              </p>
+            )}
+            <button
+              style={{ ...kioskButtonStyle, opacity: outstandingPhotoItems.length > 0 ? 0.5 : 1 }}
+              onClick={handleComplete}
+              disabled={completing || outstandingPhotoItems.length > 0}
+            >
               {completing ? "Completing…" : "Mark job complete"}
             </button>
           </>

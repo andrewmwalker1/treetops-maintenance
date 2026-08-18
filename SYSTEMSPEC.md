@@ -1,6 +1,6 @@
 # Tree Tops Maintenance Platform — System Specification
 
-*Reverse-engineered from the working application as of August 2026 (32 SQL
+*Reverse-engineered from the working application as of August 2026 (33 SQL
 migrations, 7 Edge Functions, full React frontend + kiosk). This document
 describes what is actually built and running today, not the original
 build brief — treat it as the authoritative reference for a developer
@@ -364,6 +364,18 @@ items:
    silently folding the override into a checkbox, so the bypass stays a
    conscious, visible action rather than indistinguishable from normal
    ticking.
+3. **Blocks job completion** (extends the same
+   `enforce_job_completion_photo_requirement` trigger from §6.3, migration
+   33): if any `job_subtasks` row for the job has `requires_photo=true`
+   and `is_checked=false` when `status_id` transitions to a completed
+   status, the transaction is rejected — no permission bypasses this
+   check directly, since the escape valve is already at the item level
+   (check it off via `can_check_off_item_without_photo`, which removes it
+   from the outstanding count). Mirrored client-side in both
+   `JobDetail.jsx` and the kiosk (`KioskJobs.jsx`): the
+   Complete/"Mark job complete" button is disabled with an inline count
+   of outstanding items rather than letting the user hit the raw trigger
+   error.
 
 ### 6.4 Reopen gate
 `enforce_job_reopen_permission` (BEFORE UPDATE trigger on `jobs`, fires
@@ -938,7 +950,7 @@ not bugs:
 10. **Unused dependencies**: `workbox-routing` and `workbox-strategies` are declared but not used by the hand-written `sw.js` (which only uses `workbox-core`/`workbox-precaching`).
 11. **No automated tests, no lint script.** `package.json` defines only `dev`/`build`/`preview`. Decide whether a rebuild should add test coverage given how much business logic lives in trigger/RLS interactions that are easy to regress silently.
 12. **Activity-feed event labels aren't humanized** in the UI (`status_change`, `edit`, `reallocation` show as raw snake_case-ish strings; only `contractor_email` gets a friendly label). Cosmetic, but worth a deliberate decision either way rather than an accidental carry-over.
-13. **Kiosk checklist has no camera-icon affordance** for per-checklist-item photo requirements (§6.3a) — a kiosk user hitting one gets the raw trigger error rather than the "Add photo"/"Check off without photo" UI built for the main app (§10.5). Accepted under the existing assumption that photo-required templates aren't assigned to kiosk-only staff — revisit if that assumption changes.
+13. **Kiosk checklist has no camera-icon affordance** for per-checklist-item photo requirements (§6.3a) — a kiosk user hitting one gets the raw trigger error rather than the "Add photo"/"Check off without photo" UI built for the main app (§10.5). Accepted under the existing assumption that photo-required templates aren't assigned to kiosk-only staff — revisit if that assumption changes. (The kiosk's "Mark job complete" button does at least disable cleanly with a friendly count when items are outstanding, per §6.3a point 3 — it's only checking off the item itself that has no kiosk affordance.)
 
 ---
 

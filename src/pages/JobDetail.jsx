@@ -279,6 +279,14 @@ export default function JobDetail() {
     loadAll();
   }
 
+  // A job can't be completed while any checklist item still needs a photo
+  // -- distinct from job.requires_photo (the whole-job flag below). The
+  // escape valve is at the item itself (can_check_off_item_without_photo,
+  // see the checklist section), not here -- once an item is checked off
+  // (with or without a photo), it drops out of this list. Enforced
+  // server-side too, see 33-checklist-photo-blocks-completion.sql.
+  const outstandingPhotoItems = subtasks.filter((s) => s.requires_photo && !s.is_checked);
+
   async function handleStatusChange(newStatusId) {
     if (newStatusId === job.status_id) return;
     const newStatus = statuses.find((s) => s.id === newStatusId);
@@ -314,6 +322,10 @@ export default function JobDetail() {
     // the assignee — completing on someone else's behalf skips it
     // entirely (Section 5).
     const closingNow = newStatus?.is_completed && !oldCompleted;
+    if (closingNow && outstandingPhotoItems.length > 0) {
+      setError(`${outstandingPhotoItems.length} checklist item${outstandingPhotoItems.length === 1 ? "" : "s"} still need${outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.`);
+      return;
+    }
     if (closingNow && job.requires_photo && photos.length === 0 && !permissions.has("can_complete_job_without_photo")) {
       setError("This job requires a photo before it can be completed. Add one below.");
       return;
@@ -349,6 +361,10 @@ export default function JobDetail() {
       return;
     }
 
+    if (outstandingPhotoItems.length > 0) {
+      setError(`${outstandingPhotoItems.length} checklist item${outstandingPhotoItems.length === 1 ? "" : "s"} still need${outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.`);
+      return;
+    }
     if (job.requires_photo && photos.length === 0 && !permissions.has("can_complete_job_without_photo")) {
       setError("This job requires a photo before it can be completed. Add one below.");
       return;
@@ -1055,9 +1071,27 @@ export default function JobDetail() {
       </Section>
 
       {!job.job_status?.is_completed && (
-        <button type="button" onClick={() => setShowCompleteModal(true)} style={{ ...buttonStyle.primary, width: "100%" }}>
-          ✓ Complete
-        </button>
+        <>
+          {outstandingPhotoItems.length > 0 && (
+            <p style={{ color: colors.immediate, fontSize: "13px", textAlign: "center", marginBottom: "8px" }}>
+              {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowCompleteModal(true)}
+            disabled={outstandingPhotoItems.length > 0}
+            title={outstandingPhotoItems.length > 0 ? "Check off all photo-required checklist items first" : undefined}
+            style={{
+              ...buttonStyle.primary,
+              width: "100%",
+              opacity: outstandingPhotoItems.length > 0 ? 0.5 : 1,
+              cursor: outstandingPhotoItems.length > 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            ✓ Complete
+          </button>
+        </>
       )}
 
       {showCompleteModal && (
@@ -1088,9 +1122,15 @@ export default function JobDetail() {
             {uploading ? "Uploading…" : "Add photo"}
           </button>
 
+          {outstandingPhotoItems.length > 0 && (
+            <p style={{ color: colors.immediate, fontSize: "13px" }}>
+              {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo — go back to the checklist and add {outstandingPhotoItems.length === 1 ? "it" : "them"} before completing.
+            </p>
+          )}
+
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
             <button type="button" onClick={() => setShowCompleteModal(false)} style={buttonStyle.secondary}>Cancel</button>
-            <button type="button" onClick={confirmComplete} style={buttonStyle.primary}>Mark complete</button>
+            <button type="button" onClick={confirmComplete} disabled={outstandingPhotoItems.length > 0} style={buttonStyle.primary}>Mark complete</button>
           </div>
         </Modal>
       )}
