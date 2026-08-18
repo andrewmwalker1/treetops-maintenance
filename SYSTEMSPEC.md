@@ -72,7 +72,7 @@ tool fleet), **users/roles/groups/contractors** (who does the work),
 | Styling | No CSS framework. Every component uses inline `style={}` objects built from a shared design-token module (`src/lib/theme.js`). No component library. |
 | State | React state + Context only. No Redux/Zustand/React Query — every page does its own Supabase queries in `useEffect`. |
 | Delivery | PWA (installable, offline-tolerant), hosted as a static build on **GitHub Pages** with a client-side SPA-fallback trick (no server routing available). |
-| Auth | Supabase Auth, **passwordless only** — magic link + 8-digit numeric OTP code, sent by email. No password field exists anywhere. A separate RFID-fob flow mints sessions for the workshop kiosk (see §12). |
+| Auth | Supabase Auth, **passwordless only** — magic link + 8-digit numeric OTP code, sent by email. No password field exists anywhere. A separate RFID-fob flow mints sessions for the workshop kiosk (see §12), stamping an `app_metadata.login_context` claim server-side so a kiosk-originated session can't be sent into the full desktop app by editing the URL — see §8.1. |
 | Push notifications | Web Push API (VAPID), no third-party push service. |
 | Recurring jobs | `rrule` npm package (RFC5545 RRULE strings), evaluated server-side by a daily-cron Edge Function. |
 | Offline queue | IndexedDB, foreground-flush only (no Background Sync API — iOS Safari doesn't support it). |
@@ -95,13 +95,14 @@ app. **No other file may call these underlying browser APIs directly.**
 
 ```
 supabase/
-  01-schema.sql .. 22-contractor-email-activity-type.sql   -- ordered, idempotent SQL migrations, run once each in sequence
+  01-schema.sql .. 34-key-station-login-context.sql   -- ordered, idempotent SQL migrations, run once each in sequence
   functions/
     generate-scheduled-jobs/    -- daily cron: expands schedules into job rows
     send-notice-push/           -- sends a single Web Push notification (respects DND)
     flush-dnd-notifications/    -- delivers everything queued behind DND once it's turned off
     manage-users/               -- invite / deactivate / reactivate users (Auth Admin API)
-    rfid-login/                 -- turns a scanned RFID tag UID into a magic-link session
+    rfid-login/                 -- turns a scanned RFID tag UID into a magic-link session, stamping login_context
+    clear-login-context/        -- clears a stale login_context claim on the caller's own profile
     send-contractor-job-email/  -- emails a job's details to its assigned contractor
     contractor-document-reminders/ -- daily cron: Office job + contractor email 7 days before a document expires
 scripts/
@@ -466,7 +467,8 @@ Function" message.
 | **send-notice-push** | Called from `notifications.js`'s `sendNotification()` | none beyond a valid recipient id (any authenticated caller may trigger a push to any recipient — no sender-side restriction today) | `priority: 'safety_critical'` always sends immediately. `priority: 'operational'` checks the recipient's `dnd_enabled`; if true, inserts the `notifications` row with `delivered_at: null` (queued) and does **not** push. Prunes dead `push_subscriptions` on 410/404. |
 | **flush-dnd-notifications** | Called from `notifications.js` right after `setDNDEnabled(false)` | none | Delivers every queued (`delivered_at is null`) notification for the given `profileId` to every registered subscription, marking each delivered. |
 | **manage-users** | Called from `UsersTab.jsx` | Bearer token → resolves caller's profile → requires `can_manage_users` enabled for their role | `action: "invite"` — `auth.admin.inviteUserByEmail`, then immediately calls `auth.admin.updateUserById(userId, {email_confirm: true})` (see note below), then inserts `profiles` + `site_scope` rows. `action: "deactivate"/"reactivate"` — sets `profiles.is_active` **and** bans/unbans the `auth.users` row (`ban_duration: "876000h"` ≈ 100 years, or `"none"`) so an existing session is cut off immediately, not just on next profile check. `action: "update_email"` — `auth.admin.updateUserById(userId, {email, email_confirm: true})`; email is `.trim()`'d server-side regardless of what the client sent. `action: "resend"` — re-sends the invite; also carries a defensive backstop that force-confirms the email if the account somehow still shows `email_confirmed_at: null`.<br><br>**Why every path force-confirms email**: Supabase's `signInWithOtp` treats a never-confirmed account as a fresh signup attempt internally, which is rejected outright when the project has public signups disabled (as this one does) — producing the misleading error "Signups not allowed for this instance" for an invited user simply trying to sign in normally. Root-caused via a user (Zara) hitting this in production; fixed by never leaving an invited account unconfirmed in the first place, plus the `resend` backstop for any account that predates this fix. |
-| **rfid-login** | Called from `KioskSignIn.jsx`, **no session required** (this is how a kiosk session is created) | Rate-limited only: 8 failed attempts per `tag_uid` in a rolling 15-minute window locks that tag out (`rfid_login_attempts`, logged for every attempt, success or failure) | Looks up `tag_uid` → `profile_id`, checks the profile is active, then `auth.admin.generateLink({type:"magiclink", email, redirectTo})` and returns the resulting `action_link` for the client to navigate to directly (`window.location.href`, a full page load through Supabase's own magic-link verification — not a client-side `verifyOtp` call). |
+| **rfid-login** | Called from `KioskSignIn.jsx` with `{tagUid, redirectTo, context: "kiosk"}`, **no session required** (this is how a kiosk session is created) | Rate-limited only: 8 failed attempts per `tag_uid` in a rolling 15-minute window locks that tag out (`rfid_login_attempts`, logged for every attempt, success or failure). `context` must match a small server-side allow-list (currently just `"kiosk"`) or the call is rejected. | Looks up `tag_uid` → `profile_id`, checks the profile is active, stamps `app_metadata.login_context = context` on the profile via `auth.admin.updateUserById` (see §8.1 for why), then `auth.admin.generateLink({type:"magiclink", email, redirectTo})` and returns the resulting `action_link` for the client to navigate to directly (`window.location.href`, a full page load through Supabase's own magic-link verification — not a client-side `verifyOtp` call). |
+| **clear-login-context** | Called from `AuthContext.jsx` whenever a non-kiosk-path session load finds `session.user.app_metadata.login_context` already set | Bearer token → `auth.getUser(token)` identifies the caller; only ever touches the caller's own row, no target id accepted | Resets `app_metadata.login_context` to `null` on the caller's own profile. Needed because `app_metadata` lives on the user, not the session — without this, the first RFID tap by any profile would send every one of that profile's future normal desktop logins to the kiosk view too. The caller then calls `supabase.auth.refreshSession()` so the corrected claim takes effect immediately. |
 | **send-contractor-job-email** | Called from `JobDetail.jsx`'s "Send email to contractor" button | Bearer token → requires `can_manage_contractors` | Loads the job + checklist, requires the job to have a contractor assignee with a `main_email`, sends via **Resend** (`from: "Tree Tops Maintenance <noreply@treetopscaravanpark.co.uk>"`, HTML body: description/priority/due date/location/requester/checklist), then logs a `job_activity` row with `event_type: "contractor_email"`. No dedicated "resend" — calling again just sends again and adds another log entry, giving a full send history. |
 | **contractor-document-reminders** | Daily cron (Supabase Dashboard → Edge Functions → Cron, same pattern as `generate-scheduled-jobs`) | none (service role, no logged-in user) | For every `contractor_documents` row with a non-null `expiry_date` within 7 days (or already past) and `reminder_triggered_at` still null: creates a `jobs` row assigned to the org's "Office" group (priority `high`, due date = the document's expiry date, on the org's first site since documents aren't site-scoped), sends a **Resend** email to the contractor if `main_email` is set (skipped, not retried, if not), then stamps `reminder_triggered_at`/`reminder_job_id` so it isn't repeated tomorrow. Each document is processed independently, so a contractor with several documents gets a separate job/email per document as each one individually crosses the 7-day mark. |
 
@@ -476,9 +478,16 @@ Function" message.
 
 ### 8.1 Routing (`src/App.jsx`)
 
-`location.pathname.startsWith("/kiosk")` branches into an entirely
+`location.pathname.startsWith("/kiosk")` **or** `session.user.app_metadata?.login_context === "kiosk"` branches into an entirely
 separate render tree **before** the normal session guard, because RFID
-sign-in must be reachable with no session yet.
+sign-in must be reachable with no session yet. The pathname check alone is
+what makes the route reachable pre-session; the claim check is what keeps
+it there once signed in. Before 34-key-station-login-context.sql, this was
+pathname-only — a scanned-in session was otherwise byte-identical to a
+normal login, so editing the URL by hand reached the full desktop app.
+`app_metadata` can only be written server-side via the Admin API (`rfid-login`
+stamps it, `clear-login-context` clears it — see §7's Edge Functions table),
+so unlike the pathname it can't be spoofed by the client.
 
 Non-kiosk routes (all wrapped in `<Layout>`, only reachable once
 `session` exists and the profile isn't deactivated):
@@ -778,7 +787,7 @@ uses its own larger-touch-target theme (`kioskTheme.js`).
 
 No session yet. Full-screen "Tree Tops Workshop" scan prompt; any click
 refocuses the hidden `RfidScanListener` input. On scan, calls the
-`rfid-login` Edge Function with `{tagUid, redirectTo: "<origin>/kiosk"}`
+`rfid-login` Edge Function with `{tagUid, redirectTo: "<origin>/kiosk", context: "kiosk"}`
 and, on success, does a **full page navigation**
 (`window.location.href = actionLink`) through Supabase's real magic-link
 verification flow — not a client-side `verifyOtp`. Errors show the
@@ -955,7 +964,7 @@ not bugs:
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 32-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 34-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.
