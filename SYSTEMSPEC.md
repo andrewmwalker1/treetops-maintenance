@@ -95,7 +95,7 @@ app. **No other file may call these underlying browser APIs directly.**
 
 ```
 supabase/
-  01-schema.sql .. 35-desktop-access-permission.sql   -- ordered, idempotent SQL migrations, run once each in sequence
+  01-schema.sql .. 36-key-tags-schema.sql   -- ordered, idempotent SQL migrations, run once each in sequence
   functions/
     generate-scheduled-jobs/    -- daily cron: expands schedules into job rows
     send-notice-push/           -- sends a single Web Push notification (respects DND)
@@ -788,6 +788,7 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | Common Faults | `can_manage_equipment_status` | `common_fault_descriptions`, scoped per equipment type via a type-selector pill row; reorderable picklist |
 | Checkout Log (now "Equipment history") | `can_manage_equipment_status` | Read-mostly, merging three tables into one chronological log: `equipment_checkouts`, `fault_reports`, and `repair_records` (each fault/repair is its own row, not folded into its checkout — they land adjacent once sorted by date instead of being described twice). Status filter (open/closed) only narrows checkout rows, since it has no meaning for a fault/repair; "Faults & repairs only" hides checkouts entirely instead. Equipment/type/person filters, date range, free-text search, sortable columns, per-row force-check-in (checkout rows only), CSV export. |
 | RFID Fobs | `can_manage_users` | `rfid_tags`: scan-to-register flow (hidden `RfidScanListener`, assign scanned UID to a profile via select), list + revoke. Friendly duplicate-UID error identifying the existing owner. |
+| Key Tags | `can_manage_keys` | `key_tags` (36-key-tags-schema.sql): same scan-to-register `RfidScanListener` pattern as RFID Fobs, but for the physical-key project — a tag maps to a pitch **or** a `key_special_locations` row (e.g. "Sales keyring"), never both (`key_tags_single_location` check constraint), and multiple tags can share one pitch (a caravan with more than one key). "Move" re-picks the location; "Remove" clears it back to unallocated rather than deleting the tag, freeing it for reuse. Every allocate/move/remove is logged automatically to `key_tag_events` by a trigger on `key_tags` (`log_key_tag_event()`), not by the UI remembering to log it. A small inline form on the same tab manages `key_special_locations` (add-only so far). First slice of a larger key-cupboard/RFID feature — the actual check-out/check-in flow and `key_checkouts` don't exist yet. |
 | Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes. Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal`: `contractor_documents` list (signed-URL link, expiry countdown colour-coded within 7 days/expired) + an add-document form (description, optional expiry date, file) uploading to the private `contractor-documents` bucket at `<contractor_id>/<filename>`. |
 | Groups | `can_manage_users` | `groups` + `group_members`: name, member checkbox list (diffed). Delete warns that assigned jobs become unassigned. |
 | Roles & Permissions | `can_manage_roles_and_permissions` | Permission×role matrix (checkbox toggles `role_permissions`), add role, inline-rename role (click header), delete role (surfaces the "still in use" trigger error verbatim if applicable) |
@@ -988,7 +989,7 @@ not bugs:
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 35-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 36-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.
