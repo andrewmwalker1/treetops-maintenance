@@ -32,7 +32,7 @@ const supabaseAdmin = createClient(
 
 const RATE_LIMIT_WINDOW_MINUTES = 15;
 const RATE_LIMIT_MAX_FAILURES = 8;
-const ALLOWED_CONTEXTS = ["kiosk"];
+const ALLOWED_CONTEXTS = ["kiosk", "key_station"];
 
 // Called directly from the browser (src/kiosk/KioskSignIn.jsx) on a
 // different origin than this function -- see the identical comment in

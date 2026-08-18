@@ -13,34 +13,40 @@ import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
 import KioskSignIn from "./kiosk/KioskSignIn.jsx";
 import KioskApp from "./kiosk/KioskApp.jsx";
+import KeyStationSignIn from "./keys/KeyStationSignIn.jsx";
+import KeyStationApp from "./keys/KeyStationApp.jsx";
 import { colors, pageStyle } from "./lib/theme.js";
 
 function AppShell() {
   const { session, loading, deactivated, canAccessDesktop, signOut } = useAuth();
   const location = useLocation();
   const isKiosk = location.pathname.startsWith("/kiosk");
+  const isKeyStation = location.pathname.startsWith("/keys");
 
   // A session minted by an RFID scan carries login_context in its JWT
   // app_metadata (stamped server-side by supabase/functions/rfid-login --
-  // the client can never set or edit this, unlike the pathname). If that
-  // claim is present but we're NOT on a kiosk path, this session was
-  // scanned in at a kiosk and has since been navigated away from it by
-  // hand -- the exact escape this exists to close. The old version of
-  // this check tried to force such a session back onto the kiosk branch,
-  // but that required distinguishing "a live kiosk session, escaping" from
-  // "an old, now-stale claim on an otherwise normal session" using only
-  // this same pathname+claim state, which is impossible -- the two look
-  // identical from here. Signing out instead needs no such distinction:
-  // it's always the safe response, and a genuinely stale claim gets
-  // cleared for good on the next real login anyway (see AuthContext's
+  // the client can never set or edit this, unlike the pathname): "kiosk"
+  // for the workshop terminal, "key_station" for the key-cupboard one. If
+  // that claim doesn't match the terminal path we're currently on, this
+  // session has been navigated away from its terminal by hand -- the
+  // escape this exists to close. An earlier version of this check tried
+  // to force such a session back onto its own branch, but that required
+  // distinguishing "a live terminal session, escaping" from "an old, now-
+  // stale claim on an otherwise normal session" using only this same
+  // pathname+claim state, which is impossible -- the two look identical
+  // from here. Signing out instead needs no such distinction: it's always
+  // the safe response, and a genuinely stale claim gets cleared for good
+  // on the next real login anyway (see AuthContext's
   // consumePendingNormalLogin).
-  const kioskSessionEscaped = !isKiosk && session?.user?.app_metadata?.login_context === "kiosk";
+  const loginContext = session?.user?.app_metadata?.login_context;
+  const onOwnTerminal = (loginContext === "kiosk" && isKiosk) || (loginContext === "key_station" && isKeyStation);
+  const terminalSessionEscaped = Boolean(loginContext) && !onOwnTerminal;
 
   useEffect(() => {
-    if (kioskSessionEscaped) signOut();
-  }, [kioskSessionEscaped, signOut]);
+    if (terminalSessionEscaped) signOut();
+  }, [terminalSessionEscaped, signOut]);
 
-  if (kioskSessionEscaped) {
+  if (terminalSessionEscaped) {
     return (
       <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ color: colors.inkSoft }}>Signing out…</p>
@@ -48,11 +54,11 @@ function AppShell() {
     );
   }
 
-  // The kiosk needs its own routing branch reachable BEFORE the normal
-  // !session -> <Login/> check below, since RFID sign-in is how a kiosk
-  // session gets created in the first place -- it must be reachable with
-  // no session yet. Once signed in it renders its own full-screen
-  // KioskApp, never the normal <Layout> chrome/nav.
+  // Both terminals need their own routing branch reachable BEFORE the
+  // normal !session -> <Login/> check below, since RFID sign-in is how a
+  // terminal session gets created in the first place -- it must be
+  // reachable with no session yet. Once signed in each renders its own
+  // full-screen app, never the normal <Layout> chrome/nav.
   if (isKiosk) {
     if (loading) {
       return (
@@ -72,6 +78,27 @@ function AppShell() {
     }
     if (!session) return <KioskSignIn />;
     return <KioskApp />;
+  }
+
+  if (isKeyStation) {
+    if (loading) {
+      return (
+        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <p style={{ color: colors.inkSoft }}>Loading…</p>
+        </div>
+      );
+    }
+    if (deactivated) {
+      return (
+        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+          <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
+            This account has been deactivated.
+          </p>
+        </div>
+      );
+    }
+    if (!session) return <KeyStationSignIn />;
+    return <KeyStationApp />;
   }
 
   if (loading) {

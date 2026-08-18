@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import ContractorDocumentsModal from "./ContractorDocumentsModal.jsx";
+import ContractorReasonsModal from "./ContractorReasonsModal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -23,6 +24,7 @@ const blank = {
   main_email: "",
   main_phone: "",
   notes: "",
+  is_trusted: false,
 };
 
 export default function ContractorsTab() {
@@ -30,12 +32,13 @@ export default function ContractorsTab() {
   const [contractors, setContractors] = useState([]);
   const [form, setForm] = useState(null); // null = modal closed
   const [docsFor, setDocsFor] = useState(null); // contractor whose documents modal is open, or null
+  const [reasonsFor, setReasonsFor] = useState(null); // contractor whose reasons modal is open, or null
   const [error, setError] = useState(null);
 
   function refresh() {
     supabase
       .from("contractors")
-      .select("id, name, address, main_email, main_phone, notes")
+      .select("id, name, address, main_email, main_phone, notes, is_trusted")
       .eq("org_id", org?.id)
       .order("name")
       .then(({ data, error: err }) => {
@@ -55,6 +58,7 @@ export default function ContractorsTab() {
       main_email: c.main_email || "",
       main_phone: c.main_phone || "",
       notes: c.notes || "",
+      is_trusted: c.is_trusted,
     });
   }
 
@@ -67,6 +71,7 @@ export default function ContractorsTab() {
       main_email: form.main_email || null,
       main_phone: form.main_phone || null,
       notes: form.notes || null,
+      is_trusted: form.is_trusted,
     };
     let err;
     if (form.id) {
@@ -99,12 +104,13 @@ export default function ContractorsTab() {
       {contractors.map((c) => (
         <div key={c.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontWeight: 600 }}>{c.name}</div>
+            <div style={{ fontWeight: 600 }}>{c.name}{c.is_trusted ? " · Trusted (key station)" : ""}</div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
               {[c.main_email, c.main_phone].filter(Boolean).join(" · ") || "No contact details set"}
             </div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
+            <button onClick={() => setReasonsFor(c)} style={buttonStyle.secondary}>Key reasons</button>
             <button onClick={() => setDocsFor(c)} style={buttonStyle.secondary}>Documents</button>
             <button onClick={() => editItem(c)} style={buttonStyle.secondary}>Edit</button>
             <button onClick={() => handleDelete(c.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
@@ -114,6 +120,7 @@ export default function ContractorsTab() {
       {contractors.length === 0 && <p style={{ color: colors.inkSoft }}>No contractors set up yet.</p>}
 
       {docsFor && <ContractorDocumentsModal contractor={docsFor} orgId={org.id} onClose={() => setDocsFor(null)} />}
+      {reasonsFor && <ContractorReasonsModal contractor={reasonsFor} onClose={() => setReasonsFor(null)} />}
 
       {form && (
         <div
@@ -152,6 +159,11 @@ export default function ContractorsTab() {
 
               <label style={labelStyle}>Notes (optional)</label>
               <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="e.g. always ring ahead" style={{ ...fieldStyle, resize: "vertical" }} />
+
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: colors.inkSoft, marginBottom: "10px" }}>
+                <input type="checkbox" checked={form.is_trusted} onChange={(e) => setForm({ ...form, is_trusted: e.target.checked })} />
+                Trusted — comes to the key station unaccompanied (needs their own profile + RFID fob set up separately via Users/RFID Fobs)
+              </label>
 
               {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
 
