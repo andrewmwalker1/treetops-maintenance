@@ -5,6 +5,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
 import { flushQueue, getQueueStatus } from "../platform/syncQueue.js";
+import { useIsMobile } from "../lib/useIsMobile.js";
 import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
 
 const navLinkStyle = ({ isActive }) => ({
@@ -19,6 +20,7 @@ const navLinkStyle = ({ isActive }) => ({
 export default function Layout({ children }) {
   const { profile, viewingAs, org, activeSite, signOut } = useAuth();
   const permissions = usePermissions();
+  const isMobile = useIsMobile();
   const [dnd, setDnd] = useState(Boolean(profile?.dnd_enabled));
   const [pushStatus, setPushStatus] = useState("idle"); // idle | subscribing | on | error
   const [queueStatus, setQueueStatus] = useState({ pendingCount: 0, online: navigator.onLine });
@@ -126,37 +128,51 @@ export default function Layout({ children }) {
             </span>
           )}
           <ViewAsPicker />
-          {!viewingAs && (
+          {isMobile ? (
+            <AccountMenu
+              displayName={profile?.display_name}
+              showControls={!viewingAs}
+              dnd={dnd}
+              onToggleDnd={handleDndToggle}
+              pushStatus={pushStatus}
+              onEnablePush={handleEnablePush}
+              onSignOut={signOut}
+            />
+          ) : (
             <>
-              <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
-                <input type="checkbox" checked={dnd} onChange={handleDndToggle} /> Do not disturb
-              </label>
-              {pushStatus !== "on" && (
-                <button
-                  onClick={handleEnablePush}
-                  disabled={pushStatus === "subscribing"}
-                  style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px" }}
-                >
-                  {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
-                </button>
+              {!viewingAs && (
+                <>
+                  <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
+                    <input type="checkbox" checked={dnd} onChange={handleDndToggle} /> Do not disturb
+                  </label>
+                  {pushStatus !== "on" && (
+                    <button
+                      onClick={handleEnablePush}
+                      disabled={pushStatus === "subscribing"}
+                      style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px" }}
+                    >
+                      {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
+                    </button>
+                  )}
+                </>
               )}
+              <span style={{ fontSize: "14px", color: colors.ink }}>{profile?.display_name}</span>
+              <button
+                onClick={signOut}
+                style={{
+                  background: "transparent",
+                  border: `1px solid ${colors.lineStrong}`,
+                  borderRadius: "999px",
+                  padding: "6px 14px",
+                  cursor: "pointer",
+                  fontFamily: fonts.body,
+                  color: colors.inkSoft,
+                }}
+              >
+                Sign out
+              </button>
             </>
           )}
-          <span style={{ fontSize: "14px", color: colors.ink }}>{profile?.display_name}</span>
-          <button
-            onClick={signOut}
-            style={{
-              background: "transparent",
-              border: `1px solid ${colors.lineStrong}`,
-              borderRadius: "999px",
-              padding: "6px 14px",
-              cursor: "pointer",
-              fontFamily: fonts.body,
-              color: colors.inkSoft,
-            }}
-          >
-            Sign out
-          </button>
         </div>
       </header>
       <main style={{ flex: 1, overflowY: "auto", padding: "20px" }}>{children}</main>
@@ -165,6 +181,94 @@ export default function Layout({ children }) {
           v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
         </span>
       </footer>
+    </div>
+  );
+}
+
+// Collapses the DND toggle / push-notification button / display name /
+// sign-out row into a single avatar button on narrow screens -- that
+// row wrapping onto its own line was eating a full extra row of a
+// mobile viewport above the actual job list.
+function AccountMenu({ displayName, showControls, dnd, onToggleDnd, pushStatus, onEnablePush, onSignOut }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Account menu"
+        style={{
+          width: "34px",
+          height: "34px",
+          borderRadius: "999px",
+          border: `1px solid ${colors.lineStrong}`,
+          background: "transparent",
+          cursor: "pointer",
+          fontFamily: fonts.body,
+          fontWeight: 700,
+          color: colors.mossDark,
+          flexShrink: 0,
+        }}
+      >
+        {displayName?.charAt(0)?.toUpperCase() || "?"}
+      </button>
+      {open && (
+        <>
+          {/* Full-screen invisible backdrop, not a blur/tint -- just
+              somewhere to click that closes the menu. */}
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 15 }} />
+          <div
+            style={{
+              position: "absolute",
+              right: 0,
+              top: "42px",
+              background: colors.paper,
+              border: `1px solid ${colors.line}`,
+              borderRadius: "12px",
+              padding: "12px",
+              minWidth: "220px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              zIndex: 20,
+              display: "flex",
+              flexDirection: "column",
+              gap: "10px",
+            }}
+          >
+            <span style={{ fontSize: "14px", fontWeight: 600, color: colors.ink }}>{displayName}</span>
+            {showControls && (
+              <>
+                <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
+                  <input type="checkbox" checked={dnd} onChange={onToggleDnd} /> Do not disturb
+                </label>
+                {pushStatus !== "on" && (
+                  <button
+                    onClick={onEnablePush}
+                    disabled={pushStatus === "subscribing"}
+                    style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px", textAlign: "left" }}
+                  >
+                    {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
+                  </button>
+                )}
+              </>
+            )}
+            <button
+              onClick={onSignOut}
+              style={{
+                background: "transparent",
+                border: `1px solid ${colors.lineStrong}`,
+                borderRadius: "999px",
+                padding: "6px 14px",
+                cursor: "pointer",
+                fontFamily: fonts.body,
+                color: colors.inkSoft,
+                textAlign: "left",
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

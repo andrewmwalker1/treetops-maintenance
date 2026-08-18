@@ -343,14 +343,19 @@ export default function JobsList() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+      {/* Horizontal scroll strips, not wrap -- these two rows used to wrap
+          onto two lines each and, being inside the sticky panel above,
+          permanently ate most of a mobile viewport's height before any
+          job was visible. One scrollable line each fixes that without
+          hiding any filter behind an extra tap. */}
+      <div style={{ display: "flex", gap: "8px", flexWrap: "nowrap", overflowX: "auto", marginBottom: "12px", paddingBottom: "2px" }}>
         <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
         {statuses.map((s) => (
           <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+      <div style={{ display: "flex", gap: "8px", flexWrap: "nowrap", overflowX: "auto", marginBottom: "12px", paddingBottom: "2px" }}>
         <FilterChip active={activePriority === null} onClick={() => setActivePriority(null)} label="All priorities" />
         {PRIORITIES.map((p) => (
           <FilterChip key={p} active={activePriority === p} onClick={() => setActivePriority(p)} label={p.charAt(0).toUpperCase() + p.slice(1)} />
@@ -451,6 +456,8 @@ function FilterChip({ active, onClick, label }) {
         fontFamily: fonts.body,
         fontSize: "13px",
         cursor: "pointer",
+        flexShrink: 0,
+        whiteSpace: "nowrap",
       }}
     >
       {label}
