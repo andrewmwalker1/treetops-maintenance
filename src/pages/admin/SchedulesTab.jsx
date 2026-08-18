@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { RRule } from "rrule";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
   width: "100%",
@@ -39,8 +39,16 @@ const MONTHLY_POSITIONS = [
 
 const blank = {
   id: null,
+  description: "",
   jobTypeId: "",
   siteId: "",
+  priority: "medium",
+  assigneeKind: "person", // person | group
+  assigneeId: "",
+  locationKind: "none", // pitch | area | none
+  locationId: "",
+  areaName: "",
+  activityTypeIds: [],
   frequency: "weekly",
   interval: 1,
   weekdays: [],
@@ -105,28 +113,56 @@ function describeRule(rruleText) {
 }
 
 export default function SchedulesTab() {
-  const { org } = useAuth();
+  const { org, profile, terminology } = useAuth();
   const [schedules, setSchedules] = useState([]);
   const [jobTypes, setJobTypes] = useState([]);
   const [sites, setSites] = useState([]);
+  const [people, setPeople] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [activityTypes, setActivityTypes] = useState([]);
+  const [pitches, setPitches] = useState([]);
+  const [areas, setAreas] = useState([]);
   const [form, setForm] = useState(blank);
   const [error, setError] = useState(null);
 
   function refresh() {
     Promise.all([
-      supabase.from("schedules").select("id, job_type_id, site_id, rrule, lead_in_days, last_generated_date, is_active, job_types(name)").eq("org_id", org.id),
+      supabase
+        .from("schedules")
+        .select(
+          "id, job_type_id, site_id, rrule, lead_in_days, last_generated_date, is_active, description, priority, assignee_profile_id, assignee_group_id, pitch_id, area_id, job_types(name), pitches(pitch_number_or_name), areas(name), schedule_task_types(task_type_id)"
+        )
+        .eq("org_id", org.id),
       supabase.from("job_types").select("id, name").eq("org_id", org.id),
       supabase.from("sites").select("id, name").eq("org_id", org.id),
-    ]).then(([{ data: s, error: err }, { data: jt }, { data: st }]) => {
+      supabase.from("profiles").select("id, display_name").eq("org_id", org.id),
+      supabase.from("groups").select("id, name").eq("org_id", org.id),
+      supabase.from("task_types").select("id, name").eq("org_id", org.id),
+    ]).then(([{ data: s, error: err }, { data: jt }, { data: st }, { data: p }, { data: g }, { data: at }]) => {
       if (err) setError(err.message);
       else setSchedules(s || []);
       setJobTypes(jt || []);
       setSites(st || []);
+      setPeople(p || []);
+      setGroups(g || []);
+      setActivityTypes(at || []);
       setForm((f) => (f.siteId ? f : { ...f, siteId: st?.[0]?.id || "" }));
     });
   }
 
   useEffect(refresh, [org]);
+
+  // Pitches/areas are site-scoped, so they follow whichever site is
+  // currently picked in the form rather than being loaded once for org.
+  useEffect(() => {
+    if (!form.siteId) {
+      setPitches([]);
+      setAreas([]);
+      return;
+    }
+    supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", form.siteId).then(({ data }) => setPitches(data || []));
+    supabase.from("areas").select("id, name").eq("site_id", form.siteId).then(({ data }) => setAreas(data || []));
+  }, [form.siteId]);
 
   function toggleWeekday(code) {
     setForm((f) => ({
@@ -135,11 +171,37 @@ export default function SchedulesTab() {
     }));
   }
 
+  function toggleActivityType(id) {
+    setForm((f) => ({
+      ...f,
+      activityTypeIds: f.activityTypeIds.includes(id) ? f.activityTypeIds.filter((x) => x !== id) : [...f.activityTypeIds, id],
+    }));
+  }
+
+  function handleJobTypeChange(newJobTypeId) {
+    const jobType = jobTypes.find((jt) => jt.id === newJobTypeId);
+    setForm((f) => ({
+      ...f,
+      jobTypeId: newJobTypeId,
+      // Don't clobber a description the user has already started typing --
+      // same rule as the one-off New Job form.
+      description: f.description.trim() ? f.description : jobType?.name || f.description,
+    }));
+  }
+
   function editSchedule(s) {
     setForm({
       id: s.id,
-      jobTypeId: s.job_type_id,
+      description: s.description || "",
+      jobTypeId: s.job_type_id || "",
       siteId: s.site_id,
+      priority: s.priority || "medium",
+      assigneeKind: s.assignee_group_id ? "group" : "person",
+      assigneeId: s.assignee_profile_id || s.assignee_group_id || "",
+      locationKind: s.pitch_id ? "pitch" : s.area_id ? "area" : "none",
+      locationId: s.pitch_id || "",
+      areaName: s.areas?.name || "",
+      activityTypeIds: (s.schedule_task_types || []).map((link) => link.task_type_id),
       leadInDays: s.lead_in_days,
       ...parseRule(s.rrule),
     });
@@ -149,6 +211,10 @@ export default function SchedulesTab() {
     e.preventDefault();
     setError(null);
 
+    if (!form.description.trim()) {
+      setError("Description is required.");
+      return;
+    }
     if (form.frequency === "weekly" && form.weekdays.length === 0) {
       setError("Pick at least one day of the week.");
       return;
@@ -162,21 +228,63 @@ export default function SchedulesTab() {
       return;
     }
 
+    // Areas are free text (see NewJob.jsx) -- resolve the typed name to an
+    // existing area for this site, or create a new one.
+    let areaId = null;
+    if (form.locationKind === "area" && form.areaName.trim()) {
+      const trimmed = form.areaName.trim();
+      const existing = areas.find((a) => a.name.toLowerCase() === trimmed.toLowerCase());
+      if (existing) {
+        areaId = existing.id;
+      } else {
+        const { data: newArea, error: areaError } = await supabase
+          .from("areas")
+          .insert({ site_id: form.siteId, name: trimmed, created_by: profile.id })
+          .select()
+          .single();
+        if (areaError) {
+          setError("Failed to save the new area: " + areaError.message);
+          return;
+        }
+        areaId = newArea.id;
+        setAreas((prev) => [...prev, newArea]);
+      }
+    }
+
     const payload = {
       org_id: org.id,
       site_id: form.siteId,
-      job_type_id: form.jobTypeId,
+      job_type_id: form.jobTypeId || null,
+      description: form.description.trim(),
+      priority: form.priority,
+      assignee_profile_id: form.assigneeKind === "person" && form.assigneeId ? form.assigneeId : null,
+      assignee_group_id: form.assigneeKind === "group" && form.assigneeId ? form.assigneeId : null,
+      pitch_id: form.locationKind === "pitch" && form.locationId ? form.locationId : null,
+      area_id: areaId,
       rrule: buildRule(form),
       lead_in_days: Number(form.leadInDays) || 0,
     };
-    const { error: err } = form.id
-      ? await supabase.from("schedules").update(payload).eq("id", form.id)
-      : await supabase.from("schedules").insert(payload);
+    const { data: saved, error: err } = form.id
+      ? await supabase.from("schedules").update(payload).eq("id", form.id).select("id").single()
+      : await supabase.from("schedules").insert(payload).select("id").single();
     if (err) {
       setError(err.message);
       return;
     }
-    setForm(blank);
+
+    // Replace the schedule's activity-type links wholesale rather than
+    // diffing -- same approach as job template checklists, simplest thing
+    // that's correct for a handful of rows.
+    const { error: clearError } = await supabase.from("schedule_task_types").delete().eq("schedule_id", saved.id);
+    if (clearError) console.error("Failed to clear previous activity types", clearError);
+    if (form.activityTypeIds.length > 0) {
+      const { error: activityError } = await supabase
+        .from("schedule_task_types")
+        .insert(form.activityTypeIds.map((task_type_id) => ({ schedule_id: saved.id, task_type_id })));
+      if (activityError) console.error("Failed to save activity types", activityError);
+    }
+
+    setForm({ ...blank, siteId: form.siteId });
     refresh();
   }
 
@@ -207,10 +315,11 @@ export default function SchedulesTab() {
       <div>
         <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Recurring jobs</h2>
         {schedules.map((s) => (
-          <div key={s.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", opacity: s.is_active ? 1 : 0.6 }}>
-            <div>
+          <div key={s.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", gap: "10px", justifyContent: "space-between", alignItems: "center", opacity: s.is_active ? 1 : 0.6 }}>
+            <div style={priorityBarStyle(s.priority)} />
+            <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600 }}>
-                {s.job_types?.name || "Untitled job type"}
+                {s.description || s.job_types?.name || "Untitled"}
                 {!s.is_active && (
                   <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.inkSoft, border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "1px 8px" }}>
                     PAUSED
@@ -220,6 +329,14 @@ export default function SchedulesTab() {
               <div style={{ fontSize: "12px", color: colors.inkSoft }}>
                 {describeRule(s.rrule)} · {s.lead_in_days} day lead-in
                 {s.last_generated_date ? ` · last created ${s.last_generated_date}` : " · never generated yet"}
+              </div>
+              <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+                {s.assignee_profile_id
+                  ? `Assigned to ${people.find((p) => p.id === s.assignee_profile_id)?.display_name || "—"}`
+                  : s.assignee_group_id
+                    ? `Assigned to ${groups.find((g) => g.id === s.assignee_group_id)?.name || "—"} (group)`
+                    : "Unassigned"}
+                {(s.pitches?.pitch_number_or_name || s.areas?.name) && ` · ${s.pitches ? `${terminology.pitch || "Pitch"} ${s.pitches.pitch_number_or_name}` : s.areas.name}`}
               </div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
@@ -235,12 +352,16 @@ export default function SchedulesTab() {
       <div>
         <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>{form.id ? "Edit recurring job" : "New recurring job"}</h2>
         <form onSubmit={handleSave} style={{ ...cardStyle, padding: "16px" }}>
-          <select required value={form.jobTypeId} onChange={(e) => setForm({ ...form, jobTypeId: e.target.value })} style={fieldStyle}>
-            <option value="">Job template</option>
+          <label style={labelInline}>Job template (optional)</label>
+          <select value={form.jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={fieldStyle}>
+            <option value="">—</option>
             {jobTypes.map((jt) => (
               <option key={jt.id} value={jt.id}>{jt.name}</option>
             ))}
           </select>
+
+          <label style={labelInline}>Description</label>
+          <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} style={{ ...fieldStyle, resize: "vertical" }} />
 
           {sites.length > 1 && (
             <select required value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} style={fieldStyle}>
@@ -249,6 +370,68 @@ export default function SchedulesTab() {
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
             </select>
+          )}
+
+          <label style={labelInline}>Priority</label>
+          <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={fieldStyle}>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="immediate">Immediate</option>
+          </select>
+
+          <label style={labelInline}>Activity types (optional)</label>
+          <div style={{ ...fieldStyle, height: "auto", padding: "10px 14px" }}>
+            {activityTypes.length === 0 && <span style={{ color: colors.inkSoft, fontSize: "14px" }}>None set up yet.</span>}
+            {activityTypes.map((a) => (
+              <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
+                <input type="checkbox" checked={form.activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
+                {a.name}
+              </label>
+            ))}
+          </div>
+
+          <label style={labelInline}>Assign to</label>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+            <label><input type="radio" checked={form.assigneeKind === "person"} onChange={() => setForm({ ...form, assigneeKind: "person", assigneeId: "" })} /> Person</label>
+            <label><input type="radio" checked={form.assigneeKind === "group"} onChange={() => setForm({ ...form, assigneeKind: "group", assigneeId: "" })} /> Group</label>
+          </div>
+          <select value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })} style={fieldStyle}>
+            <option value="">Unassigned</option>
+            {(form.assigneeKind === "person" ? people : groups).map((item) => (
+              <option key={item.id} value={item.id}>{item.display_name || item.name}</option>
+            ))}
+          </select>
+
+          <label style={labelInline}>Location</label>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+            <label><input type="radio" checked={form.locationKind === "pitch"} onChange={() => setForm({ ...form, locationKind: "pitch", locationId: "", areaName: "" })} /> {terminology.pitch || "Pitch"}</label>
+            <label><input type="radio" checked={form.locationKind === "area"} onChange={() => setForm({ ...form, locationKind: "area", locationId: "", areaName: "" })} /> {terminology.area || "Area"}</label>
+            <label><input type="radio" checked={form.locationKind === "none"} onChange={() => setForm({ ...form, locationKind: "none", locationId: "", areaName: "" })} /> None</label>
+          </div>
+          {form.locationKind === "pitch" && (
+            <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} style={fieldStyle}>
+              <option value="">—</option>
+              {pitches.map((item) => (
+                <option key={item.id} value={item.id}>{item.pitch_number_or_name}</option>
+              ))}
+            </select>
+          )}
+          {form.locationKind === "area" && (
+            <>
+              <input
+                list="schedule-area-suggestions"
+                value={form.areaName}
+                onChange={(e) => setForm({ ...form, areaName: e.target.value })}
+                placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
+                style={fieldStyle}
+              />
+              <datalist id="schedule-area-suggestions">
+                {areas.map((a) => (
+                  <option key={a.id} value={a.name} />
+                ))}
+              </datalist>
+            </>
           )}
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Repeats</label>
