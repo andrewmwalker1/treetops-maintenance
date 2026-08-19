@@ -22,20 +22,25 @@ export default function KeyStationCheckIn() {
   const [error, setError] = useState(null);
 
   function refresh() {
-    if (!activeSite) return;
+    if (!activeSite || !profile) return;
     supabase
       .from("key_checkouts")
       .select(
         `id, checked_out_at, reason, issued_to_kind, issued_to_name,
          issued_to_contractor:contractors(name),
-         checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(display_name),
+         checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(id, display_name),
          key_tags!inner(id, tag_uid, site_id, pitch_id, special_location_id, pitches(pitch_number_or_name), key_special_locations(label))`
       )
       .is("checked_in_at", null)
       .eq("key_tags.site_id", activeSite.id)
       .then(({ data }) => {
+        // Contractors can only check their own keys back in (RLS enforces
+        // this regardless -- see current_is_contractor() in 40-key-
+        // checkin-delegates.sql -- this just keeps a contractor from
+        // seeing, then failing to act on, someone else's open key).
+        const rows = profile.is_contractor ? (data || []).filter((c) => c.checked_out_by_profile?.id === profile.id) : data || [];
         setOpenTags(
-          (data || []).map((c) => ({
+          rows.map((c) => ({
             id: c.key_tags.id,
             tag_uid: c.key_tags.tag_uid,
             pitches: c.key_tags.pitches,
@@ -46,7 +51,7 @@ export default function KeyStationCheckIn() {
       });
   }
 
-  useEffect(refresh, [activeSite]);
+  useEffect(refresh, [activeSite, profile]);
 
   function pickTag(tag) {
     setError(null);
