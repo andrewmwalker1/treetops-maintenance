@@ -903,9 +903,8 @@ export default function JobDetail() {
                 onBlur={() => persistSubtaskLabel(subtasks[i])}
                 style={{
                   flex: 1,
-                  minWidth: "120px",
+                  minWidth: isMobile ? "80px" : "120px",
                   boxSizing: "border-box",
-                  width: isMobile ? "100%" : undefined,
                   padding: "4px 8px",
                   borderRadius: "6px",
                   border: `1px solid ${colors.lineStrong}`,
@@ -916,7 +915,7 @@ export default function JobDetail() {
                 }}
               />
             ) : (
-              <span style={{ flex: 1, minWidth: "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
+              <span style={{ flex: 1, minWidth: isMobile ? "80px" : "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
             );
 
             // Photos accumulate here without checking the item off -- e.g.
@@ -930,9 +929,11 @@ export default function JobDetail() {
                     type="button"
                     onClick={() => handleChecklistPhotoCapture(s)}
                     disabled={uploadingSubtaskId === s.id}
-                    style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                    title="Add photo"
+                    aria-label="Add photo"
+                    style={checklistIconStyle}
                   >
-                    {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
+                    {uploadingSubtaskId === s.id ? "…" : "📷"}
                   </button>
                 )}
                 {itemPhotos.length > 0 && (
@@ -985,20 +986,24 @@ export default function JobDetail() {
             );
 
             // On a narrow phone, the label + fixed-width controls column +
-            // reorder/remove icons no longer fit on one line -- they used to
+            // reorder/remove icons don't all fit on one line -- they used to
             // just wrap wherever flexbox happened to break, splitting a
             // truncated-looking label from a stray row of icon buttons
-            // underneath. Giving the label its own full-width line first,
-            // then controls/icons on one line below, makes that an
-            // intentional two-line row instead of an accidental one.
+            // underneath. The photo/checkbox controls are compact icon
+            // buttons now (see checklistIconStyle above), so those stay on
+            // the same line as the label; only the reorder/remove icons
+            // (only shown at all with edit permission) drop to a second
+            // line, and only when there's edit permission to show them.
             if (isMobile) {
               return (
                 <div key={s.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-                  <div style={{ marginBottom: "6px" }}>{label}</div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>{checkControls}</div>
-                    {editIcons && <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>{editIcons}</div>}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                    {label}
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>{checkControls}</div>
                   </div>
+                  {editIcons && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginTop: "6px" }}>{editIcons}</div>
+                  )}
                 </div>
               );
             }
