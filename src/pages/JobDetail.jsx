@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useIsMobile } from "../lib/useIsMobile.js";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
@@ -24,6 +25,7 @@ export default function JobDetail() {
   const navigate = useNavigate();
   const { profile, org, activeSite, terminology } = useAuth();
   const permissions = usePermissions();
+  const isMobile = useIsMobile();
   // job_types insert/update is RLS-gated on can_manage_reference_data (see
   // 06-activity-types-and-safety-library.sql), separately from
   // can_edit_job_checklist -- require both so these buttons don't offer an
@@ -892,99 +894,128 @@ export default function JobDetail() {
         <Section title="Checklist">
           {subtasks.map((s, i) => {
             const itemPhotos = photos.filter((p) => p.job_subtask_id === s.id);
-            return (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", flexWrap: "wrap" }}>
-              {permissions.has("can_edit_job_checklist") ? (
-                <input
-                  value={s.label}
-                  onChange={(e) => editSubtaskLabelLocal(i, e.target.value)}
-                  onBlur={() => persistSubtaskLabel(subtasks[i])}
-                  style={{
-                    flex: 1,
-                    minWidth: "120px",
-                    padding: "4px 8px",
-                    borderRadius: "6px",
-                    border: `1px solid ${colors.lineStrong}`,
-                    fontFamily: fonts.body,
-                    fontSize: "14px",
-                    textDecoration: s.is_checked ? "line-through" : "none",
-                    color: s.is_checked ? colors.inkSoft : colors.ink,
-                  }}
-                />
-              ) : (
-                <span style={{ flex: 1, minWidth: "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
-              )}
-              {/* Controls live in a fixed-width right-hand column, flush
-                  against the row's right edge (label's flex:1 pushes it
-                  there), so checkboxes and "Add photo" buttons line up in
-                  one column down the list instead of the item text
-                  starting at a different x on every row. */}
-              <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
-                {s.requires_photo ? (
-                  <>
-                    {/* Photos accumulate here without checking the item off --
-                        e.g. several angles/faults for "photograph the caravan
-                        before you start". Checking off is a separate, explicit
-                        action once at least one photo exists. */}
-                    {!s.is_checked && (
-                      <button
-                        type="button"
-                        onClick={() => handleChecklistPhotoCapture(s)}
-                        disabled={uploadingSubtaskId === s.id}
-                        style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
-                      >
-                        {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
-                      </button>
-                    )}
-                    {itemPhotos.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setViewPhotosSubtaskId(s.id)}
-                        style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
-                      >
-                        🖼 View photos ({itemPhotos.length})
-                      </button>
-                    )}
-                    {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
-                      <button
-                        type="button"
-                        onClick={() => handleCheckOffWithoutPhoto(s)}
-                        style={{ background: "none", border: "none", color: colors.inkSoft, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "12px", padding: 0 }}
-                      >
-                        Check off without photo
-                      </button>
-                    )}
-                    {(s.is_checked || itemPhotos.length > 0) && (
-                      <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-                    )}
-                  </>
-                ) : (
+            const canEdit = permissions.has("can_edit_job_checklist");
+
+            const label = canEdit ? (
+              <input
+                value={s.label}
+                onChange={(e) => editSubtaskLabelLocal(i, e.target.value)}
+                onBlur={() => persistSubtaskLabel(subtasks[i])}
+                style={{
+                  flex: 1,
+                  minWidth: "120px",
+                  boxSizing: "border-box",
+                  width: isMobile ? "100%" : undefined,
+                  padding: "4px 8px",
+                  borderRadius: "6px",
+                  border: `1px solid ${colors.lineStrong}`,
+                  fontFamily: fonts.body,
+                  fontSize: "14px",
+                  textDecoration: s.is_checked ? "line-through" : "none",
+                  color: s.is_checked ? colors.inkSoft : colors.ink,
+                }}
+              />
+            ) : (
+              <span style={{ flex: 1, minWidth: "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
+            );
+
+            // Photos accumulate here without checking the item off -- e.g.
+            // several angles/faults for "photograph the caravan before you
+            // start". Checking off is a separate, explicit action once at
+            // least one photo exists.
+            const checkControls = s.requires_photo ? (
+              <>
+                {!s.is_checked && (
+                  <button
+                    type="button"
+                    onClick={() => handleChecklistPhotoCapture(s)}
+                    disabled={uploadingSubtaskId === s.id}
+                    style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                  >
+                    {uploadingSubtaskId === s.id ? "Uploading…" : "📷 Add photo"}
+                  </button>
+                )}
+                {itemPhotos.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setViewPhotosSubtaskId(s.id)}
+                    style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
+                  >
+                    🖼 View photos ({itemPhotos.length})
+                  </button>
+                )}
+                {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => handleCheckOffWithoutPhoto(s)}
+                    style={{ background: "none", border: "none", color: colors.inkSoft, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "12px", padding: 0 }}
+                  >
+                    Check off without photo
+                  </button>
+                )}
+                {(s.is_checked || itemPhotos.length > 0) && (
                   <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
                 )}
+              </>
+            ) : (
+              <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+            );
+
+            const editIcons = canEdit && (
+              <>
+                {canRequireChecklistItemPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => toggleSubtaskRequiresPhoto(s)}
+                    title={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
+                    style={{
+                      ...checklistIconStyle,
+                      background: s.requires_photo ? colors.mossDark : "transparent",
+                      color: s.requires_photo ? "#FFFFFF" : colors.inkSoft,
+                      border: `1px solid ${s.requires_photo ? colors.mossDark : colors.lineStrong}`,
+                    }}
+                  >
+                    📷
+                  </button>
+                )}
+                <button type="button" onClick={() => moveSubtask(i, -1)} disabled={i === 0} style={checklistIconStyle}>↑</button>
+                <button type="button" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1} style={checklistIconStyle}>↓</button>
+                <button type="button" onClick={() => removeSubtask(s.id)} style={{ ...checklistIconStyle, color: colors.immediate }}>✕</button>
+              </>
+            );
+
+            // On a narrow phone, the label + fixed-width controls column +
+            // reorder/remove icons no longer fit on one line -- they used to
+            // just wrap wherever flexbox happened to break, splitting a
+            // truncated-looking label from a stray row of icon buttons
+            // underneath. Giving the label its own full-width line first,
+            // then controls/icons on one line below, makes that an
+            // intentional two-line row instead of an accidental one.
+            if (isMobile) {
+              return (
+                <div key={s.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
+                  <div style={{ marginBottom: "6px" }}>{label}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "8px", flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>{checkControls}</div>
+                    {editIcons && <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>{editIcons}</div>}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", flexWrap: "wrap" }}>
+                {label}
+                {/* Controls live in a fixed-width right-hand column, flush
+                    against the row's right edge (label's flex:1 pushes it
+                    there), so checkboxes and "Add photo" buttons line up in
+                    one column down the list instead of the item text
+                    starting at a different x on every row. */}
+                <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
+                  {checkControls}
+                </div>
+                {editIcons}
               </div>
-              {canRequireChecklistItemPhoto && permissions.has("can_edit_job_checklist") && (
-                <button
-                  type="button"
-                  onClick={() => toggleSubtaskRequiresPhoto(s)}
-                  title={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
-                  style={{
-                    ...checklistIconStyle,
-                    background: s.requires_photo ? colors.mossDark : "transparent",
-                    color: s.requires_photo ? "#FFFFFF" : colors.inkSoft,
-                    border: `1px solid ${s.requires_photo ? colors.mossDark : colors.lineStrong}`,
-                  }}
-                >
-                  📷
-                </button>
-              )}
-              {permissions.has("can_edit_job_checklist") && (
-                <>
-                  <button type="button" onClick={() => moveSubtask(i, -1)} disabled={i === 0} style={checklistIconStyle}>↑</button>
-                  <button type="button" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1} style={checklistIconStyle}>↓</button>
-                  <button type="button" onClick={() => removeSubtask(s.id)} style={{ ...checklistIconStyle, color: colors.immediate }}>✕</button>
-                </>
-              )}
-            </div>
             );
           })}
           {permissions.has("can_edit_job_checklist") && (
