@@ -9,9 +9,9 @@ export async function queryOpenKeyCheckouts(siteId) {
   const { data } = await supabase
     .from("key_checkouts")
     .select(
-      `id, checked_out_at, issued_to_kind, issued_to_name,
+      `id, checked_out_at, issued_to_kind, issued_to_name, reason,
        issued_to_contractor:contractors(id, name),
-       checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(display_name),
+       checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(id, display_name),
        key_tags!inner(site_id, pitches(pitch_number_or_name), key_special_locations(label))`
     )
     .is("checked_in_at", null)
