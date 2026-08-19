@@ -20,6 +20,7 @@ export default function UsersTab() {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [sites, setSites] = useState([]);
+  const [contractors, setContractors] = useState([]);
   const [invite, setInvite] = useState(blankInvite);
   const [inviteStatus, setInviteStatus] = useState("idle"); // idle | sending | sent | sent-email-failed | error
   const [editingId, setEditingId] = useState(null);
@@ -32,11 +33,13 @@ export default function UsersTab() {
       supabase.rpc("list_org_users"),
       supabase.from("roles").select("id, name").eq("org_id", org.id).order("name"),
       supabase.from("sites").select("id, name").eq("org_id", org.id).order("name"),
-    ]).then(([{ data: u, error: err }, { data: r }, { data: s }]) => {
+      supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name"),
+    ]).then(([{ data: u, error: err }, { data: r }, { data: s }, { data: c }]) => {
       if (err) setError(err.message);
       else setUsers(u || []);
       setRoles(r || []);
       setSites(s || []);
+      setContractors(c || []);
     });
   }
 
@@ -91,6 +94,7 @@ export default function UsersTab() {
       email: u.email || "",
       role_id: u.role_id || "",
       is_contractor: u.is_contractor,
+      contractor_id: u.contractor_id || "",
       siteIds: u.site_ids || [],
     });
   }
@@ -131,6 +135,11 @@ export default function UsersTab() {
         display_name: editForm.display_name,
         role_id: editForm.role_id,
         is_contractor: editForm.is_contractor,
+        // Cleared whenever "Contractor" is unticked -- profiles_contractor_id_
+        // requires_flag (43-contractor-linked-profiles.sql) would reject the
+        // update otherwise, and a stale link would misattribute their key
+        // checkouts to a company they're no longer flagged as belonging to.
+        contractor_id: editForm.is_contractor ? editForm.contractor_id || null : null,
       })
       .eq("id", editingId);
     if (profileErr) {
@@ -186,9 +195,25 @@ export default function UsersTab() {
                   ))}
                 </select>
                 <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "10px" }}>
-                  <input type="checkbox" checked={editForm.is_contractor} onChange={(e) => setEditForm({ ...editForm, is_contractor: e.target.checked })} />
+                  <input
+                    type="checkbox"
+                    checked={editForm.is_contractor}
+                    onChange={(e) => setEditForm({ ...editForm, is_contractor: e.target.checked, contractor_id: e.target.checked ? editForm.contractor_id : "" })}
+                  />
                   Contractor
                 </label>
+                {editForm.is_contractor && (
+                  <select
+                    value={editForm.contractor_id}
+                    onChange={(e) => setEditForm({ ...editForm, contractor_id: e.target.value })}
+                    style={fieldStyle}
+                  >
+                    <option value="">No company linked yet</option>
+                    {contractors.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                )}
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Site access</label>
                 {sites.map((s) => (
                   <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
@@ -211,7 +236,8 @@ export default function UsersTab() {
                     )}
                   </div>
                   <div style={{ fontSize: "12px", color: colors.inkSoft }}>
-                    {u.email} · {u.role_name || "No role"}{u.is_contractor ? " · Contractor" : ""}
+                    {u.email} · {u.role_name || "No role"}
+                    {u.is_contractor ? ` · Contractor${u.contractor_id ? ` (${contractors.find((c) => c.id === u.contractor_id)?.name || "?"})` : " (no company linked)"}` : ""}
                   </div>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>

@@ -5,6 +5,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { exportJobsCsv } from "../lib/csvExport.js";
+import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
 import { colors, fonts, cardStyle, buttonStyle, priorityColor } from "../lib/theme.js";
 
 export default function Dashboard() {
@@ -34,18 +35,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!activeSite || !permissions.has("can_use_key_system")) return;
-    supabase
-      .from("key_checkouts")
-      .select(
-        `id, checked_out_at, issued_to_kind, issued_to_name,
-         issued_to_contractor:contractors(name),
-         checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(display_name),
-         key_tags!inner(site_id, pitches(pitch_number_or_name), key_special_locations(label))`
-      )
-      .is("checked_in_at", null)
-      .eq("key_tags.site_id", activeSite.id)
-      .order("checked_out_at")
-      .then(({ data }) => setOpenKeyCheckouts(data || []));
+    queryOpenKeyCheckouts(activeSite.id).then(setOpenKeyCheckouts);
   }, [activeSite, permissions]);
 
   const openJobs = jobs.filter((j) => !j.job_status?.is_completed);
@@ -110,39 +100,10 @@ export default function Dashboard() {
   );
 }
 
-function keyLocationLabel(checkout) {
-  return checkout.key_tags?.pitches?.pitch_number_or_name || checkout.key_tags?.key_special_locations?.label || "Unknown location";
-}
-
-function keyIssuedToLabel(checkout) {
-  if (checkout.issued_to_kind === "self") return checkout.checked_out_by_profile?.display_name || "—";
-  if (checkout.issued_to_kind === "contractor") return checkout.issued_to_contractor?.name || checkout.issued_to_name || "Contractor";
-  return checkout.issued_to_name || (checkout.issued_to_kind === "guest" ? "Guest" : "Customer");
-}
-
-function timeAgo(iso) {
-  const ms = Date.now() - new Date(iso).getTime();
-  const hours = Math.floor(ms / 3600000);
-  if (hours < 1) return "under an hour ago";
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 // Andy's ask: a strip across the bottom of the Dashboard so staff can see
 // at a glance who currently has a key out, without digging into the
-// admin-only Key Activity Log. Grouped by who it's out to rather than a
-// flat list -- keys held by staff themselves (issued_to_kind "self") are a
-// different kind of "who do I chase" than ones out with a contractor or a
-// customer/guest, so three columns reads faster than one long one.
-// customer and guest share a column since both are "someone outside the
-// business has it" from a staff member's point of view.
-const KEY_GROUPS = [
-  { key: "staff", label: "Staff", match: (c) => c.issued_to_kind === "self" },
-  { key: "contractors", label: "Contractors", match: (c) => c.issued_to_kind === "contractor" },
-  { key: "customers", label: "Customers & guests", match: (c) => c.issued_to_kind === "customer" || c.issued_to_kind === "guest" },
-];
-
+// admin-only Key Activity Log. Grouping/label helpers live in
+// keysOutSummary.js, shared with the key station's own menu screen.
 function KeysOutStrip({ checkouts }) {
   return (
     <div style={{ marginTop: "24px" }}>

@@ -94,7 +94,7 @@ export function AuthProvider({ children }) {
 
     const { data: profileRow, error: profileError } = await supabase
       .from("profiles")
-      .select("id, org_id, role_id, display_name, is_contractor, dnd_enabled, is_active, roles(name)")
+      .select("id, org_id, role_id, display_name, is_contractor, contractor_id, dnd_enabled, is_active, roles(name)")
       .eq("id", userId)
       .single();
     if (profileError) {
@@ -198,7 +198,7 @@ export function AuthProvider({ children }) {
   const signOut = useCallback(() => supabase.auth.signOut(), []);
 
   // fakedProfile comes from list_org_users() (id, display_name, role_id,
-  // role_name, is_contractor) -- reshaped to look like a real profile row
+  // role_name, is_contractor, contractor_id) -- reshaped to look like a real profile row
   // so every existing `profile.x` read (usePermissions, Layout, etc.) just
   // works without knowing "view as" exists. org_id/id below stay the REAL
   // admin's, not the target's, since every actual query still runs under
@@ -211,6 +211,7 @@ export function AuthProvider({ children }) {
         role_id: fakedProfile.role_id,
         display_name: fakedProfile.display_name,
         is_contractor: fakedProfile.is_contractor,
+        contractor_id: fakedProfile.contractor_id ?? null,
         dnd_enabled: false,
         is_active: true,
         roles: { name: fakedProfile.role_name },

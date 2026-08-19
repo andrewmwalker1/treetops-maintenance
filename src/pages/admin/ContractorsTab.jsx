@@ -30,6 +30,7 @@ const blank = {
 export default function ContractorsTab() {
   const { org } = useAuth();
   const [contractors, setContractors] = useState([]);
+  const [keysOutByContractor, setKeysOutByContractor] = useState({});
   const [form, setForm] = useState(null); // null = modal closed
   const [docsFor, setDocsFor] = useState(null); // contractor whose documents modal is open, or null
   const [reasonsFor, setReasonsFor] = useState(null); // contractor whose reasons modal is open, or null
@@ -44,6 +45,23 @@ export default function ContractorsTab() {
       .then(({ data, error: err }) => {
         if (err) setError(err.message);
         else setContractors(data || []);
+      });
+    // Covers both a staff member checking a key out to a contractor AND a
+    // trusted contractor's own login checking one out for themselves --
+    // both land as issued_to_contractor_id on the same row (see
+    // 43-contractor-linked-profiles.sql). Only visible to whatever this
+    // admin's own can_use_key_system/can_manage_keys grants let key_checkouts'
+    // RLS return -- someone with can_manage_contractors but no key
+    // permission will just see 0 here rather than an error.
+    supabase
+      .from("key_checkouts")
+      .select("issued_to_contractor_id")
+      .is("checked_in_at", null)
+      .not("issued_to_contractor_id", "is", null)
+      .then(({ data }) => {
+        const counts = {};
+        for (const row of data || []) counts[row.issued_to_contractor_id] = (counts[row.issued_to_contractor_id] || 0) + 1;
+        setKeysOutByContractor(counts);
       });
   }
 
@@ -104,7 +122,15 @@ export default function ContractorsTab() {
       {contractors.map((c) => (
         <div key={c.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <div>
-            <div style={{ fontWeight: 600 }}>{c.name}{c.is_trusted ? " · Trusted (key station)" : ""}</div>
+            <div style={{ fontWeight: 600 }}>
+              {c.name}
+              {c.is_trusted ? " · Trusted (key station)" : ""}
+              {keysOutByContractor[c.id] > 0 && (
+                <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "999px", padding: "2px 10px" }}>
+                  {keysOutByContractor[c.id]} key{keysOutByContractor[c.id] === 1 ? "" : "s"} out
+                </span>
+              )}
+            </div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
               {[c.main_email, c.main_phone].filter(Boolean).join(" · ") || "No contact details set"}
             </div>

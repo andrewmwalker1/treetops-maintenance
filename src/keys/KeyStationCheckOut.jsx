@@ -104,11 +104,19 @@ export default function KeyStationCheckOut() {
       .then(({ data }) => setContractorReasons(data || []));
   }, [contractorChoice]);
 
+  // A trusted contractor's own key-station login (profile.contractor_id --
+  // 43-contractor-linked-profiles.sql) is only ever taking a key for their
+  // own company's work, so this is pre-filled and locked rather than
+  // asking "who's taking it?" -- that's how Kevin and his son Ben both end
+  // up correctly counted as "keys out to Kevin Parry" even though each
+  // signs in under their own fob.
+  const myContractor = profile?.contractor_id ? contractors.find((c) => c.id === profile.contractor_id) : null;
+
   function pickTag(tag) {
     setError(null);
     setSelectedTag(tag);
-    setIssuedToKind("self");
-    setContractorChoice("");
+    setIssuedToKind(myContractor ? "contractor" : "self");
+    setContractorChoice(myContractor ? myContractor.id : "");
     setContractorFreeText("");
     setPersonName("");
     setGuestConfirmed(false);
@@ -178,67 +186,75 @@ export default function KeyStationCheckOut() {
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
 
         <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
-          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Who's taking it?</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "6px" }}>
-            {[
-              { value: "self", label: "Me" },
-              { value: "contractor", label: "Contractor" },
-              { value: "customer", label: "Customer" },
-              { value: "guest", label: "Guest" },
-            ].map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setIssuedToKind(opt.value)}
-                style={{
-                  ...kioskSecondaryButtonStyle,
-                  width: "auto",
-                  padding: "10px 18px",
-                  fontSize: "16px",
-                  background: issuedToKind === opt.value ? colors.mossDark : "transparent",
-                  color: issuedToKind === opt.value ? "#FFFFFF" : colors.mossDark,
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          {issuedToKind === "contractor" && (
+          {myContractor ? (
+            <p style={{ margin: 0, fontSize: "16px" }}>
+              Checking out for <strong>{myContractor.name}</strong>.
+            </p>
+          ) : (
             <>
-              <select value={contractorChoice} onChange={(e) => setContractorChoice(e.target.value)} style={fieldStyle}>
-                <option value="">Select a contractor…</option>
-                {contractors.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Who's taking it?</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "6px" }}>
+                {[
+                  { value: "self", label: "Me" },
+                  { value: "contractor", label: "Contractor" },
+                  { value: "customer", label: "Customer" },
+                  { value: "guest", label: "Guest" },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setIssuedToKind(opt.value)}
+                    style={{
+                      ...kioskSecondaryButtonStyle,
+                      width: "auto",
+                      padding: "10px 18px",
+                      fontSize: "16px",
+                      background: issuedToKind === opt.value ? colors.mossDark : "transparent",
+                      color: issuedToKind === opt.value ? "#FFFFFF" : colors.mossDark,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
                 ))}
-                <option value={OTHER_CONTRACTOR}>Other…</option>
-              </select>
-              {contractorChoice === OTHER_CONTRACTOR && (
+              </div>
+
+              {issuedToKind === "contractor" && (
+                <>
+                  <select value={contractorChoice} onChange={(e) => setContractorChoice(e.target.value)} style={fieldStyle}>
+                    <option value="">Select a contractor…</option>
+                    {contractors.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                    <option value={OTHER_CONTRACTOR}>Other…</option>
+                  </select>
+                  {contractorChoice === OTHER_CONTRACTOR && (
+                    <input
+                      type="text"
+                      value={contractorFreeText}
+                      onChange={(e) => setContractorFreeText(e.target.value)}
+                      placeholder="Contractor / company name"
+                      style={fieldStyle}
+                    />
+                  )}
+                </>
+              )}
+
+              {(issuedToKind === "customer" || issuedToKind === "guest") && (
                 <input
                   type="text"
-                  value={contractorFreeText}
-                  onChange={(e) => setContractorFreeText(e.target.value)}
-                  placeholder="Contractor / company name"
+                  value={personName}
+                  onChange={(e) => setPersonName(e.target.value)}
+                  placeholder={issuedToKind === "guest" ? "Guest's name" : "Customer's name"}
                   style={fieldStyle}
                 />
               )}
+
+              {issuedToKind === "guest" && (
+                <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "15px", color: colors.inkSoft }}>
+                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "22px", height: "22px" }} />
+                  Confirmed with the caravan owner
+                </label>
+              )}
             </>
-          )}
-
-          {(issuedToKind === "customer" || issuedToKind === "guest") && (
-            <input
-              type="text"
-              value={personName}
-              onChange={(e) => setPersonName(e.target.value)}
-              placeholder={issuedToKind === "guest" ? "Guest's name" : "Customer's name"}
-              style={fieldStyle}
-            />
-          )}
-
-          {issuedToKind === "guest" && (
-            <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "15px", color: colors.inkSoft }}>
-              <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "22px", height: "22px" }} />
-              Confirmed with the caravan owner
-            </label>
           )}
         </div>
 
