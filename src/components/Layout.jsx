@@ -101,6 +101,9 @@ export default function Layout({ children }) {
 
   return (
     <div style={{ ...pageStyle, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* TEMPORARY -- diagnosing why isMobile isn't flipping in landscape
+          on Andy's iPhone. Remove once confirmed fixed. */}
+      <DebugViewportBadge />
       <div style={{ flexShrink: 0 }}>
         <ViewAsBanner />
       </div>
@@ -211,6 +214,47 @@ export default function Layout({ children }) {
           v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
         </span>
       </footer>
+    </div>
+  );
+}
+
+// TEMPORARY diagnostic strip -- shows the exact numbers useIsMobile.js is
+// computing, live, right on the real app (no artifact-viewer wrapper to
+// contaminate the reading like the standalone diagnostic page had).
+// Remove once the iPhone-landscape mobile-detection issue is confirmed
+// fixed.
+function DebugViewportBadge() {
+  const [dims, setDims] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    function update() {
+      setDims({ w: window.innerWidth, h: window.innerHeight });
+    }
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
+  const longest = Math.max(dims.w, dims.h);
+  const mobile = longest <= 1000;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: "#111",
+        color: mobile ? "#7CFF7C" : "#FF8A7C",
+        fontFamily: "monospace",
+        fontSize: "12px",
+        padding: "6px 10px",
+        zIndex: 99999,
+        textAlign: "center",
+      }}
+    >
+      {dims.w}×{dims.h} · longest={longest} · {mobile ? "MOBILE" : "DESKTOP"}
     </div>
   );
 }
