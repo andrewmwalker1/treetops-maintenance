@@ -1,0 +1,274 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useEquipmentCheckout } from "../lib/useEquipmentCheckout.js";
+import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
+import ReportIssueForm from "../kiosk/ReportIssueForm.jsx";
+import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
+import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+
+// Same equipment check-out logic as the workshop kiosk (useEquipmentCheckout.js),
+// so someone like Hazel can check out a strimmer from her own phone without
+// needing to be stood at the kiosk terminal -- no permission gate here
+// either, matching the kiosk (equipment checkout has never been role-gated,
+// unlike keys). Styled for the normal app (theme.js, not kioskTheme.js)
+// since this lives inside Layout's ordinary chrome, not a full-screen
+// kiosk takeover.
+const listButtonStyle = {
+  ...buttonStyle.secondary,
+  width: "100%",
+  textAlign: "left",
+  padding: "14px 16px",
+  fontSize: "15px",
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+};
+
+export default function CheckoutKit() {
+  const navigate = useNavigate();
+  const {
+    view,
+    setView,
+    categories,
+    selectedType,
+    units,
+    selectedIds,
+    reportingIssueFor,
+    setReportingIssueFor,
+    checkoutOutcome,
+    busy,
+    error,
+    openCategory,
+    selectUnit,
+    toggleUnit,
+    backToCategories,
+    handleCheckOut,
+    handleReportIssue,
+  } = useEquipmentCheckout();
+  const [showSafety, setShowSafety] = useState(false);
+
+  function openCategoryAndResetSafety(type) {
+    setShowSafety(false);
+    openCategory(type);
+  }
+
+  function backToCategoriesAndResetSafety() {
+    setShowSafety(false);
+    backToCategories();
+  }
+
+  if (view === "results" && checkoutOutcome) {
+    return (
+      <div style={{ maxWidth: "560px" }}>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Check-out results</h1>
+
+        {checkoutOutcome.succeeded.length > 0 && (
+          <div style={{ ...cardStyle, padding: "16px", marginBottom: "14px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Checked out</h2>
+            {checkoutOutcome.succeeded.map((u) => (
+              <p key={u.id} style={{ fontSize: "15px", margin: "6px 0" }}>{u.name}</p>
+            ))}
+          </div>
+        )}
+
+        {checkoutOutcome.failed.length > 0 && (
+          <div style={{ ...cardStyle, padding: "16px", marginBottom: "20px", border: `2px solid ${colors.immediate}` }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.immediate, marginTop: 0 }}>Not checked out</h2>
+            {checkoutOutcome.failed.map((f) => (
+              <p key={f.unit?.id || f.message} style={{ fontSize: "15px", margin: "6px 0" }}>
+                {f.unit?.name || "Unit"} — {f.message}
+              </p>
+            ))}
+          </div>
+        )}
+
+        <button style={buttonStyle.primary} onClick={() => navigate("/")}>Done</button>
+      </div>
+    );
+  }
+
+  if (view === "confirm") {
+    const selected = units.filter((u) => selectedIds.has(u.id));
+    const reportingUnit = reportingIssueFor ? selected.find((u) => u.id === reportingIssueFor) : null;
+
+    return (
+      <div style={{ maxWidth: "560px" }}>
+        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={() => setView("units")}>
+          ← Back
+        </button>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{selectedType.name}</h1>
+
+        {selectedType.preUseChecklist.length > 0 && (
+          <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginTop: 0 }}>Before you take it</h2>
+            <ChecklistBuilder items={selectedType.preUseChecklist} onChange={() => {}} readOnly />
+          </div>
+        )}
+
+        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+
+        {reportingUnit ? (
+          <>
+            <p style={{ fontSize: "14px", color: colors.inkSoft }}>
+              Reporting an issue with <strong>{reportingUnit.name}</strong>
+            </p>
+            <ReportIssueForm
+              equipmentTypeId={selectedType.id}
+              onSubmit={(description) => handleReportIssue(reportingUnit.id, description)}
+              onCancel={() => setReportingIssueFor(null)}
+              submitting={busy}
+            />
+          </>
+        ) : (
+          <>
+            {selected.length > 1 && (
+              <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
+                <h2 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>
+                  Taking {selected.length}
+                </h2>
+                {selected.map((u) => (
+                  <div
+                    key={u.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "8px 0",
+                      borderBottom: `1px solid ${colors.line}`,
+                    }}
+                  >
+                    <span style={{ fontSize: "15px" }}>{u.name}</span>
+                    <button
+                      onClick={() => setReportingIssueFor(u.id)}
+                      disabled={busy}
+                      style={{ background: "none", border: "none", color: colors.immediate, fontSize: "13px", textDecoration: "underline", cursor: "pointer" }}
+                    >
+                      Report issue
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <button style={buttonStyle.primary} onClick={() => handleCheckOut(() => navigate("/"))} disabled={busy}>
+                {busy ? "Checking out…" : selected.length > 1 ? `Check out selected (${selected.length})` : "Check out"}
+              </button>
+              {selected.length === 1 && (
+                <button
+                  style={{ ...buttonStyle.secondary, color: colors.immediate, borderColor: colors.immediate }}
+                  onClick={() => setReportingIssueFor(selected[0].id)}
+                  disabled={busy}
+                >
+                  Report an issue
+                </button>
+              )}
+              <button style={buttonStyle.secondary} onClick={() => setView("units")} disabled={busy}>
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  if (view === "units") {
+    const multi = selectedType.allowMultiCheckout;
+    return (
+      <div style={{ maxWidth: "560px" }}>
+        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToCategoriesAndResetSafety}>
+          ← Kit
+        </button>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{selectedType.name}</h1>
+        {selectedType.documents.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSafety(true)}
+            style={{ ...buttonStyle.secondary, marginBottom: "12px", color: colors.immediate, borderColor: colors.immediate }}
+          >
+            ⚠ Health &amp; Safety
+          </button>
+        )}
+        {multi && units.length > 0 && (
+          <p style={{ color: colors.inkSoft, fontSize: "14px", marginTop: "-4px" }}>Tick everything you need, then continue.</p>
+        )}
+        {units.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing available right now.</p>}
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {units.map((u) =>
+            multi ? (
+              <label
+                key={u.id}
+                style={{
+                  ...listButtonStyle,
+                  background: selectedIds.has(u.id) ? colors.mossDark : "transparent",
+                  color: selectedIds.has(u.id) ? "#FFFFFF" : colors.mossDark,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(u.id)}
+                    onChange={() => toggleUnit(u.id)}
+                    style={{ width: "20px", height: "20px", flexShrink: 0 }}
+                  />
+                  {u.name}
+                </span>
+              </label>
+            ) : (
+              <button key={u.id} style={listButtonStyle} onClick={() => selectUnit(u)}>
+                {u.name}
+              </button>
+            )
+          )}
+        </div>
+        {multi && (
+          <button
+            style={{ ...buttonStyle.primary, width: "100%", marginTop: "16px", opacity: selectedIds.size === 0 ? 0.5 : 1 }}
+            onClick={() => selectedIds.size > 0 && setView("confirm")}
+            disabled={selectedIds.size === 0}
+          >
+            Continue{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+          </button>
+        )}
+
+        {showSafety && (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
+            onClick={() => setShowSafety(false)}
+          >
+            <div style={{ ...cardStyle, padding: "20px", maxWidth: "480px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "17px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
+              {selectedType.documents.map((doc) => (
+                <SafetyDocumentLink key={doc.id} doc={doc} />
+              ))}
+              <button type="button" style={{ ...buttonStyle.secondary, marginTop: "14px" }} onClick={() => setShowSafety(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ maxWidth: "560px" }}>
+      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Checkout kit</h1>
+      {categories.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment types set up yet.</p>}
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        {categories.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => openCategoryAndResetSafety(c)}
+            style={{ ...listButtonStyle, opacity: c.availableCount === 0 ? 0.6 : 1 }}
+          >
+            <span>{c.name}</span>
+            <span style={{ fontSize: "13px", color: colors.inkSoft }}>{c.availableCount} available</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

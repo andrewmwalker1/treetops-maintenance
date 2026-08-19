@@ -8,6 +8,7 @@ import NewJob from "./pages/NewJob.jsx";
 import JobDetail from "./pages/JobDetail.jsx";
 import EquipmentList from "./pages/EquipmentList.jsx";
 import EquipmentDetail from "./pages/EquipmentDetail.jsx";
+import CheckoutKit from "./pages/CheckoutKit.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
@@ -165,6 +166,7 @@ function AppShell() {
         <Route path="/jobs/:id" element={<JobDetail />} />
         <Route path="/equipment" element={<EquipmentList />} />
         <Route path="/equipment/:id" element={<EquipmentDetail />} />
+        <Route path="/checkout-kit" element={<CheckoutKit />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/admin" element={<Admin />} />
