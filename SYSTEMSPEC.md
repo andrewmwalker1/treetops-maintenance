@@ -790,7 +790,8 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | Common Faults | `can_manage_equipment_status` | `common_fault_descriptions`, scoped per equipment type via a type-selector pill row; reorderable picklist |
 | Checkout Log (now "Equipment history") | `can_manage_equipment_status` | Read-mostly, merging three tables into one chronological log: `equipment_checkouts`, `fault_reports`, and `repair_records` (each fault/repair is its own row, not folded into its checkout — they land adjacent once sorted by date instead of being described twice). Status filter (open/closed) only narrows checkout rows, since it has no meaning for a fault/repair; "Faults & repairs only" hides checkouts entirely instead. Equipment/type/person filters, date range, free-text search, sortable columns, per-row force-check-in (checkout rows only), CSV export. |
 | RFID Fobs | `can_manage_users` | `rfid_tags`: scan-to-register flow (hidden `RfidScanListener`, assign scanned UID to a profile via select), list + revoke. Friendly duplicate-UID error identifying the existing owner. |
-| Key Tags | `can_manage_keys` | `key_tags` (36-key-tags-schema.sql): same scan-to-register `RfidScanListener` pattern as RFID Fobs, but for the physical-key project — a tag maps to a pitch **or** a `key_special_locations` row (e.g. "Sales keyring"), never both (`key_tags_single_location` check constraint), and multiple tags can share one pitch (a caravan with more than one key). "Move" re-picks the location; "Remove" clears it back to unallocated rather than deleting the tag, freeing it for reuse. Every allocate/move/remove is logged automatically to `key_tag_events` by a trigger on `key_tags` (`log_key_tag_event()`), not by the UI remembering to log it. A small inline form on the same tab manages `key_special_locations` (add-only so far). The check-out/check-in flow itself is the key station, §12a — there's no admin activity-log tab yet (full history across all keys, `admin_force_check_in_key`). |
+| Key Tags | `can_manage_keys` | `key_tags` (36-key-tags-schema.sql): same scan-to-register `RfidScanListener` pattern as RFID Fobs, but for the physical-key project — a tag maps to a pitch **or** a `key_special_locations` row (e.g. "Sales keyring"), never both (`key_tags_single_location` check constraint), and multiple tags can share one pitch (a caravan with more than one key). "Move" re-picks the location; "Remove" clears it back to unallocated rather than deleting the tag, freeing it for reuse. Every allocate/move/remove is logged automatically to `key_tag_events` by a trigger on `key_tags` (`log_key_tag_event()`), not by the UI remembering to log it. A small inline form on the same tab manages `key_special_locations` (add-only so far). The check-out/check-in flow itself is the key station, §12a. |
+| Key Activity Log | `can_manage_keys` | Read-mostly log of every `key_checkouts` row (`keyCheckoutsQuery.js`, mirroring `equipmentCheckoutsQuery.js`'s shape), filterable by pitch, by person (matches checked-out-by **or** checked-in-by, same OR-across-two-columns reasoning as the equipment log), by status (all/currently out/returned), and by date range. No search box or CSV export (not asked for, unlike the equipment log). Per-row **Force check-in** via `admin_force_check_in_key` for a stuck/lost key. |
 | Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes, **`is_trusted`** checkbox (37-key-checkouts-and-contractor-reasons.sql — marks the handful, e.g. Kevin Parry/CMT Cleaning, who use the key station unaccompanied; needs no code of its own, just a normal profile + a role holding `can_use_key_system` + a registered fob, same as any staff member). Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal` (as before). A **"Key reasons"** button opens `ContractorReasonsModal`: add/delete `contractor_reasons` rows (label + sort_order) — shown as quick-pick buttons on the key-station check-out screen once this contractor is selected, always alongside a free-text override. |
 | Groups | `can_manage_users` | `groups` + `group_members`: name, member checkbox list (diffed). Delete warns that assigned jobs become unassigned. |
 | Roles & Permissions | `can_manage_roles_and_permissions` | Permission×role matrix (checkbox toggles `role_permissions`), add role, inline-rename role (click header), delete role (surfaces the "still in use" trigger error verbatim if applicable) |
@@ -920,6 +921,14 @@ isn't permission-gated at the `rfid-login` level, so any fob can create a
 session here; a role without the permission sees a clear "doesn't have
 access" screen + sign-out button instead of broken/empty screens.
 
+**Menu (`/keys`, `KeyStationMenu.jsx`)** — same "Hi `<name>`" shape as the
+workshop kiosk's menu, plus a summary card above the button grid: every
+`key_checkouts` row still open (`checked_in_at is null`) with
+`checked_out_by` = the signed-in profile, listed by location label ("You
+currently have 2 keys checked out: OM-L01, Sales keyring") or "You have no
+keys checked out right now." — Andy's ask, so someone like Kevin can see
+at a glance what he still has out before leaving site.
+
 **`KeySelector.jsx`** (shared by all three screens below): a hidden
 `RfidScanListener` plus a text search/tap-list fallback (filtered by
 pitch/location label) over whatever `tags` array the caller passes in —
@@ -951,14 +960,8 @@ knowing anything about check-out/check-in/lookup itself.
   shows only the single most recent `key_checkouts` row for the picked
   tag ("Checked out … by … — still out" / "Checked in … by … — currently
   in the cupboard" / "No activity recorded yet"). This is the non-admin
-  answer to "where's this key" from Andy's spec — the full activity log
-  (all events, filterable by pitch) is an admin-only screen (`can_manage_keys`)
-  that doesn't exist yet.
-
-`admin_force_check_in_key(p_checkout_id)` (security-definer RPC, gated
-`can_manage_keys`, mirroring `admin_force_check_in` for equipment) exists
-in the schema for the stuck/lost-key case but has no UI caller yet —
-lands with the admin activity-log tab.
+  answer to "where's this key" from Andy's spec — the full history (every
+  event, filterable) is the admin-only Key Activity Log, §11.
 
 ---
 
