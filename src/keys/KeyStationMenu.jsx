@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { locationLabel } from "./KeySelector.jsx";
 import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
+import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
 
 export default function KeyStationMenu() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const permissions = usePermissions();
   const [myOpenKeys, setMyOpenKeys] = useState(null); // null = loading
 
   useEffect(() => {
@@ -47,6 +49,12 @@ export default function KeyStationMenu() {
         <button style={kioskButtonStyle} onClick={() => navigate("/keys/checkout")}>Check out a key</button>
         <button style={kioskButtonStyle} onClick={() => navigate("/keys/checkin")}>Check in a key</button>
         <button style={kioskButtonStyle} onClick={() => navigate("/keys/find")}>Find a key</button>
+        {permissions.has("can_manage_keys") && (
+          <>
+            <button style={kioskSecondaryButtonStyle} onClick={() => navigate("/keys/relocate")}>Relocate a key</button>
+            <button style={kioskSecondaryButtonStyle} onClick={() => navigate("/keys/force-checkin")}>Force check-in</button>
+          </>
+        )}
       </div>
       <button style={{ ...kioskDangerButtonStyle, marginTop: "20px" }} onClick={() => signOut()}>Sign out</button>
     </div>

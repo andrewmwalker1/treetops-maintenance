@@ -6,6 +6,8 @@ import KeyStationMenu from "./KeyStationMenu.jsx";
 import KeyStationCheckOut from "./KeyStationCheckOut.jsx";
 import KeyStationCheckIn from "./KeyStationCheckIn.jsx";
 import KeyStationLookup from "./KeyStationLookup.jsx";
+import KeyStationRelocate from "./KeyStationRelocate.jsx";
+import KeyStationForceCheckIn from "./KeyStationForceCheckIn.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskPageStyle, kioskDangerButtonStyle } from "../kiosk/kioskTheme.js";
 
@@ -70,6 +72,8 @@ export default function KeyStationApp() {
         <Route path="/keys/checkout" element={<KeyStationCheckOut />} />
         <Route path="/keys/checkin" element={<KeyStationCheckIn />} />
         <Route path="/keys/find" element={<KeyStationLookup />} />
+        <Route path="/keys/relocate" element={<KeyStationRelocate />} />
+        <Route path="/keys/force-checkin" element={<KeyStationForceCheckIn />} />
       </Routes>
     </div>
   );
