@@ -199,7 +199,13 @@ export default function Layout({ children }) {
           )}
         </div>
       </header>
-      <main style={{ flex: 1, overflowY: "auto", padding: "20px" }}>{children}</main>
+      {/* Horizontal padding only shrinks on mobile -- vertical stays 20px
+          either way since JobsList's sticky filter header does its own
+          -20px/-20px/20px offset math keyed to that exact value (see its
+          own comment). A narrow phone can't spare 20px on each side just
+          for margin -- e.g. the job checklist's item-description text
+          needs that width more than the page needs symmetrical padding. */}
+      <main style={{ flex: 1, overflowY: "auto", padding: isMobile ? "20px 8px" : "20px" }}>{children}</main>
       <footer style={{ flexShrink: 0, padding: "10px 20px", textAlign: "center" }}>
         <span style={{ fontFamily: fonts.mono, fontSize: "11px", color: colors.inkSoft }}>
           v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}

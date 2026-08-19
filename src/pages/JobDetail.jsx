@@ -1323,8 +1323,9 @@ const checklistIconStyle = {
 
 
 function Section({ title, children }) {
+  const isMobile = useIsMobile();
   return (
-    <div style={{ ...cardStyle, padding: "18px", marginBottom: "16px" }}>
+    <div style={{ ...cardStyle, padding: isMobile ? "18px 10px" : "18px", marginBottom: "16px" }}>
       <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>{title}</h2>
       {children}
     </div>
