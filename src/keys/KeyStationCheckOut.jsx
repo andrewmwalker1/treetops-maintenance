@@ -26,6 +26,7 @@ export default function KeyStationCheckOut() {
   const [keyTags, setKeyTags] = useState([]);
   const [openTagIds, setOpenTagIds] = useState(new Set());
   const [contractors, setContractors] = useState([]);
+  const [selfReasons, setSelfReasons] = useState([]);
   const [selectedTag, setSelectedTag] = useState(null);
 
   const [issuedToKind, setIssuedToKind] = useState("self");
@@ -56,6 +57,21 @@ export default function KeyStationCheckOut() {
   }
 
   useEffect(refresh, [org, activeSite]);
+
+  // Preset reasons for checking a key out to yourself, by your own role
+  // (RoleKeyReasonsTab.jsx) -- e.g. Sam's "Caravan Prep" role might offer
+  // "Clean the caravan" / "At the request of the owner" / "Dress the
+  // caravan". Loaded once per role, unlike contractorReasons below which
+  // reloads whenever the picked contractor changes.
+  useEffect(() => {
+    if (!profile?.role_id) return;
+    supabase
+      .from("role_key_reasons")
+      .select("id, label")
+      .eq("role_id", profile.role_id)
+      .order("sort_order")
+      .then(({ data }) => setSelfReasons(data || []));
+  }, [profile?.role_id]);
 
   useEffect(() => {
     if (!contractorChoice || contractorChoice === OTHER_CONTRACTOR) {
@@ -207,9 +223,9 @@ export default function KeyStationCheckOut() {
 
         <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
           <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Reason</p>
-          {contractorReasons.length > 0 && (
+          {(issuedToKind === "self" ? selfReasons : issuedToKind === "contractor" ? contractorReasons : []).length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
-              {contractorReasons.map((r) => (
+              {(issuedToKind === "self" ? selfReasons : contractorReasons).map((r) => (
                 <button
                   key={r.id}
                   onClick={() => setReason(r.label)}

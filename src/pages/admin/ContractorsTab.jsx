@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import ContractorDocumentsModal from "./ContractorDocumentsModal.jsx";
-import ContractorReasonsModal from "./ContractorReasonsModal.jsx";
+import KeyReasonsModal from "./KeyReasonsModal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -120,7 +120,15 @@ export default function ContractorsTab() {
       {contractors.length === 0 && <p style={{ color: colors.inkSoft }}>No contractors set up yet.</p>}
 
       {docsFor && <ContractorDocumentsModal contractor={docsFor} orgId={org.id} onClose={() => setDocsFor(null)} />}
-      {reasonsFor && <ContractorReasonsModal contractor={reasonsFor} onClose={() => setReasonsFor(null)} />}
+      {reasonsFor && (
+        <KeyReasonsModal
+          title={`${reasonsFor.name} — Key reasons`}
+          table="contractor_reasons"
+          ownerColumn="contractor_id"
+          ownerId={reasonsFor.id}
+          onClose={() => setReasonsFor(null)}
+        />
+      )}
 
       {form && (
         <div

@@ -12,20 +12,23 @@ const fieldStyle = {
   marginBottom: "10px",
 };
 
-// Preset reasons shown as quick-pick buttons on the key-station check-out
-// screen when this contractor is selected (KeyStationCheckOut.jsx) --
-// always alongside a free-text override there, never the only way to
-// enter a reason.
-export default function ContractorReasonsModal({ contractor, onClose }) {
+// Generic preset-reasons editor, backing both contractor_reasons
+// (ContractorsTab.jsx, keyed by contractor_id) and role_key_reasons
+// (RoleKeyReasonsTab.jsx, keyed by role_id) -- same shape (id, <owner>_id,
+// label, sort_order), same UI, only the table/column/id differ. Preset
+// reasons show as quick-pick buttons on the key-station check-out screen
+// (KeyStationCheckOut.jsx) -- always alongside a free-text override,
+// never the only way to enter a reason.
+export default function KeyReasonsModal({ title, table, ownerColumn, ownerId, onClose }) {
   const [reasons, setReasons] = useState([]);
   const [newLabel, setNewLabel] = useState("");
   const [error, setError] = useState(null);
 
   function refresh() {
     supabase
-      .from("contractor_reasons")
+      .from(table)
       .select("id, label, sort_order")
-      .eq("contractor_id", contractor.id)
+      .eq(ownerColumn, ownerId)
       .order("sort_order")
       .then(({ data, error: err }) => {
         if (err) setError(err.message);
@@ -33,14 +36,14 @@ export default function ContractorReasonsModal({ contractor, onClose }) {
       });
   }
 
-  useEffect(refresh, [contractor.id]);
+  useEffect(refresh, [table, ownerColumn, ownerId]);
 
   async function handleAdd(e) {
     e.preventDefault();
     const label = newLabel.trim();
     if (!label) return;
-    const { error: err } = await supabase.from("contractor_reasons").insert({
-      contractor_id: contractor.id,
+    const { error: err } = await supabase.from(table).insert({
+      [ownerColumn]: ownerId,
       label,
       sort_order: reasons.length,
     });
@@ -53,7 +56,7 @@ export default function ContractorReasonsModal({ contractor, onClose }) {
   }
 
   async function handleDelete(id) {
-    const { error: err } = await supabase.from("contractor_reasons").delete().eq("id", id);
+    const { error: err } = await supabase.from(table).delete().eq("id", id);
     if (err) setError(err.message);
     else refresh();
   }
@@ -65,7 +68,7 @@ export default function ContractorReasonsModal({ contractor, onClose }) {
     >
       <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>{contractor.name} — Key reasons</h2>
+          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
         </div>
 
