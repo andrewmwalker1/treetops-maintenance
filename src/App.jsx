@@ -43,8 +43,27 @@ function AppShell() {
   const terminalSessionEscaped = Boolean(loginContext) && !onOwnTerminal;
 
   useEffect(() => {
-    if (terminalSessionEscaped) signOut();
-  }, [terminalSessionEscaped, signOut]);
+    if (!terminalSessionEscaped) return;
+    // Re-check against the LIVE browser URL after a short settle delay,
+    // not the react-router location snapshot that triggered this render --
+    // signing out is a one-way trip, and the redirect chain a fresh RFID
+    // sign-in goes through (Supabase's own magic-link verification, the
+    // GitHub Pages SPA-fallback's public/404.html -> ?redirect= ->
+    // history.replaceState dance, and supabase-js's own hash cleanup) can
+    // leave react-router's location transiently out of step with
+    // window.location while it all settles. A single render catching that
+    // in-between moment used to be enough to permanently kill a session
+    // that was actually fine -- reproduced as "scan -> Signing in... ->
+    // bounced back to sign in again" on the key station.
+    const timer = setTimeout(() => {
+      const realPath = window.location.pathname;
+      const stillOnOwnTerminal =
+        (loginContext === "kiosk" && realPath.startsWith("/kiosk")) ||
+        (loginContext === "key_station" && realPath.startsWith("/keys"));
+      if (!stillOnOwnTerminal) signOut();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [terminalSessionEscaped, loginContext, signOut]);
 
   if (terminalSessionEscaped) {
     return (
