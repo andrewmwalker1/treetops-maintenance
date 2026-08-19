@@ -12,14 +12,18 @@ const fieldStyle = {
   marginBottom: "10px",
 };
 
-// Generic preset-reasons editor, backing both contractor_reasons
-// (ContractorsTab.jsx, keyed by contractor_id) and role_key_reasons
-// (RoleKeyReasonsTab.jsx, keyed by role_id) -- same shape (id, <owner>_id,
-// label, sort_order), same UI, only the table/column/id differ. Preset
-// reasons show as quick-pick buttons on the key-station check-out screen
+// Generic preset-reasons editor, backing contractor_reasons
+// (ContractorsTab.jsx, keyed by contractor_id), role_key_reasons
+// (RoleKeyReasonsTab.jsx, keyed by role_id), and key_reason_presets
+// (also RoleKeyReasonsTab.jsx, keyed by a fixed kind string --
+// "customer"/"guest" -- rather than a row id) -- same shape (id,
+// <owner>, label, sort_order), same UI, only the table/column/id differ.
+// `extraFields` covers key_reason_presets' extra not-null org_id column,
+// which the other two tables don't have. Preset reasons show as
+// quick-pick buttons on the key-station check-out screen
 // (KeyStationCheckOut.jsx) -- always alongside a free-text override,
 // never the only way to enter a reason.
-export default function KeyReasonsModal({ title, table, ownerColumn, ownerId, onClose }) {
+export default function KeyReasonsModal({ title, table, ownerColumn, ownerId, extraFields, onClose }) {
   const [reasons, setReasons] = useState([]);
   const [newLabel, setNewLabel] = useState("");
   const [error, setError] = useState(null);
@@ -46,6 +50,7 @@ export default function KeyReasonsModal({ title, table, ownerColumn, ownerId, on
       [ownerColumn]: ownerId,
       label,
       sort_order: reasons.length,
+      ...extraFields,
     });
     if (err) {
       setError(err.message);

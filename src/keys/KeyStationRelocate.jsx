@@ -32,6 +32,7 @@ export default function KeyStationRelocate() {
   const [keyTags, setKeyTags] = useState([]);
   const [pitches, setPitches] = useState([]);
   const [specialLocations, setSpecialLocations] = useState([]);
+  const [openTagIds, setOpenTagIds] = useState(new Set());
   const [selectedTag, setSelectedTag] = useState(null);
 
   const [kind, setKind] = useState("pitch");
@@ -46,14 +47,16 @@ export default function KeyStationRelocate() {
     Promise.all([
       supabase
         .from("key_tags")
-        .select("id, tag_uid, pitch_id, special_location_id, pitches(pitch_number_or_name), key_special_locations(label)")
+        .select("id, tag_uid, pitch_id, special_location_id, status, pitches(pitch_number_or_name), key_special_locations(label)")
         .eq("site_id", activeSite.id),
       supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).order("pitch_number_or_name"),
       supabase.from("key_special_locations").select("id, label").eq("site_id", activeSite.id).order("label"),
-    ]).then(([{ data: kt }, { data: p }, { data: s }]) => {
-      setKeyTags((kt || []).filter((t) => t.pitch_id || t.special_location_id));
+      supabase.from("key_checkouts").select("key_tag_id").is("checked_in_at", null),
+    ]).then(([{ data: kt }, { data: p }, { data: s }, { data: open }]) => {
+      setKeyTags((kt || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status !== "lost"));
       setPitches(p || []);
       setSpecialLocations(s || []);
+      setOpenTagIds(new Set((open || []).map((o) => o.key_tag_id)));
     });
   }
 
@@ -122,6 +125,15 @@ export default function KeyStationRelocate() {
           ← Back
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
+
+        {openTagIds.has(selectedTag.id) && (
+          <div style={{ ...kioskCardStyle, marginBottom: "16px", borderColor: colors.gold }}>
+            <p style={{ margin: 0, fontSize: "15px" }}>
+              This key is currently checked out — it could just be out being used to get the caravan ready. Moving it only changes where it normally
+              lives; it won't check it in.
+            </p>
+          </div>
+        )}
 
         <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
           <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Move to…</p>

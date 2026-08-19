@@ -13,6 +13,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [faultyCount, setFaultyCount] = useState(0);
+  const [openKeyCheckouts, setOpenKeyCheckouts] = useState([]);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -30,6 +31,22 @@ export default function Dashboard() {
       .eq("status", "faulty")
       .then(({ count }) => setFaultyCount(count || 0));
   }, [org]);
+
+  useEffect(() => {
+    if (!activeSite || !permissions.has("can_use_key_system")) return;
+    supabase
+      .from("key_checkouts")
+      .select(
+        `id, checked_out_at, issued_to_kind, issued_to_name,
+         issued_to_contractor:contractors(name),
+         checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(display_name),
+         key_tags!inner(site_id, pitches(pitch_number_or_name), key_special_locations(label))`
+      )
+      .is("checked_in_at", null)
+      .eq("key_tags.site_id", activeSite.id)
+      .order("checked_out_at")
+      .then(({ data }) => setOpenKeyCheckouts(data || []));
+  }, [activeSite, permissions]);
 
   const openJobs = jobs.filter((j) => !j.job_status?.is_completed);
   const byPriority = ["immediate", "high", "medium", "low"].map((p) => ({
@@ -86,6 +103,69 @@ export default function Dashboard() {
           color={faultyCount ? colors.immediate : colors.moss}
           onClick={() => navigate("/equipment?status=faulty")}
         />
+      </div>
+
+      {permissions.has("can_use_key_system") && <KeysOutStrip checkouts={openKeyCheckouts} />}
+    </div>
+  );
+}
+
+function keyLocationLabel(checkout) {
+  return checkout.key_tags?.pitches?.pitch_number_or_name || checkout.key_tags?.key_special_locations?.label || "Unknown location";
+}
+
+function keyIssuedToLabel(checkout) {
+  if (checkout.issued_to_kind === "self") return checkout.checked_out_by_profile?.display_name || "—";
+  if (checkout.issued_to_kind === "contractor") return checkout.issued_to_contractor?.name || checkout.issued_to_name || "Contractor";
+  return checkout.issued_to_name || (checkout.issued_to_kind === "guest" ? "Guest" : "Customer");
+}
+
+function timeAgo(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const hours = Math.floor(ms / 3600000);
+  if (hours < 1) return "under an hour ago";
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// Andy's ask: a strip across the bottom of the Dashboard so staff can see
+// at a glance who currently has a key out, without digging into the
+// admin-only Key Activity Log. Grouped by who it's out to rather than a
+// flat list -- keys held by staff themselves (issued_to_kind "self") are a
+// different kind of "who do I chase" than ones out with a contractor or a
+// customer/guest, so three columns reads faster than one long one.
+// customer and guest share a column since both are "someone outside the
+// business has it" from a staff member's point of view.
+const KEY_GROUPS = [
+  { key: "staff", label: "Staff", match: (c) => c.issued_to_kind === "self" },
+  { key: "contractors", label: "Contractors", match: (c) => c.issued_to_kind === "contractor" },
+  { key: "customers", label: "Customers & guests", match: (c) => c.issued_to_kind === "customer" || c.issued_to_kind === "guest" },
+];
+
+function KeysOutStrip({ checkouts }) {
+  return (
+    <div style={{ marginTop: "24px" }}>
+      <h2 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "16px", marginBottom: "10px" }}>Keys currently out</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+        {KEY_GROUPS.map((g) => {
+          const rows = checkouts.filter(g.match);
+          return (
+            <div key={g.key} style={{ ...cardStyle, padding: "14px 16px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
+                <span style={{ fontWeight: 600, fontSize: "14px" }}>{g.label}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: "13px", color: colors.inkSoft }}>{rows.length}</span>
+              </div>
+              {rows.length === 0 && <p style={{ margin: 0, fontSize: "13px", color: colors.inkSoft }}>None out.</p>}
+              {rows.map((c) => (
+                <div key={c.id} style={{ fontSize: "13px", padding: "4px 0", borderTop: `1px solid ${colors.line}` }}>
+                  <span style={{ fontWeight: 600 }}>{keyLocationLabel(c)}</span> — {keyIssuedToLabel(c)}
+                  <span style={{ color: colors.inkSoft }}> · {timeAgo(c.checked_out_at)}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

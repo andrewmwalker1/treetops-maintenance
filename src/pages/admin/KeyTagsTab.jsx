@@ -54,12 +54,23 @@ function LocationPicker({ pitches, specialLocations, kind, setKind, pitchId, set
   );
 }
 
+const STATUS_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "allocated", label: "Allocated" },
+  { key: "spare", label: "Spare" },
+  { key: "lost", label: "Lost" },
+];
+
 export default function KeyTagsTab() {
   const { org, activeSite } = useAuth();
   const [keyTags, setKeyTags] = useState([]);
   const [pitches, setPitches] = useState([]);
   const [specialLocations, setSpecialLocations] = useState([]);
+  const [openTagIds, setOpenTagIds] = useState(new Set());
   const [error, setError] = useState(null);
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const [scannedUid, setScannedUid] = useState(null);
   const [assignKind, setAssignKind] = useState("pitch");
@@ -76,18 +87,51 @@ export default function KeyTagsTab() {
   function refresh() {
     if (!org || !activeSite) return;
     Promise.all([
-      supabase.from("key_tags").select("id, tag_uid, pitch_id, special_location_id, created_at").eq("site_id", activeSite.id).order("created_at"),
+      supabase.from("key_tags").select("id, tag_uid, pitch_id, special_location_id, status, created_at").eq("site_id", activeSite.id).order("created_at"),
       supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).order("pitch_number_or_name"),
       supabase.from("key_special_locations").select("id, label").eq("site_id", activeSite.id).order("label"),
-    ]).then(([{ data: kt, error: err }, { data: p }, { data: s }]) => {
+      supabase.from("key_checkouts").select("key_tag_id").is("checked_in_at", null),
+    ]).then(([{ data: kt, error: err }, { data: p }, { data: s }, { data: open }]) => {
       if (err) setError(err.message);
       else setKeyTags(kt || []);
       setPitches(p || []);
       setSpecialLocations(s || []);
+      setOpenTagIds(new Set((open || []).map((o) => o.key_tag_id)));
     });
   }
 
   useEffect(refresh, [org, activeSite]);
+
+  const visibleTags = keyTags.filter((tag) => {
+    if (statusFilter === "lost" && tag.status !== "lost") return false;
+    if (statusFilter === "allocated" && (tag.status === "lost" || !(tag.pitch_id || tag.special_location_id))) return false;
+    if (statusFilter === "spare" && (tag.status === "lost" || tag.pitch_id || tag.special_location_id)) return false;
+    if (!search.trim()) return true;
+    const haystack = `${locationLabel(tag, pitches, specialLocations)} ${tag.tag_uid}`.toLowerCase();
+    return haystack.includes(search.trim().toLowerCase());
+  });
+
+  async function handleMarkLost(tag) {
+    const notePrompt = window.prompt(
+      `Mark ${locationLabel(tag, pitches, specialLocations)}'s key tag as lost. Add a note (optional):`,
+      ""
+    );
+    if (notePrompt === null) return; // cancelled
+    const { error: err } = await supabase
+      .from("key_tags")
+      .update({ status: "lost", lost_at: new Date().toISOString(), lost_notes: notePrompt.trim() || null })
+      .eq("id", tag.id);
+    if (err) setError(err.message);
+    else refresh();
+  }
+
+  async function handleReinstate(tag) {
+    const proceed = window.confirm(`Mark this key tag as found again? It'll go back to being usable at ${locationLabel(tag, pitches, specialLocations)}.`);
+    if (!proceed) return;
+    const { error: err } = await supabase.from("key_tags").update({ status: "active", lost_at: null, lost_notes: null }).eq("id", tag.id);
+    if (err) setError(err.message);
+    else refresh();
+  }
 
   function handleScan(uid) {
     setError(null);
@@ -129,6 +173,13 @@ export default function KeyTagsTab() {
 
   async function handleMove(e) {
     e.preventDefault();
+    const tag = keyTags.find((t) => t.id === movingTagId);
+    if (tag && openTagIds.has(tag.id)) {
+      const proceed = window.confirm(
+        "This key is currently checked out. Moving it only changes where it normally lives — it won't check it in or affect the open checkout. The key could just be out being used to get the caravan ready. Continue?"
+      );
+      if (!proceed) return;
+    }
     const { error: err } = await supabase
       .from("key_tags")
       .update({
@@ -145,8 +196,11 @@ export default function KeyTagsTab() {
   }
 
   async function handleRemove(tag) {
+    const checkoutWarning = openTagIds.has(tag.id)
+      ? " This key is currently checked out — it could just be out being used to get the caravan ready, so removing it here won't check it in or affect that open checkout."
+      : "";
     const proceed = window.confirm(
-      `Remove this key tag from ${locationLabel(tag, pitches, specialLocations)}? The tag itself stays registered and can be allocated elsewhere later.`
+      `Remove this key tag from ${locationLabel(tag, pitches, specialLocations)}? The tag itself stays registered and can be allocated elsewhere later.${checkoutWarning}`
     );
     if (!proceed) return;
     const { error: err } = await supabase.from("key_tags").update({ pitch_id: null, special_location_id: null }).eq("id", tag.id);
@@ -174,18 +228,65 @@ export default function KeyTagsTab() {
         Scan a tag to register it against a pitch or a special location. Multiple tags can share the same pitch (a caravan with more than one key).
       </p>
 
+      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+        {STATUS_FILTERS.map((s) => (
+          <button
+            key={s.key}
+            onClick={() => setStatusFilter(s.key)}
+            style={{
+              border: `1px solid ${statusFilter === s.key ? colors.mossDark : colors.lineStrong}`,
+              background: statusFilter === s.key ? colors.mossDark : "transparent",
+              color: statusFilter === s.key ? "#FFFFFF" : colors.inkSoft,
+              borderRadius: "999px",
+              padding: "6px 14px",
+              fontFamily: fonts.body,
+              fontSize: "13px",
+              cursor: "pointer",
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search by pitch, location, or tag UID…"
+        style={{ ...fieldStyle, maxWidth: "360px" }}
+      />
+
       {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
 
-      {keyTags.map((tag) => (
+      {visibleTags.map((tag) => (
         <div key={tag.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
             <div>
-              <div style={{ fontWeight: 600 }}>{locationLabel(tag, pitches, specialLocations)}</div>
+              <div style={{ fontWeight: 600 }}>
+                {locationLabel(tag, pitches, specialLocations)}
+                {tag.status === "lost" && (
+                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: "#FFFFFF", background: colors.immediate, borderRadius: "999px", padding: "2px 10px" }}>
+                    LOST
+                  </span>
+                )}
+                {openTagIds.has(tag.id) && (
+                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "999px", padding: "2px 10px" }}>
+                    CHECKED OUT
+                  </span>
+                )}
+              </div>
               <div style={{ fontSize: "12px", color: colors.inkSoft, fontFamily: fonts.mono }}>{tag.tag_uid}</div>
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => startMove(tag)} style={buttonStyle.secondary}>Move</button>
-              <button onClick={() => handleRemove(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Remove</button>
+              {tag.status === "lost" ? (
+                <button onClick={() => handleReinstate(tag)} style={buttonStyle.secondary}>Reinstate</button>
+              ) : (
+                <>
+                  <button onClick={() => startMove(tag)} style={buttonStyle.secondary}>Move</button>
+                  <button onClick={() => handleRemove(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Remove</button>
+                  <button onClick={() => handleMarkLost(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Mark as lost</button>
+                </>
+              )}
             </div>
           </div>
           {movingTagId === tag.id && (
@@ -209,6 +310,7 @@ export default function KeyTagsTab() {
         </div>
       ))}
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
+      {keyTags.length > 0 && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this filter.</p>}
 
       <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
         <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Register a new tag</h3>

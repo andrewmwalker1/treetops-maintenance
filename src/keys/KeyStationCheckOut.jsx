@@ -27,6 +27,8 @@ export default function KeyStationCheckOut() {
   const [openTagIds, setOpenTagIds] = useState(new Set());
   const [contractors, setContractors] = useState([]);
   const [selfReasons, setSelfReasons] = useState([]);
+  const [customerReasons, setCustomerReasons] = useState([]);
+  const [guestReasons, setGuestReasons] = useState([]);
   const [selectedTag, setSelectedTag] = useState(null);
 
   const [issuedToKind, setIssuedToKind] = useState("self");
@@ -45,12 +47,12 @@ export default function KeyStationCheckOut() {
     Promise.all([
       supabase
         .from("key_tags")
-        .select("id, tag_uid, pitch_id, special_location_id, pitches(pitch_number_or_name), key_special_locations(label)")
+        .select("id, tag_uid, pitch_id, special_location_id, status, pitches(pitch_number_or_name), key_special_locations(label)")
         .eq("site_id", activeSite.id),
       supabase.from("key_checkouts").select("key_tag_id").is("checked_in_at", null),
       supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name"),
     ]).then(([{ data: kt }, { data: open }, { data: c }]) => {
-      setKeyTags((kt || []).filter((t) => t.pitch_id || t.special_location_id));
+      setKeyTags((kt || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status !== "lost"));
       setOpenTagIds(new Set((open || []).map((o) => o.key_tag_id)));
       setContractors(c || []);
     });
@@ -72,6 +74,22 @@ export default function KeyStationCheckOut() {
       .order("sort_order")
       .then(({ data }) => setSelfReasons(data || []));
   }, [profile?.role_id]);
+
+  // Standard reasons for keys issued to a customer or guest (org-wide,
+  // not tied to a specific person -- see 42-key-tags-lost-status-and-
+  // reasons.sql). Loaded once, same as selfReasons.
+  useEffect(() => {
+    if (!org) return;
+    supabase
+      .from("key_reason_presets")
+      .select("id, label, kind")
+      .eq("org_id", org.id)
+      .order("sort_order")
+      .then(({ data }) => {
+        setCustomerReasons((data || []).filter((r) => r.kind === "customer"));
+        setGuestReasons((data || []).filter((r) => r.kind === "guest"));
+      });
+  }, [org]);
 
   useEffect(() => {
     if (!contractorChoice || contractorChoice === OTHER_CONTRACTOR) {
@@ -103,6 +121,9 @@ export default function KeyStationCheckOut() {
     setSelectedTag(null);
     refresh();
   }
+
+  const reasonPresets =
+    { self: selfReasons, contractor: contractorReasons, customer: customerReasons, guest: guestReasons }[issuedToKind] || [];
 
   const canSubmit =
     reason.trim().length > 0 &&
@@ -223,9 +244,9 @@ export default function KeyStationCheckOut() {
 
         <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
           <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Reason</p>
-          {(issuedToKind === "self" ? selfReasons : issuedToKind === "contractor" ? contractorReasons : []).length > 0 && (
+          {reasonPresets.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
-              {(issuedToKind === "self" ? selfReasons : contractorReasons).map((r) => (
+              {reasonPresets.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => setReason(r.label)}

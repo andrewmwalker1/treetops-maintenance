@@ -52,13 +52,14 @@ function issuedToLabel(checkout) {
 export default function KeyActivityLogTab() {
   const { org, activeSite } = useAuth();
   const [pitches, setPitches] = useState([]);
+  const [specialLocations, setSpecialLocations] = useState([]);
   const [people, setPeople] = useState([]);
   const [checkouts, setCheckouts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [status, setStatus] = useState("all");
-  const [pitchId, setPitchId] = useState("");
+  const [location, setLocation] = useState(""); // "" | "pitch:<id>" | "special:<id>"
   const [profileId, setProfileId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -66,20 +67,24 @@ export default function KeyActivityLogTab() {
   useEffect(() => {
     if (!org || !activeSite) return;
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).order("pitch_number_or_name").then(({ data }) => setPitches(data || []));
+    supabase.from("key_special_locations").select("id, label").eq("site_id", activeSite.id).order("label").then(({ data }) => setSpecialLocations(data || []));
     supabase.from("profiles").select("id, display_name").eq("org_id", org.id).order("display_name").then(({ data }) => setPeople(data || []));
   }, [org, activeSite]);
+
+  const [locationKind, locationId] = location.split(":");
 
   const filters = useMemo(
     () => ({
       siteId: activeSite?.id,
       status: status === "all" ? undefined : status,
-      pitchId: pitchId || undefined,
+      pitchId: locationKind === "pitch" ? locationId : undefined,
+      specialLocationId: locationKind === "special" ? locationId : undefined,
       profileId: profileId || undefined,
       from: from ? new Date(from).toISOString() : undefined,
       // End-of-day so a "to" date includes checkouts made that day.
       to: to ? new Date(`${to}T23:59:59.999`).toISOString() : undefined,
     }),
-    [activeSite, status, pitchId, profileId, from, to]
+    [activeSite, status, locationKind, locationId, profileId, from, to]
   );
 
   const refresh = useCallback(() => {
@@ -130,10 +135,13 @@ export default function KeyActivityLogTab() {
       </div>
 
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
-        <select value={pitchId} onChange={(e) => setPitchId(e.target.value)} style={fieldStyle}>
-          <option value="">All pitches</option>
+        <select value={location} onChange={(e) => setLocation(e.target.value)} style={fieldStyle}>
+          <option value="">All locations</option>
           {pitches.map((p) => (
-            <option key={p.id} value={p.id}>{p.pitch_number_or_name}</option>
+            <option key={p.id} value={`pitch:${p.id}`}>{p.pitch_number_or_name}</option>
+          ))}
+          {specialLocations.map((s) => (
+            <option key={s.id} value={`special:${s.id}`}>{s.label}</option>
           ))}
         </select>
 

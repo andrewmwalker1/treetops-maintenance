@@ -30,9 +30,9 @@ export default function KeyStationLookup() {
     if (!activeSite) return;
     supabase
       .from("key_tags")
-      .select("id, tag_uid, pitch_id, special_location_id, pitches(pitch_number_or_name), key_special_locations(label)")
+      .select("id, tag_uid, pitch_id, special_location_id, status, pitches(pitch_number_or_name), key_special_locations(label)")
       .eq("site_id", activeSite.id)
-      .then(({ data }) => setKeyTags((data || []).filter((t) => t.pitch_id || t.special_location_id)));
+      .then(({ data }) => setKeyTags((data || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status !== "lost")));
   }, [activeSite]);
 
   function pickTag(tag) {
