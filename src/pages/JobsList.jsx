@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { queryJobs } from "../lib/jobsQuery.js";
@@ -30,6 +30,16 @@ function quickFilterLabel(quickFilter) {
 }
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
+
+const filterLabelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "8px" };
+
+// Shared by visibleJobs' filtering and the filter-summary text below --
+// same "kind:id" encoding (person/group/contractor) either way, so the
+// slicing logic only needs to exist once.
+function parseAssigneeFilter(value) {
+  const colonIdx = value.indexOf(":");
+  return { kind: value.slice(0, colonIdx), id: value.slice(colonIdx + 1) };
+}
 
 // Tapping a job card (rather than its checkbox) navigates to JobDetail,
 // which unmounts this page -- plain useState would lose the selection
@@ -63,6 +73,7 @@ export default function JobsList() {
   const [error, setError] = useState(null);
   const [selectedIds, setSelectedIds] = useState(loadStoredSelectedIds);
   const [printing, setPrinting] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   useEffect(() => {
     sessionStorage.setItem(SELECTED_IDS_STORAGE_KEY, JSON.stringify([...selectedIds]));
@@ -147,9 +158,7 @@ export default function JobsList() {
     let result = baseJobs;
 
     if (assigneeFilter) {
-      const colonIdx = assigneeFilter.indexOf(":");
-      const kind = assigneeFilter.slice(0, colonIdx);
-      const value = assigneeFilter.slice(colonIdx + 1);
+      const { kind, id: value } = parseAssigneeFilter(assigneeFilter);
       if (kind === "person") result = result.filter((j) => j.assignee?.id === value);
       else if (kind === "group") result = result.filter((j) => j.assignee_group?.id === value);
       else if (kind === "contractor") result = result.filter((j) => j.assignee_contractor?.id === value);
@@ -173,6 +182,33 @@ export default function JobsList() {
 
     return result;
   }, [baseJobs, assigneeFilter, search]);
+
+  // Status/priority/assignee, condensed into one line shown under the
+  // search box -- lets the Filter button's popup stay closed most of the
+  // time while it's still obvious at a glance what's narrowing the list.
+  const activeFilterCount = [activeStatusId !== null, activePriority !== null, assigneeFilter !== ""].filter(Boolean).length;
+
+  const filterSummary = useMemo(() => {
+    const parts = [];
+    if (activeStatusId) {
+      const s = statuses.find((s) => s.id === activeStatusId);
+      if (s) parts.push(s.name);
+    }
+    if (activePriority) parts.push(`${activePriority.charAt(0).toUpperCase()}${activePriority.slice(1)} priority`);
+    if (assigneeFilter) {
+      const { kind, id } = parseAssigneeFilter(assigneeFilter);
+      const list = kind === "person" ? assigneeOptions.people : kind === "group" ? assigneeOptions.groups : assigneeOptions.contractors;
+      const name = list.find((o) => o.id === id)?.name;
+      if (name) parts.push(kind === "group" ? `${name} (group)` : kind === "contractor" ? `${name} (contractor)` : name);
+    }
+    return parts.join(" · ");
+  }, [activeStatusId, activePriority, assigneeFilter, statuses, assigneeOptions]);
+
+  function clearAllFilters() {
+    setActiveStatusId(null);
+    setActivePriority(null);
+    setAssigneeFilter("");
+  }
 
   function toggleSelect(jobId) {
     setSelectedIds((prev) => {
@@ -348,82 +384,139 @@ export default function JobsList() {
         </div>
       )}
 
-      {/* Horizontal scroll strips, not wrap -- these two rows used to wrap
-          onto two lines each and, being inside the sticky panel above,
-          permanently ate most of a mobile viewport's height before any
-          job was visible. One scrollable line each fixes that without
-          hiding any filter behind an extra tap. ScrollHintRow fades the
-          trailing edge whenever there's more to scroll to, so the strip
-          doesn't just look like a short, complete row of chips. */}
-      <ScrollHintRow itemCount={statuses.length}>
-        <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
-        {statuses.map((s) => (
-          <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
-        ))}
-      </ScrollHintRow>
-
-      <ScrollHintRow itemCount={PRIORITIES.length}>
-        <FilterChip active={activePriority === null} onClick={() => setActivePriority(null)} label="All priorities" />
-        {PRIORITIES.map((p) => (
-          <FilterChip key={p} active={activePriority === p} onClick={() => setActivePriority(p)} label={p.charAt(0).toUpperCase() + p.slice(1)} />
-        ))}
-      </ScrollHintRow>
-
-      {/* Only worth showing once the visible jobs actually span more than
-          one assignee -- i.e. exactly when this user's role_visibility (or
-          can_see_all_jobs) surfaces someone else's jobs alongside their own. */}
-      {assigneeOptions.people.length + assigneeOptions.groups.length + assigneeOptions.contractors.length > 1 && (
-        <select
-          value={assigneeFilter}
-          onChange={(e) => setAssigneeFilter(e.target.value)}
+      {/* Status/priority/assignee used to be two always-visible chip strips
+          plus a dropdown, permanently eating most of a mobile viewport's
+          height before any job was visible. Collapsed into one Filter
+          button (its popup holds all three) beside the search box, with
+          the active selection condensed to one line underneath -- same
+          filtering, far less sticky-header real estate. */}
+      <div style={{ display: "flex", gap: "8px", marginBottom: filterSummary ? "4px" : "16px" }}>
+        <button
+          type="button"
+          onClick={() => setShowFilterPanel(true)}
+          style={{ ...buttonStyle.secondary, flexShrink: 0, whiteSpace: "nowrap" }}
+        >
+          Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+        </button>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search jobs, people, or groups…"
           style={{
-            width: "100%",
+            flex: 1,
+            minWidth: 0,
             boxSizing: "border-box",
             padding: "10px 14px",
             borderRadius: "10px",
             border: `1px solid ${colors.lineStrong}`,
             fontFamily: fonts.body,
-            marginBottom: "12px",
           }}
-        >
-          <option value="">Everyone</option>
-          {assigneeOptions.groups.length > 0 && (
-            <optgroup label="By group">
-              {assigneeOptions.groups.map((g) => (
-                <option key={`group:${g.id}`} value={`group:${g.id}`}>{g.name}</option>
-              ))}
-            </optgroup>
-          )}
-          <optgroup label="By person">
-            {assigneeOptions.people.map((p) => (
-              <option key={`person:${p.id}`} value={`person:${p.id}`}>{p.name}</option>
-            ))}
-          </optgroup>
-          {assigneeOptions.contractors.length > 0 && (
-            <optgroup label="By contractor">
-              {assigneeOptions.contractors.map((c) => (
-                <option key={`contractor:${c.id}`} value={`contractor:${c.id}`}>{c.name}</option>
-              ))}
-            </optgroup>
-          )}
-        </select>
-      )}
-
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search jobs, people, or groups…"
-        style={{
-          width: "100%",
-          boxSizing: "border-box",
-          padding: "10px 14px",
-          borderRadius: "10px",
-          border: `1px solid ${colors.lineStrong}`,
-          fontFamily: fonts.body,
-          marginBottom: "16px",
-        }}
-      />
+        />
       </div>
+
+      {filterSummary && (
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px", fontSize: "13px", color: colors.inkSoft }}>
+          <span>{filterSummary}</span>
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            aria-label="Clear filters"
+            style={{ border: "none", background: "none", color: colors.immediate, cursor: "pointer", fontSize: "16px", lineHeight: 1, padding: 0 }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+      </div>
+
+      {showFilterPanel && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(49, 56, 45, 0.5)",
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "center",
+            padding: "24px 16px",
+            overflowY: "auto",
+            zIndex: 100,
+          }}
+          onClick={() => setShowFilterPanel(false)}
+        >
+          <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Filter jobs</h2>
+              <button type="button" onClick={() => setShowFilterPanel(false)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
+            </div>
+
+            <label style={filterLabelStyle}>Status</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
+              <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
+              {statuses.map((s) => (
+                <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
+              ))}
+            </div>
+
+            <label style={filterLabelStyle}>Priority</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
+              <FilterChip active={activePriority === null} onClick={() => setActivePriority(null)} label="All priorities" />
+              {PRIORITIES.map((p) => (
+                <FilterChip key={p} active={activePriority === p} onClick={() => setActivePriority(p)} label={p.charAt(0).toUpperCase() + p.slice(1)} />
+              ))}
+            </div>
+
+            {/* Only worth showing once the visible jobs actually span more
+                than one assignee -- i.e. exactly when this user's
+                role_visibility (or can_see_all_jobs) surfaces someone
+                else's jobs alongside their own. */}
+            {assigneeOptions.people.length + assigneeOptions.groups.length + assigneeOptions.contractors.length > 1 && (
+              <>
+                <label style={filterLabelStyle}>Assigned to</label>
+                <select
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: `1px solid ${colors.lineStrong}`,
+                    fontFamily: fonts.body,
+                    marginBottom: "16px",
+                  }}
+                >
+                  <option value="">Everyone</option>
+                  {assigneeOptions.groups.length > 0 && (
+                    <optgroup label="By group">
+                      {assigneeOptions.groups.map((g) => (
+                        <option key={`group:${g.id}`} value={`group:${g.id}`}>{g.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="By person">
+                    {assigneeOptions.people.map((p) => (
+                      <option key={`person:${p.id}`} value={`person:${p.id}`}>{p.name}</option>
+                    ))}
+                  </optgroup>
+                  {assigneeOptions.contractors.length > 0 && (
+                    <optgroup label="By contractor">
+                      {assigneeOptions.contractors.map((c) => (
+                        <option key={`contractor:${c.id}`} value={`contractor:${c.id}`}>{c.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="button" onClick={clearAllFilters} style={buttonStyle.secondary}>Clear all</button>
+              <button type="button" onClick={() => setShowFilterPanel(false)} style={buttonStyle.primary}>Done</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
       {error && <p style={{ color: colors.immediate }}>{error}</p>}
@@ -469,58 +562,5 @@ function FilterChip({ active, onClick, label }) {
     >
       {label}
     </button>
-  );
-}
-
-// Wraps a horizontally-scrollable chip row and fades its trailing edge
-// whenever there's more content past the visible edge -- otherwise a
-// scrollable strip that happens to fit its first few chips on screen is
-// indistinguishable from a short, complete row, and nothing tells you to
-// swipe. The fade clears itself once you've scrolled to the end.
-function ScrollHintRow({ children, itemCount }) {
-  const scrollRef = useRef(null);
-  const [showFade, setShowFade] = useState(false);
-
-  const updateFade = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    // A few px of slack so sub-pixel rounding at the true end doesn't
-    // flicker the fade in and out.
-    setShowFade(el.scrollWidth - el.clientWidth - el.scrollLeft > 4);
-  }, []);
-
-  useEffect(() => {
-    updateFade();
-    window.addEventListener("resize", updateFade);
-    return () => window.removeEventListener("resize", updateFade);
-    // itemCount: the chip list itself can grow after mount (e.g. statuses
-    // load in async), which changes scrollWidth without the container's
-    // own size changing, so re-check whenever the count changes.
-  }, [updateFade, itemCount]);
-
-  return (
-    <div style={{ position: "relative", marginBottom: "12px" }}>
-      <div
-        ref={scrollRef}
-        onScroll={updateFade}
-        style={{ display: "flex", gap: "8px", flexWrap: "nowrap", overflowX: "auto", paddingBottom: "2px" }}
-      >
-        {children}
-      </div>
-      {showFade && (
-        <div
-          aria-hidden="true"
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            bottom: "2px",
-            width: "32px",
-            background: `linear-gradient(to right, transparent, ${colors.bg})`,
-            pointerEvents: "none",
-          }}
-        />
-      )}
-    </div>
   );
 }
