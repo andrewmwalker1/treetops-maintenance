@@ -41,7 +41,7 @@ export default function ReportIssueForm({ equipmentTypeId, onSubmit, onCancel, s
           {commonFaults.map((f) => (
             <button
               key={f.id}
-              onClick={() => setPicked(f.description)}
+              onClick={() => setPicked(picked === f.description ? null : f.description)}
               style={{
                 ...kioskSecondaryButtonStyle,
                 textAlign: "left",
