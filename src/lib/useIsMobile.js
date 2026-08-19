@@ -1,26 +1,34 @@
 import { useEffect, useState } from "react";
 
-// A phone's longest side, in CSS px, regardless of which way it's held --
-// screen.width/height individually swap on rotation, but the larger of
-// the two doesn't. The biggest current phones (iPhone 14 Pro Max: 932,
-// Galaxy S23 Ultra: ~915) sit well under this; the smallest common
-// tablets (iPad Mini: 1133) sit well over it, so there's a clean gap to
-// draw the line in.
+// A phone's longest side, in CSS px, regardless of which way it's held.
+// The biggest current phones (iPhone 14 Pro Max: 932, Galaxy S23 Ultra:
+// ~915) sit well under this; the smallest common tablets (iPad Mini:
+// ~1050 with browser chrome subtracted) sit at or above it, so there's a
+// workable gap to draw the line in.
 const PHONE_MAX_DIMENSION = 1000;
 
-// Andy: turning his iPhone 14 Pro Max sideways (932x430 in landscape)
-// used to fall back to the desktop layout, because the old check
-// (matchMedia("(max-width: 640px)")) only ever looked at the current
-// viewport width -- which is exactly what rotates out from under it. The
-// device itself hasn't changed, so this now asks "is the screen this
-// device actually has small enough to be a phone" instead of "is the
-// window narrow right now" -- a phone stays the mobile layout in either
-// orientation; a desktop browser window resized narrow stays the desktop
-// layout, since its screen is still a full monitor regardless of how
-// small the window's been dragged.
+// Andy: turning his iPhone 14 Pro Max sideways used to fall back to the
+// desktop layout, because the original check (matchMedia("(max-width:
+// 640px)")) only ever looked at the current viewport WIDTH -- exactly
+// what swaps with innerHeight on rotation. The first fix here tried
+// window.screen.width/height instead (reasoning: screen dimensions don't
+// rotate the way viewport ones do) -- wrong call: those two are
+// unreliable across iOS Safari/WKWebView versions and standalone-PWA
+// mode specifically (Andy runs this from a home-screen shortcut), and in
+// his case just came back oversized, misclassifying the phone as desktop
+// in BOTH orientations, not just landscape.
+//
+// This still solves the same problem (a phone should read as "mobile" in
+// either orientation) but by taking the max of the two viewport
+// dimensions that DO reliably swap on rotation on every browser --
+// window.innerWidth/innerHeight, the same metric the original working
+// portrait-only check was already built on. Landscape: innerWidth is the
+// long side. Portrait: innerHeight is. Either way the max lands in
+// roughly the same place, so which orientation you're holding it in
+// stops mattering.
 function detectIsPhoneDevice() {
-  if (typeof window === "undefined" || !window.screen) return false;
-  return Math.max(window.screen.width, window.screen.height) <= PHONE_MAX_DIMENSION;
+  if (typeof window === "undefined") return false;
+  return Math.max(window.innerWidth, window.innerHeight) <= PHONE_MAX_DIMENSION;
 }
 
 // No CSS stylesheet/media-queries anywhere in this codebase -- every
@@ -31,10 +39,6 @@ function detectIsPhoneDevice() {
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState(detectIsPhoneDevice);
   useEffect(() => {
-    // The device's own screen size can't change mid-session, but this
-    // still re-checks on rotation/resize (rather than computing once and
-    // never again) as a cheap safety net -- e.g. a browser window dragged
-    // across monitors of different resolutions.
     function handler() {
       setIsMobile(detectIsPhoneDevice());
     }
