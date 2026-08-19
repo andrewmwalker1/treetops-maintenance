@@ -95,7 +95,7 @@ app. **No other file may call these underlying browser APIs directly.**
 
 ```
 supabase/
-  01-schema.sql .. 37-key-checkouts-and-contractor-reasons.sql   -- ordered, idempotent SQL migrations, run once each in sequence
+  01-schema.sql .. 39-role-key-reasons.sql   -- ordered, idempotent SQL migrations, run once each in sequence
   functions/
     generate-scheduled-jobs/    -- daily cron: expands schedules into job rows
     send-notice-push/           -- sends a single Web Push notification (respects DND)
@@ -792,7 +792,8 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | RFID Fobs | `can_manage_users` | `rfid_tags`: scan-to-register flow (hidden `RfidScanListener`, assign scanned UID to a profile via select), list + revoke. Friendly duplicate-UID error identifying the existing owner. |
 | Key Tags | `can_manage_keys` | `key_tags` (36-key-tags-schema.sql): same scan-to-register `RfidScanListener` pattern as RFID Fobs, but for the physical-key project — a tag maps to a pitch **or** a `key_special_locations` row (e.g. "Sales keyring"), never both (`key_tags_single_location` check constraint), and multiple tags can share one pitch (a caravan with more than one key). "Move" re-picks the location; "Remove" clears it back to unallocated rather than deleting the tag, freeing it for reuse. Every allocate/move/remove is logged automatically to `key_tag_events` by a trigger on `key_tags` (`log_key_tag_event()`), not by the UI remembering to log it. A small inline form on the same tab manages `key_special_locations` (add-only so far). The check-out/check-in flow itself is the key station, §12a. |
 | Key Activity Log | `can_manage_keys` | Read-mostly log of every `key_checkouts` row (`keyCheckoutsQuery.js`, mirroring `equipmentCheckoutsQuery.js`'s shape), filterable by pitch, by person (matches checked-out-by **or** checked-in-by, same OR-across-two-columns reasoning as the equipment log), by status (all/currently out/returned), and by date range. No search box or CSV export (not asked for, unlike the equipment log). Per-row **Force check-in** via `admin_force_check_in_key` for a stuck/lost key. |
-| Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes, **`is_trusted`** checkbox (37-key-checkouts-and-contractor-reasons.sql — marks the handful, e.g. Kevin Parry/CMT Cleaning, who use the key station unaccompanied; needs no code of its own, just a normal profile + a role holding `can_use_key_system` + a registered fob, same as any staff member). Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal` (as before). A **"Key reasons"** button opens `ContractorReasonsModal`: add/delete `contractor_reasons` rows (label + sort_order) — shown as quick-pick buttons on the key-station check-out screen once this contractor is selected, always alongside a free-text override. |
+| Contractors | `can_manage_contractors` | `contractors`: name, address, main email, main phone, notes, **`is_trusted`** checkbox (37-key-checkouts-and-contractor-reasons.sql — marks the handful, e.g. Kevin Parry/CMT Cleaning, who use the key station unaccompanied; needs no code of its own, just a normal profile + a role holding `can_use_key_system` + a registered fob, same as any staff member). Delete warns that assigned jobs become unassigned. A "Documents" button per contractor opens `ContractorDocumentsModal` (as before). A **"Key reasons"** button opens `KeyReasonsModal` (generic — see Key Reasons by Role below): add/delete `contractor_reasons` rows (label + sort_order) — shown as quick-pick buttons on the key-station check-out screen once this contractor is selected, always alongside a free-text override. |
+| Key Reasons by Role | `can_manage_keys` | Lists every role with a "Reasons" button, each opening the same `KeyReasonsModal.jsx` the Contractors tab uses (originally `ContractorReasonsModal.jsx`, generalized to take `table`/`ownerColumn`/`ownerId` props once a second, near-identical use appeared, rather than keeping two copies) against `role_key_reasons` (39-role-key-reasons.sql) instead of `contractor_reasons`. These are presets for checking a key out to **yourself** — shown on the key-station check-out screen when "Me" is picked, keyed to the signed-in profile's own `role_id`. Seeded live from Andy's examples: Sam's "Caravan Prep" role → "Clean the caravan" / "At the request of the owner" / "Dress the caravan"; Kevin Parry Heating (a contractor, not a role) → "Gas check" / "Carry out a repair". |
 | Groups | `can_manage_users` | `groups` + `group_members`: name, member checkbox list (diffed). Delete warns that assigned jobs become unassigned. |
 | Roles & Permissions | `can_manage_roles_and_permissions` | Permission×role matrix (checkbox toggles `role_permissions`), add role, inline-rename role (click header), delete role (surfaces the "still in use" trigger error verbatim if applicable) |
 | Users | `can_manage_users` | List via `list_org_users()` RPC. Invite form (email, display name, role, contractor checkbox, site-access checkboxes) → `manage-users` Edge Function (trims the email client-side; the function trims it again server-side). Inline edit (name/role/contractor/site-scope) writes directly to `profiles`/`site_scope`, bypassing the Edge Function — **except email**, which is diffed against the loaded value and, if changed, sent through `manage-users`' `update_email` action (email lives on `auth.users`, not `profiles`, so it can't be written directly by the client). Deactivate/Reactivate → `manage-users` Edge Function. |
@@ -921,6 +922,13 @@ isn't permission-gated at the `rfid-login` level, so any fob can create a
 session here; a role without the permission sees a clear "doesn't have
 access" screen + sign-out button instead of broken/empty screens.
 
+**Also reachable from a normal desktop session**, with zero extra code:
+App.jsx's `isKeyStation` branch fires for *any* session on a `/keys*`
+path, terminal-originated or not — a normal login carries the same
+`can_use_key_system`/`can_manage_keys` grants the terminal checks, so it
+renders identically. `Layout.jsx` has a "Keys" nav link (gated
+`can_use_key_system`) so this doesn't require knowing to type the URL.
+
 **Menu (`/keys`, `KeyStationMenu.jsx`)** — same "Hi `<name>`" shape as the
 workshop kiosk's menu, plus a summary card above the button grid: every
 `key_checkouts` row still open (`checked_in_at is null`) with
@@ -944,9 +952,12 @@ knowing anything about check-out/check-in/lookup itself.
   customer/guest, a "Confirmed with the caravan owner" checkbox for guest
   (a client-side workflow nudge only — not persisted, no ownership/consent
   data model exists), and a reason field (free text, pre-fillable from a
-  reason quick-pick). Insert into `key_checkouts`; a `23505` from the
-  partial unique index (someone else just took it) surfaces as a friendly
-  message rather than a raw error.
+  quick-pick — `role_key_reasons` for the signed-in profile's own
+  `role_id` when "Me" is picked, `contractor_reasons` for the chosen
+  contractor otherwise; see the Key Reasons by Role admin tab, §11).
+  Insert into `key_checkouts`; a `23505` from the partial unique index
+  (someone else just took it) surfaces as a friendly message rather than
+  a raw error.
 - **Check in (`/keys/checkin`)** — `KeySelector` over tags with an open
   checkout (loaded via `key_checkouts` joined to `key_tags`, filtered to
   the active site). Confirm screen shows who it's out to, the reason, and
@@ -1072,7 +1083,7 @@ not bugs:
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 37-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 39-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.
