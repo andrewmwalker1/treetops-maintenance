@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { queueJob } from "../platform/syncQueue.js";
 import { capturePhoto } from "../platform/camera.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
+import { getAssignableTargets } from "../lib/assignableTargets.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import Modal from "../components/Modal.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
@@ -75,8 +76,10 @@ export default function NewJob() {
     if (!org || !activeSite) return;
     supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).then(({ data }) => setJobTypes(data || []));
     supabase.from("job_statuses").select("id, name, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
-    supabase.from("profiles").select("id, display_name").eq("org_id", org.id).then(({ data }) => setPeople(data || []));
-    supabase.from("groups").select("id, name").eq("org_id", org.id).then(({ data }) => setGroups(data || []));
+    getAssignableTargets(org.id, profile.role_id).then(({ people: p, groups: g }) => {
+      setPeople(p);
+      setGroups(g);
+    });
     supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
     supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));

@@ -4,6 +4,7 @@ import JobTemplatesTab from "./admin/JobTemplatesTab.jsx";
 import ActivityTypesTab from "./admin/ActivityTypesTab.jsx";
 import SafetyLibraryTab from "./admin/SafetyLibraryTab.jsx";
 import RolesPermissionsTab from "./admin/RolesPermissionsTab.jsx";
+import JobAssignmentTab from "./admin/JobAssignmentTab.jsx";
 import UsersTab from "./admin/UsersTab.jsx";
 import SchedulesTab from "./admin/SchedulesTab.jsx";
 import EquipmentTypesTab from "./admin/EquipmentTypesTab.jsx";
@@ -34,6 +35,7 @@ const ALL_TABS = [
   { key: "contractors", label: "Contractors", Component: ContractorsTab, permission: "can_manage_contractors" },
   { key: "groups", label: "Groups", Component: GroupsTab, permission: "can_manage_users" },
   { key: "roles", label: "Roles & Permissions", Component: RolesPermissionsTab, permission: "can_manage_roles_and_permissions" },
+  { key: "jobAssignment", label: "Job Assignment", Component: JobAssignmentTab, permission: "can_manage_roles_and_permissions" },
   { key: "users", label: "Users", Component: UsersTab, permission: "can_manage_users" },
 ];
 
