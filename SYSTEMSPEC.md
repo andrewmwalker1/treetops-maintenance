@@ -962,6 +962,26 @@ knowing anything about check-out/check-in/lookup itself.
   in the cupboard" / "No activity recorded yet"). This is the non-admin
   answer to "where's this key" from Andy's spec — the full history (every
   event, filterable) is the admin-only Key Activity Log, §11.
+- **Relocate (`/keys/relocate`) and Force check-in (`/keys/force-checkin`)**
+  — both `can_manage_keys`-gated (KeyStationMenu only shows their buttons
+  to a holder; each screen also self-checks and shows a plain "doesn't
+  have access" message otherwise, same belt-and-braces shape as
+  `KeyStationApp.jsx`'s own `can_use_key_system` check). Relocate is
+  `KeySelector` over every allocated tag → pitch-or-special-location
+  picker → writes `key_tags` (same table/trigger as the desktop "Move"
+  button, so it lands in the activity log identically). Force check-in is
+  `KeySelector` over every open checkout → confirm → calls
+  `admin_force_check_in_key` directly, rather than the plain update
+  ordinary check-in uses — functionally very close to ordinary check-in
+  under this schema's permissive update policy (anyone with
+  `can_use_key_system` can already close anyone else's open checkout, see
+  above), but shipped as its own named, separately-gated screen since
+  that's what was asked for: feature parity with the desktop admin log's
+  "Force check-in" button, available at the terminal itself to selected
+  people (currently: Sam, via the "Caravan Prep" role — hers alone, so
+  granting `can_manage_keys` there doesn't reach anyone else — see
+  38-sam-key-management-access.sql) without opening it to everyone with
+  ordinary key-station access.
 
 ---
 
