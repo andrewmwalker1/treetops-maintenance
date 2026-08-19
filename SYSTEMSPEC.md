@@ -95,7 +95,7 @@ app. **No other file may call these underlying browser APIs directly.**
 
 ```
 supabase/
-  01-schema.sql .. 39-role-key-reasons.sql   -- ordered, idempotent SQL migrations, run once each in sequence
+  01-schema.sql .. 40-key-checkin-delegates.sql   -- ordered, idempotent SQL migrations, run once each in sequence
   functions/
     generate-scheduled-jobs/    -- daily cron: expands schedules into job rows
     send-notice-push/           -- sends a single Web Push notification (respects DND)
@@ -962,11 +962,20 @@ knowing anything about check-out/check-in/lookup itself.
   checkout (loaded via `key_checkouts` joined to `key_tags`, filtered to
   the active site). Confirm screen shows who it's out to, the reason, and
   when/by whom it was checked out, then a single **Confirm check-in**
-  button. No self-only restriction on the `using` side of the RLS
-  policy — deliberately, since Andy's spec is explicit that keys aren't
-  always returned by whoever took them; the `with check` clause still
-  requires `checked_in_by = auth.uid()`, so you can close someone else's
-  checkout but only ever as yourself.
+  button. No self-only restriction on the `using` side of the RLS policy
+  for most people — deliberately, since Andy's spec is explicit that keys
+  aren't always returned by whoever took them — **except** a contractor
+  (`profiles.is_contractor`), who can only close their own
+  (`current_is_contractor()`, 40-key-checkin-delegates.sql — landed here
+  after two more complex attempts, a directed delegate graph and then a
+  dedicated permission, both dropped once Andy pointed out the existing
+  `is_contractor` flag already covers the worked example with nothing new
+  to maintain). The `with check` clause still requires
+  `checked_in_by = auth.uid()` regardless, so you can close someone else's
+  checkout but only ever as yourself. `KeyStationCheckIn.jsx` filters what
+  a contractor even sees to their own open checkouts client-side, so they
+  aren't shown a key only to have check-in fail on submit — RLS is what
+  actually enforces it either way.
 - **Find a key (`/keys/find`)** — `KeySelector` over every allocated tag;
   shows only the single most recent `key_checkouts` row for the picked
   tag ("Checked out … by … — still out" / "Checked in … by … — currently
@@ -1083,7 +1092,7 @@ not bugs:
 
 ## 18. Suggested build order for a rebuild
 
-1. Schema migrations (§4) as one consolidated set (or the same 39-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
+1. Schema migrations (§4) as one consolidated set (or the same 40-file incremental history, if replicating the audit trail is valuable) — plain SQL, idempotent.
 2. RLS policies + helper functions + triggers (§5, §6) — write and test these **before** building any UI against them; almost every meaningful business rule in this system lives here, not in the frontend.
 3. Auth (passwordless email OTP/magic-link) + the `manage-users` invite flow + seed script.
 4. Core job CRUD + Jobs list, filtered server-side by RLS (site scope × role visibility), with client-side chip/search filters on top.
