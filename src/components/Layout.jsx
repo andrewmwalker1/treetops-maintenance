@@ -17,6 +17,16 @@ const navLinkStyle = ({ isActive }) => ({
   borderBottom: isActive ? `2px solid ${colors.mossDark}` : "2px solid transparent",
 });
 
+const mobileNavLinkStyle = ({ isActive }) => ({
+  display: "block",
+  color: isActive ? colors.mossDark : colors.ink,
+  fontWeight: isActive ? 700 : 500,
+  textDecoration: "none",
+  fontFamily: fonts.body,
+  fontSize: "15px",
+  padding: "10px 4px",
+});
+
 export default function Layout({ children }) {
   const { profile, viewingAs, org, activeSite, signOut } = useAuth();
   const permissions = usePermissions();
@@ -75,6 +85,20 @@ export default function Layout({ children }) {
     }
   }
 
+  // One list drives both the desktop nav row and the mobile dropdown
+  // (NavMenu below), so the permission gating on Keys/Admin only needs to
+  // be written once.
+  const navItems = [
+    { to: "/", label: "Jobs", end: true },
+    { to: "/equipment", label: "Equipment" },
+    { to: "/dashboard", label: "Dashboard" },
+    { to: "/safety", label: "Safety" },
+    ...(permissions.has("can_use_key_system") ? [{ to: "/keys", label: "Keys" }] : []),
+    ...(permissions.has("can_manage_reference_data") || permissions.has("can_manage_roles_and_permissions")
+      ? [{ to: "/admin", label: "Admin" }]
+      : []),
+  ];
+
   return (
     <div style={{ ...pageStyle, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ flexShrink: 0 }}>
@@ -101,18 +125,15 @@ export default function Layout({ children }) {
             <div style={{ fontFamily: fonts.mono, fontSize: "12px", color: colors.inkSoft }}>{activeSite.name}</div>
           )}
         </div>
-        <nav style={{ display: "flex", gap: "20px", alignItems: "center" }}>
-          <NavLink to="/" end style={navLinkStyle}>Jobs</NavLink>
-          <NavLink to="/equipment" style={navLinkStyle}>Equipment</NavLink>
-          <NavLink to="/dashboard" style={navLinkStyle}>Dashboard</NavLink>
-          <NavLink to="/safety" style={navLinkStyle}>Safety</NavLink>
-          {permissions.has("can_use_key_system") && (
-            <NavLink to="/keys" style={navLinkStyle}>Keys</NavLink>
-          )}
-          {(permissions.has("can_manage_reference_data") || permissions.has("can_manage_roles_and_permissions")) && (
-            <NavLink to="/admin" style={navLinkStyle}>Admin</NavLink>
-          )}
-        </nav>
+        {isMobile ? (
+          <NavMenu items={navItems} />
+        ) : (
+          <nav style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+            {navItems.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} style={navLinkStyle}>{item.label}</NavLink>
+            ))}
+          </nav>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
           {queueStatus.pendingCount > 0 && (
             <span
@@ -184,6 +205,66 @@ export default function Layout({ children }) {
           v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
         </span>
       </footer>
+    </div>
+  );
+}
+
+// Collapses the Jobs/Equipment/Dashboard/Safety/Keys/Admin row into a
+// single "Menu" button on narrow screens -- same reasoning as AccountMenu
+// below (that inline row wrapping onto its own line ate a full extra row
+// of a mobile viewport), and the same open/backdrop/dropdown shape, just
+// listing nav links instead of account controls.
+function NavMenu({ items }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Menu"
+        style={{
+          border: `1px solid ${colors.lineStrong}`,
+          borderRadius: "999px",
+          background: "transparent",
+          padding: "8px 14px",
+          cursor: "pointer",
+          fontFamily: fonts.body,
+          fontSize: "14px",
+          color: colors.mossDark,
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+        }}
+      >
+        <span aria-hidden="true">☰</span> Menu
+      </button>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 15 }} />
+          <div
+            style={{
+              position: "absolute",
+              left: 0,
+              top: "42px",
+              background: colors.paper,
+              border: `1px solid ${colors.line}`,
+              borderRadius: "12px",
+              padding: "8px",
+              minWidth: "180px",
+              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              zIndex: 20,
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            {items.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end} style={mobileNavLinkStyle} onClick={() => setOpen(false)}>
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
