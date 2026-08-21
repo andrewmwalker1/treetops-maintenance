@@ -307,11 +307,11 @@ export default function JobsList() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
         <div style={{ display: "flex", gap: "10px" }}>
-          <Link to="/checkin-kit" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
-            Check in kit
-          </Link>
           <Link to="/checkout-kit" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
             Checkout kit
+          </Link>
+          <Link to="/checkin-kit" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
+            Check in kit
           </Link>
           <Link to="/jobs/new" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
             + New job
