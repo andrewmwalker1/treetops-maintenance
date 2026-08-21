@@ -42,6 +42,10 @@ export default function JobDetail() {
   // button below (see 32-checklist-item-photo-requirement.sql).
   const canRequireChecklistItemPhoto = permissions.has("can_require_checklist_item_photo");
   const canCheckOffWithoutPhoto = permissions.has("can_check_off_item_without_photo");
+  // Same permission NewJob.jsx gates its "Require a photo" checkbox with --
+  // reused here so editing this flag needs the same permission as setting
+  // it did at creation, not the broader can_edit_job_details.
+  const canRequireJobPhoto = permissions.has("can_require_job_photo");
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
@@ -494,6 +498,23 @@ export default function JobDetail() {
     loadAll();
   }
 
+  async function handleRequiresPhotoChange(newValue) {
+    if (newValue === job.requires_photo) return;
+    const { error: err } = await supabase.from("jobs").update({ requires_photo: newValue }).eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "edit",
+      actor_profile_id: profile.id,
+      previous_value: { requires_photo: job.requires_photo },
+      new_value: { requires_photo: newValue },
+    });
+    loadAll();
+  }
+
   async function handleReallocate(kind, newId) {
     const update = {
       assignee_profile_id: kind === "person" ? newId || null : null,
@@ -730,10 +751,10 @@ export default function JobDetail() {
                 margin: 0,
                 fontSize: "22px",
                 fontWeight: 700,
-                border: "none",
-                borderBottom: `1px solid ${colors.lineStrong}`,
-                background: "transparent",
-                padding: "0 0 2px",
+                border: `1px solid ${colors.lineStrong}`,
+                borderRadius: "10px",
+                background: colors.bg,
+                padding: "6px 12px",
                 flex: 1,
                 minWidth: 0,
               }}
@@ -825,6 +846,16 @@ export default function JobDetail() {
             <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>
               {job.pitch ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}` : job.area ? job.area.name : "None"}
             </p>
+          )}
+
+          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Photo required to complete</label>
+          {canRequireJobPhoto ? (
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", margin: "4px 0 14px", cursor: "pointer" }}>
+              <input type="checkbox" checked={job.requires_photo} onChange={(e) => handleRequiresPhotoChange(e.target.checked)} />
+              Require a photo before this job can be completed
+            </label>
+          ) : (
+            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>{job.requires_photo ? "Yes" : "No"}</p>
           )}
 
           {permissions.has("can_reallocate_jobs") && (
