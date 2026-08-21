@@ -27,11 +27,17 @@ export const fonts = {
 
 // Priority indicator: a solid rounded colour bar, not an icon badge
 // (explicitly rejected an earlier icon-based version — see Section 8).
+// Deliberately its own palette, not aliased to colors.moss/gold/clay/immediate
+// above -- those are shared brand/status/danger tokens, and reusing them here
+// is what made the bar hard to read (grey read as "muted", navy as "the
+// important one", rather than escalating low -> immediate). Andy confirmed
+// this recolour (2026-08-21) after comparing it against the muted original
+// in a mockup.
 export const priorityColor = {
-  low: colors.moss,
-  medium: colors.gold,
-  high: colors.clay,
-  immediate: colors.immediate,
+  low: "#1B7A4D",
+  medium: "#C68A00",
+  high: "#C2571A",
+  immediate: "#C62828",
 };
 
 export const statusColor = {
@@ -50,10 +56,10 @@ export function priorityBarStyle(priority) {
   if (priority === "immediate") {
     return {
       ...base,
-      backgroundImage: `repeating-linear-gradient(45deg, ${colors.immediate}, ${colors.immediate} 4px, #4E1B17 4px, #4E1B17 8px)`,
+      backgroundImage: `repeating-linear-gradient(45deg, ${priorityColor.immediate}, ${priorityColor.immediate} 4px, #7A1710 4px, #7A1710 8px)`,
     };
   }
-  return { ...base, background: priorityColor[priority] || colors.moss };
+  return { ...base, background: priorityColor[priority] || priorityColor.low };
 }
 
 export function statusPillStyle(statusName) {
