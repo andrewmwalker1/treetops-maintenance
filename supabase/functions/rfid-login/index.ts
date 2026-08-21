@@ -15,13 +15,17 @@
 // out rather than allowing unlimited guesses.
 //
 // `context` records which shared terminal this scan happened at (e.g.
-// "kiosk"). It's stamped onto the resulting session as app_metadata
-// (see 34-key-station-login-context.sql) BEFORE the link is generated, so
-// it rides along in the JWT of every session/refresh this login produces.
-// Unlike the pathname the browser happens to be on, app_metadata can only
-// be set server-side via the Admin API -- the client can't edit it -- so
-// src/App.jsx can trust it to keep a scanned-in session confined to its
-// own kiosk surface even if the URL is edited by hand afterwards.
+// "kiosk"). It used to be stamped straight onto the profile's auth.users
+// row as app_metadata (see 34-key-station-login-context.sql), but that's
+// per-USER, not per-session -- it would leak into every other session that
+// same person had open (their own phone included) the next time THAT
+// session's token refreshed, logging them out of the normal app for no
+// reason a phone user could see. As of 46-terminal-session-scoped-login-
+// context.sql, this function no longer touches app_metadata at all: no
+// session exists yet at magic-link-generation time to scope it to, so
+// AuthContext.jsx registers the *resulting* session against
+// terminal_sessions once it actually exists, and a Postgres Auth Hook adds
+// app_metadata.login_context to just that one session's JWT from there.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -106,18 +110,6 @@ Deno.serve(async (req) => {
   if (userError || !userData?.user?.email) {
     await logAttempt(tagUid, ip, false);
     return jsonResponse({ error: "No account email found for this tag" }, 500);
-  }
-
-  // Stamp login_context into app_metadata before the link is generated so
-  // it's present in the very first session this scan produces -- see the
-  // header comment for why this (not the redirect path) is what App.jsx
-  // trusts to confine the session to this kiosk.
-  const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(tag.profile_id, {
-    app_metadata: { login_context: context },
-  });
-  if (metadataError) {
-    await logAttempt(tagUid, ip, false);
-    return jsonResponse({ error: metadataError.message }, 500);
   }
 
   const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({

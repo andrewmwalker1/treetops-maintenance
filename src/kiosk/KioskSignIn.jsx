@@ -19,6 +19,9 @@ export default function KioskSignIn() {
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
       if (!data?.actionLink) throw new Error("No sign-in link returned.");
+      // Tells AuthContext "register the session that lands from this
+      // redirect as a kiosk session" -- see its consumePendingTerminalLogin.
+      localStorage.setItem("auth:pendingTerminalLogin", JSON.stringify({ context: "kiosk", ts: Date.now() }));
       window.location.href = data.actionLink;
     } catch (err) {
       setError(err.message || "Sign-in failed. Try scanning again.");

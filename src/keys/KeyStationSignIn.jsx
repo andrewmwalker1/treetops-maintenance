@@ -4,9 +4,9 @@ import RfidScanListener from "../components/RfidScanListener.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskPageStyle } from "../kiosk/kioskTheme.js";
 
-// Identical shape to KioskSignIn.jsx, just posting context: "key_station"
-// so rfid-login stamps the matching claim -- see App.jsx for how that
-// claim, not this URL, is what actually keeps a scanned-in session here.
+// Identical shape to KioskSignIn.jsx, just posting/flagging context:
+// "key_station" -- see App.jsx for how the resulting claim, not this URL,
+// is what actually keeps a scanned-in session here.
 export default function KeyStationSignIn() {
   const [status, setStatus] = useState("idle"); // idle | checking | error
   const [error, setError] = useState(null);
@@ -22,6 +22,10 @@ export default function KeyStationSignIn() {
       if (invokeError) throw invokeError;
       if (data?.error) throw new Error(data.error);
       if (!data?.actionLink) throw new Error("No sign-in link returned.");
+      // Tells AuthContext "register the session that lands from this
+      // redirect as a key-station session" -- see its
+      // consumePendingTerminalLogin.
+      localStorage.setItem("auth:pendingTerminalLogin", JSON.stringify({ context: "key_station", ts: Date.now() }));
       window.location.href = data.actionLink;
     } catch (err) {
       setError(err.message || "Sign-in failed. Try scanning again.");

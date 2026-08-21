@@ -31,20 +31,25 @@ function AppShell() {
   const isKeyStation = location.pathname.startsWith("/keys");
 
   // A session minted by an RFID scan carries login_context in its JWT
-  // app_metadata (stamped server-side by supabase/functions/rfid-login --
-  // the client can never set or edit this, unlike the pathname): "kiosk"
-  // for the workshop terminal, "key_station" for the key-cupboard one. If
-  // that claim doesn't match the terminal path we're currently on, this
-  // session has been navigated away from its terminal by hand -- the
-  // escape this exists to close. An earlier version of this check tried
-  // to force such a session back onto its own branch, but that required
-  // distinguishing "a live terminal session, escaping" from "an old, now-
-  // stale claim on an otherwise normal session" using only this same
-  // pathname+claim state, which is impossible -- the two look identical
-  // from here. Signing out instead needs no such distinction: it's always
-  // the safe response, and a genuinely stale claim gets cleared for good
-  // on the next real login anyway (see AuthContext's
-  // consumePendingNormalLogin).
+  // app_metadata: "kiosk" for the workshop terminal, "key_station" for the
+  // key-cupboard one. If that claim doesn't match the terminal path we're
+  // currently on, this session has been navigated away from its terminal by
+  // hand -- the escape this exists to close.
+  //
+  // This claim is session-scoped, not account-scoped (a Postgres Custom
+  // Access Token Hook injects it per-session from terminal_sessions, keyed
+  // on the JWT's own session_id -- see 46-terminal-session-scoped-login-
+  // context.sql) -- so unlike the account-wide app_metadata write this
+  // replaced, it can never leak onto some OTHER session for the same
+  // person (e.g. their own phone, signed in separately). A previous version
+  // stamped this onto auth.users directly, which meant a phone session
+  // would eventually inherit a kiosk scan done on a completely different
+  // device the next time its token refreshed, and get force-signed-out by
+  // the exact check below -- that's what this file used to warn was
+  // "impossible to distinguish from here." With the claim properly scoped
+  // to the one session it belongs to, that ambiguity is gone: if it's
+  // present and mismatched, this session really did wander off its own
+  // terminal, and signing out is simply correct.
   const loginContext = session?.user?.app_metadata?.login_context;
   const onOwnTerminal = (loginContext === "kiosk" && isKiosk) || (loginContext === "key_station" && isKeyStation);
   const terminalSessionEscaped = Boolean(loginContext) && !onOwnTerminal;

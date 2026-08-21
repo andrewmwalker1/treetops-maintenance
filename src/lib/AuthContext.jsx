@@ -20,21 +20,29 @@ function loadStoredViewingAs() {
   }
 }
 
-// Set by Login.jsx right before signInWithOtp (which is what sends BOTH the
-// magic link and the 8-digit code, so one flag placement covers whichever
-// one the person completes with). Read once, on the very next sign-in this
-// tab processes -- see loadProfileAndScope for why this, and not "is the
-// pathname non-kiosk", is what's safe to key clearing a stale login_context
-// claim off of. localStorage (not sessionStorage) because the magic-link
-// half of the flow is a full-page redirect through Supabase's own domain,
-// which can land in a fresh tab depending on the browser/email client.
-const PENDING_NORMAL_LOGIN_KEY = "auth:pendingNormalLogin";
-const PENDING_NORMAL_LOGIN_WINDOW_MS = 2 * 60 * 1000;
+// Set by KioskSignIn.jsx/KeyStationSignIn.jsx right before redirecting to
+// the magic link rfid-login returns (localStorage, not sessionStorage, for
+// the same reason as the normal-login flag below: that redirect goes
+// through Supabase's own domain and can land in a fresh tab). Consumed once
+// here, on the very next session this tab picks up, to register that
+// session against terminal_sessions -- see loadProfileAndScope and
+// 46-terminal-session-scoped-login-context.sql for why this has to happen
+// AFTER a session exists, not inside rfid-login itself (no session exists
+// yet at magic-link-generation time).
+const PENDING_TERMINAL_LOGIN_KEY = "auth:pendingTerminalLogin";
+const PENDING_TERMINAL_LOGIN_WINDOW_MS = 2 * 60 * 1000;
 
-function consumePendingNormalLogin() {
-  const raw = localStorage.getItem(PENDING_NORMAL_LOGIN_KEY);
-  localStorage.removeItem(PENDING_NORMAL_LOGIN_KEY);
-  return Boolean(raw) && Date.now() - Number(raw) < PENDING_NORMAL_LOGIN_WINDOW_MS;
+function consumePendingTerminalLogin() {
+  const raw = localStorage.getItem(PENDING_TERMINAL_LOGIN_KEY);
+  localStorage.removeItem(PENDING_TERMINAL_LOGIN_KEY);
+  if (!raw) return null;
+  try {
+    const { context, ts } = JSON.parse(raw);
+    if (Date.now() - ts >= PENDING_TERMINAL_LOGIN_WINDOW_MS) return null;
+    return context || null;
+  } catch {
+    return null;
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -66,30 +74,31 @@ export function AuthProvider({ children }) {
     setDeactivated(false);
     const userId = user.id;
 
-    // A profile that has ever scanned in at a kiosk carries
-    // app_metadata.login_context on its auth.users row (stamped
-    // server-side by rfid-login -- see 34-key-station-login-context.sql).
-    // That's a user-level field, not a session-level one, so it persists
-    // across every future login -- including a completely normal desktop
-    // one -- until explicitly cleared.
-    //
-    // IMPORTANT: this must only ever clear on a session that was JUST NOW
-    // established by a real credential (magic link / code), never on a
-    // plain page reload or session rehydration -- "pathname isn't /kiosk"
-    // is NOT a safe signal for that, because a hard reload of an ACTUAL
-    // live kiosk session (e.g. someone editing the URL to escape it) looks
-    // identical from here: same non-kiosk pathname, same claim present.
-    // An earlier version of this check used pathname alone and would
-    // silently clear the claim on exactly that escape attempt, defeating
-    // App.jsx's kiosk confinement the moment someone tried it. The pending-
-    // login flag (set by Login.jsx immediately before signInWithOtp, and
-    // consumed here at most once within a couple of minutes) is what
-    // actually distinguishes "a normal login just happened" from "an
-    // existing session got reloaded."
-    if (consumePendingNormalLogin() && user.app_metadata?.login_context) {
-      await supabase.functions.invoke("clear-login-context");
-      const { data: refreshed } = await supabase.auth.refreshSession();
-      if (refreshed?.session) setSession(refreshed.session);
+    // A kiosk/key-station sign-in registers its own session_id against
+    // terminal_sessions (46-terminal-session-scoped-login-context.sql),
+    // which a Postgres Auth Hook then uses to add app_metadata.login_context
+    // to just THAT session's JWT -- never touching auth.users itself, so no
+    // other session for this same person is ever affected. rfid-login can't
+    // do this registration itself (no session exists yet when it mints the
+    // magic link), so it happens here, the first time this freshly-landed
+    // session is loaded -- gated on the pending-terminal-login flag
+    // KioskSignIn.jsx/KeyStationSignIn.jsx set right before redirecting, so
+    // a plain reload of an already-registered session never re-registers.
+    const pendingTerminalContext = consumePendingTerminalLogin();
+    if (pendingTerminalContext) {
+      const { error: registerError } = await supabase.functions.invoke("register-terminal-session", {
+        body: { context: pendingTerminalContext },
+      });
+      if (registerError) {
+        console.error("Failed to register terminal session", registerError);
+      } else {
+        // This session's JWT was minted before its terminal_sessions row
+        // existed, so it doesn't carry app_metadata.login_context yet --
+        // refresh once so App.jsx sees it on this very load, not just after
+        // the next natural token refresh.
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        if (refreshed?.session) setSession(refreshed.session);
+      }
     }
 
     const { data: profileRow, error: profileError } = await supabase
