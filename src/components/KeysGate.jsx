@@ -1,0 +1,24 @@
+import { usePermissions } from "../lib/permissions.js";
+import { colors, fonts } from "../lib/theme.js";
+
+// Same can_use_key_system check KeyStationApp.jsx makes for the physical
+// kiosk, applied to the in-app Keys pages too -- Layout.jsx's nav already
+// hides the "Keys" link without this permission, but that's UI-only, so a
+// typed-in /key-register URL needs the same turn-away KeyStationApp.jsx
+// gives a role that was never meant to use the key system. Real
+// enforcement is RLS server-side either way (see permissions.js).
+export default function KeysGate({ children }) {
+  const permissions = usePermissions();
+
+  if (permissions.size > 0 && !permissions.has("can_use_key_system")) {
+    return (
+      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+        <p style={{ fontFamily: fonts.body, fontSize: "15px", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
+          This account doesn't have access to the key system.
+        </p>
+      </div>
+    );
+  }
+
+  return children;
+}

@@ -1,21 +1,34 @@
 import { useNavigate } from "react-router-dom";
 import { useKeyCheckout, OTHER_CONTRACTOR } from "../lib/useKeyCheckout.js";
-import KeySelector, { locationLabel } from "./KeySelector.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
+import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
+import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+
+// Same key check-out logic as the key-cupboard kiosk (useKeyCheckout.js),
+// so someone like Hazel can check out a pitch key from her own phone
+// without needing to be stood at the cupboard -- matches CheckoutKit.jsx's
+// relationship to KioskCheckOut.jsx. Styled for the normal app (theme.js,
+// not kioskTheme.js) since this lives inside Layout's ordinary chrome, not
+// a full-screen kiosk takeover.
+const listButtonStyle = {
+  ...buttonStyle.secondary,
+  width: "100%",
+  textAlign: "left",
+  padding: "14px 16px",
+  fontSize: "15px",
+};
 
 const fieldStyle = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "12px 16px",
-  borderRadius: "12px",
-  border: `2px solid ${colors.lineStrong}`,
+  padding: "10px 14px",
+  borderRadius: "10px",
+  border: `1px solid ${colors.lineStrong}`,
   fontFamily: fonts.body,
-  fontSize: "17px",
-  marginBottom: "14px",
+  fontSize: "15px",
+  marginBottom: "12px",
 };
 
-export default function KeyStationCheckOut() {
+export default function CheckOutKey() {
   const navigate = useNavigate();
   const {
     view,
@@ -48,31 +61,31 @@ export default function KeyStationCheckOut() {
 
   if (view === "done") {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Checked out</h1>
-        <p style={{ fontSize: "18px" }}>{locationLabel(selectedTag)} — logged.</p>
-        <button style={kioskButtonStyle} onClick={() => navigate("/keys")}>Done</button>
+      <div style={{ maxWidth: "560px" }}>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Checked out</h1>
+        <p style={{ fontSize: "15px" }}>{locationLabel(selectedTag)} — logged.</p>
+        <button style={buttonStyle.primary} onClick={() => navigate("/key-register")}>Done</button>
       </div>
     );
   }
 
   if (view === "confirm") {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={backToSelect}>
+      <div style={{ maxWidth: "560px" }}>
+        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToSelect}>
           ← Back
         </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
+        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
 
-        <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
+        <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
           {myContractor ? (
-            <p style={{ margin: 0, fontSize: "16px" }}>
+            <p style={{ margin: 0, fontSize: "15px" }}>
               Checking out for <strong>{myContractor.name}</strong>.
             </p>
           ) : (
             <>
-              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Who's taking it?</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "6px" }}>
+              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px", fontSize: "14px" }}>Who's taking it?</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "6px" }}>
                 {[
                   { value: "self", label: "Me" },
                   { value: "contractor", label: "Contractor" },
@@ -83,10 +96,9 @@ export default function KeyStationCheckOut() {
                     key={opt.value}
                     onClick={() => setIssuedToKind(opt.value)}
                     style={{
-                      ...kioskSecondaryButtonStyle,
-                      width: "auto",
-                      padding: "10px 18px",
-                      fontSize: "16px",
+                      ...buttonStyle.secondary,
+                      padding: "8px 14px",
+                      fontSize: "13px",
                       background: issuedToKind === opt.value ? colors.mossDark : "transparent",
                       color: issuedToKind === opt.value ? "#FFFFFF" : colors.mossDark,
                     }}
@@ -128,8 +140,8 @@ export default function KeyStationCheckOut() {
               )}
 
               {issuedToKind === "guest" && (
-                <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "15px", color: colors.inkSoft }}>
-                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "22px", height: "22px" }} />
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: colors.inkSoft }}>
+                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "18px", height: "18px" }} />
                   Confirmed with the caravan owner
                 </label>
               )}
@@ -137,15 +149,15 @@ export default function KeyStationCheckOut() {
           )}
         </div>
 
-        <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
-          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Reason</p>
+        <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
+          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px", fontSize: "14px" }}>Reason</p>
           {reasonPresets.length > 0 && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
               {reasonPresets.map((r) => (
                 <button
                   key={r.id}
                   onClick={() => setReason(r.label)}
-                  style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "8px 14px", fontSize: "14px" }}
+                  style={{ ...buttonStyle.secondary, padding: "6px 12px", fontSize: "13px" }}
                 >
                   {r.label}
                 </button>
@@ -157,7 +169,7 @@ export default function KeyStationCheckOut() {
 
         {error && <p style={{ color: colors.immediate }}>{error}</p>}
 
-        <button style={{ ...kioskButtonStyle, opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
+        <button style={{ ...buttonStyle.primary, width: "100%", opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
           {submitting ? "Checking out…" : "Check out"}
         </button>
       </div>
@@ -165,13 +177,15 @@ export default function KeyStationCheckOut() {
   }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => navigate("/keys")}>
-        ← Menu
+    <div style={{ maxWidth: "560px" }}>
+      <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={() => navigate("/key-register")}>
+        ← Keys
       </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Check out a key</h1>
+      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Check out a key</h1>
       <KeySelector
         tags={availableTags}
+        resultStyle={listButtonStyle}
+        fieldStyle={fieldStyle}
         onPick={(tag) => {
           if (openTagIds.has(tag.id)) {
             setError("This key is already checked out.");

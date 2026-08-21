@@ -93,7 +93,7 @@ export default function Layout({ children }) {
     { to: "/equipment", label: "Equipment" },
     { to: "/dashboard", label: "Dashboard" },
     { to: "/safety", label: "Safety" },
-    ...(permissions.has("can_use_key_system") ? [{ to: "/keys", label: "Keys" }] : []),
+    ...(permissions.has("can_use_key_system") ? [{ to: "/key-register", label: "Keys" }] : []),
     ...(permissions.has("can_manage_reference_data") || permissions.has("can_manage_roles_and_permissions")
       ? [{ to: "/admin", label: "Admin" }]
       : []),

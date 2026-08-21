@@ -21,8 +21,12 @@ const searchFieldStyle = {
 // Shared "scan the key, or search for it" picker used by check-out,
 // check-in, and find-a-key -- each passes a `tags` list already filtered
 // to what's relevant for that action (available / currently out / all)
-// and gets back whichever one was picked, scanned or tapped.
-export default function KeySelector({ tags, onPick, notFoundMessage }) {
+// and gets back whichever one was picked, scanned or tapped. `resultStyle`
+// and `fieldStyle` default to the kiosk's big touch-target look; the in-app
+// Keys pages (KeysHome.jsx and friends) pass the normal theme's smaller
+// card/field styling instead, same as CheckoutKit.jsx restyling
+// useEquipmentCheckout's units list without touching its logic.
+export default function KeySelector({ tags, onPick, notFoundMessage, resultStyle, fieldStyle }) {
   const [query, setQuery] = useState("");
   const [scanError, setScanError] = useState(null);
 
@@ -50,14 +54,14 @@ export default function KeySelector({ tags, onPick, notFoundMessage }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by pitch or location…"
-        style={searchFieldStyle}
+        style={fieldStyle || searchFieldStyle}
       />
       <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "50vh", overflowY: "auto" }}>
         {filtered.map((t) => (
           <button
             key={t.id}
             onClick={() => onPick(t)}
-            style={{ ...kioskCardStyle, textAlign: "left", fontSize: "17px", fontFamily: fonts.body, cursor: "pointer", border: `1px solid ${colors.line}`, width: "100%" }}
+            style={{ ...(resultStyle || kioskCardStyle), textAlign: "left", fontSize: "17px", fontFamily: fonts.body, cursor: "pointer", border: `1px solid ${colors.line}`, width: "100%" }}
           >
             {locationLabel(t)}
           </button>

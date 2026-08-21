@@ -10,6 +10,11 @@ import EquipmentList from "./pages/EquipmentList.jsx";
 import EquipmentDetail from "./pages/EquipmentDetail.jsx";
 import CheckoutKit from "./pages/CheckoutKit.jsx";
 import CheckinKit from "./pages/CheckinKit.jsx";
+import KeysHome from "./pages/KeysHome.jsx";
+import CheckOutKey from "./pages/CheckOutKey.jsx";
+import CheckInKey from "./pages/CheckInKey.jsx";
+import FindKey from "./pages/FindKey.jsx";
+import KeysGate from "./components/KeysGate.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
@@ -169,6 +174,10 @@ function AppShell() {
         <Route path="/equipment/:id" element={<EquipmentDetail />} />
         <Route path="/checkout-kit" element={<CheckoutKit />} />
         <Route path="/checkin-kit" element={<CheckinKit />} />
+        <Route path="/key-register" element={<KeysGate><KeysHome /></KeysGate>} />
+        <Route path="/key-register/checkout" element={<KeysGate><CheckOutKey /></KeysGate>} />
+        <Route path="/key-register/checkin" element={<KeysGate><CheckInKey /></KeysGate>} />
+        <Route path="/key-register/find" element={<KeysGate><FindKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/admin" element={<Admin />} />
