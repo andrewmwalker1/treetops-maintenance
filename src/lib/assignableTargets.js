@@ -12,12 +12,27 @@ import { supabase } from "./supabaseClient.js";
 export async function getAssignableTargets(orgId, myRoleId) {
   if (!myRoleId) return { people: [], groups: [] };
 
-  const [{ data: allowedRoles }, { data: profiles }, { data: groups }, { data: groupMembers }] = await Promise.all([
+  const [
+    { data: allowedRoles, error: allowedRolesError },
+    { data: profiles, error: profilesError },
+    { data: groups, error: groupsError },
+    { data: groupMembers, error: groupMembersError },
+  ] = await Promise.all([
     supabase.from("role_assignable_roles").select("assignable_role_id").eq("role_id", myRoleId),
     supabase.from("profiles").select("id, display_name, role_id").eq("org_id", orgId),
     supabase.from("groups").select("id, name").eq("org_id", orgId),
     supabase.from("group_members").select("group_id, profile_id"),
   ]);
+
+  // Any one of these silently failing (RLS, network, schema drift) used to
+  // just leave the assignee picker looking empty with no way to tell why --
+  // surface it instead, matching this project's own "no silent Supabase
+  // failures" rule.
+  const firstError = allowedRolesError || profilesError || groupsError || groupMembersError;
+  if (firstError) {
+    console.error("getAssignableTargets failed", { allowedRolesError, profilesError, groupsError, groupMembersError });
+    return { people: [], groups: [], error: firstError.message };
+  }
 
   const allowedRoleIds = new Set((allowedRoles || []).map((r) => r.assignable_role_id));
   const roleByProfileId = new Map((profiles || []).map((p) => [p.id, p.role_id]));

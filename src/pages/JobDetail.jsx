@@ -117,9 +117,10 @@ export default function JobDetail() {
   useEffect(() => {
     if (!org) return;
     supabase.from("job_statuses").select("id, name, is_completed, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
-    getAssignableTargets(org.id, profile.role_id).then(({ people: p, groups: g }) => {
+    getAssignableTargets(org.id, profile.role_id).then(({ people: p, groups: g, error: assignErr }) => {
       setPeople(p);
       setGroups(g);
+      if (assignErr) setError(`Couldn't load people/groups to assign to: ${assignErr}`);
     });
     supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
     supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).order("name").then(({ data }) => setJobTypes(data || []));

@@ -76,9 +76,10 @@ export default function NewJob() {
     if (!org || !activeSite) return;
     supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).then(({ data }) => setJobTypes(data || []));
     supabase.from("job_statuses").select("id, name, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
-    getAssignableTargets(org.id, profile.role_id).then(({ people: p, groups: g }) => {
+    getAssignableTargets(org.id, profile.role_id).then(({ people: p, groups: g, error: assignErr }) => {
       setPeople(p);
       setGroups(g);
+      if (assignErr) setSubmitError(`Couldn't load people/groups to assign to: ${assignErr}`);
     });
     supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
     supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
