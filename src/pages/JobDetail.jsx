@@ -1161,6 +1161,18 @@ export default function JobDetail() {
             {a.event_type === "progress_update" && <div>Progress: {a.new_value?.percent}%</div>}
           </div>
         ))}
+        {/* Not a job_activity row -- read straight off jobs.created_by/
+            created_at, which every job has had since day one. Always the
+            oldest event, so it belongs after the (newest-first) list above,
+            at the bottom. created_by is null only for schedule-generated
+            jobs (see 01-schema.sql). */}
+        <div style={{ padding: "8px 0" }}>
+          <div style={{ fontSize: "13px", color: colors.inkSoft }}>
+            <strong style={{ color: colors.ink }}>{job.creator?.display_name || "Schedule"}</strong> ·{" "}
+            {job.creator ? "created" : "created automatically"} ·{" "}
+            {new Date(job.created_at).toLocaleString()}
+          </div>
+        </div>
       </Section>
 
       {!job.job_status?.is_completed && (
