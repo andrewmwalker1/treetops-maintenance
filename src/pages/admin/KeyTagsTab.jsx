@@ -239,6 +239,18 @@ export default function KeyTagsTab() {
 
   useEffect(refresh, [org, activeSite]);
 
+  // Restricted to locations that actually have a tag -- suggesting from the
+  // full pitches/specialLocations reference tables (as LocationPicker does,
+  // correctly, when registering a brand new tag) meant the search could
+  // suggest a real pitch with no tag at all yet, which then "found" it in
+  // the dropdown but showed nothing below -- confusing, since typing the
+  // exact same text without picking the suggestion looked identical.
+  // 79 of 206 pitches currently have a tag (2026-08-25), so this isn't rare.
+  const pitchIdsWithTags = new Set(keyTags.map((t) => t.pitch_id).filter(Boolean));
+  const specialLocationIdsWithTags = new Set(keyTags.map((t) => t.special_location_id).filter(Boolean));
+  const searchablePitches = pitches.filter((p) => pitchIdsWithTags.has(p.id));
+  const searchableSpecialLocations = specialLocations.filter((s) => specialLocationIdsWithTags.has(s.id));
+
   // Lost tags are rare enough to just browse -- unlike "Allocated"/"Spare",
   // which are close to the whole list and are exactly the size problem a
   // search box exists to solve, so those still need a typed query.
@@ -436,7 +448,7 @@ export default function KeyTagsTab() {
         ))}
       </div>
       <div style={{ maxWidth: "360px" }}>
-        <LocationSearchBox pitches={pitches} specialLocations={specialLocations} value={search} onChange={setSearch} style={fieldStyle} />
+        <LocationSearchBox pitches={searchablePitches} specialLocations={searchableSpecialLocations} value={search} onChange={setSearch} style={fieldStyle} />
       </div>
 
       {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
