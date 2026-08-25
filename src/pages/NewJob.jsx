@@ -9,6 +9,7 @@ import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import { getAssignableTargets } from "../lib/assignableTargets.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import Modal from "../components/Modal.jsx";
+import PitchPicker from "../components/PitchPicker.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 const fieldStyle = {
@@ -385,12 +386,7 @@ export default function NewJob() {
           <label><input type="radio" checked={locationKind === "none"} onChange={() => { setLocationKind("none"); setLocationId(""); setAreaName(""); }} /> None</label>
         </div>
         {locationKind === "pitch" && (
-          <select value={locationId} onChange={(e) => setLocationId(e.target.value)} style={fieldStyle}>
-            <option value="">—</option>
-            {pitches.map((item) => (
-              <option key={item.id} value={item.id}>{item.pitch_number_or_name}</option>
-            ))}
-          </select>
+          <PitchPicker pitches={pitches} value={locationId} onChange={setLocationId} style={fieldStyle} />
         )}
         {locationKind === "area" && (
           <>

@@ -3,6 +3,7 @@ import { RRule } from "rrule";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle } from "../../lib/theme.js";
+import PitchPicker from "../../components/PitchPicker.jsx";
 
 const fieldStyle = {
   width: "100%",
@@ -410,12 +411,7 @@ export default function SchedulesTab() {
             <label><input type="radio" checked={form.locationKind === "none"} onChange={() => setForm({ ...form, locationKind: "none", locationId: "", areaName: "" })} /> None</label>
           </div>
           {form.locationKind === "pitch" && (
-            <select value={form.locationId} onChange={(e) => setForm({ ...form, locationId: e.target.value })} style={fieldStyle}>
-              <option value="">—</option>
-              {pitches.map((item) => (
-                <option key={item.id} value={item.id}>{item.pitch_number_or_name}</option>
-              ))}
-            </select>
+            <PitchPicker pitches={pitches} value={form.locationId} onChange={(id) => setForm({ ...form, locationId: id })} style={fieldStyle} />
           )}
           {form.locationKind === "area" && (
             <>

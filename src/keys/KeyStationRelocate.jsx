@@ -4,6 +4,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
+import PitchPicker from "../components/PitchPicker.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
 
@@ -146,12 +147,7 @@ export default function KeyStationRelocate() {
             </label>
           </div>
           {kind === "pitch" ? (
-            <select value={pitchId} onChange={(e) => setPitchId(e.target.value)} style={fieldStyle}>
-              <option value="">—</option>
-              {pitches.map((p) => (
-                <option key={p.id} value={p.id}>{p.pitch_number_or_name}</option>
-              ))}
-            </select>
+            <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} />
           ) : (
             <select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
               <option value="">—</option>

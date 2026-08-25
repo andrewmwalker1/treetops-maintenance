@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
+import PitchPicker from "../../components/PitchPicker.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -36,12 +37,7 @@ function LocationPicker({ pitches, specialLocations, kind, setKind, pitchId, set
         </label>
       </div>
       {kind === "pitch" ? (
-        <select required value={pitchId} onChange={(e) => setPitchId(e.target.value)} style={fieldStyle}>
-          <option value="">—</option>
-          {pitches.map((p) => (
-            <option key={p.id} value={p.id}>{p.pitch_number_or_name}</option>
-          ))}
-        </select>
+        <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} />
       ) : (
         <select required value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
           <option value="">—</option>
@@ -144,6 +140,13 @@ export default function KeyTagsTab() {
   async function handleAssign(e) {
     e.preventDefault();
     if (!scannedUid) return;
+    // PitchPicker only resolves to a real id on an exact match -- a select
+    // enforced this with the required attribute, but a free-typed search
+    // box needs the same check done explicitly.
+    if (assignKind === "pitch" && !assignPitchId) {
+      setError("Pick a pitch from the list before saving.");
+      return;
+    }
     const { error: err } = await supabase.from("key_tags").insert({
       org_id: org.id,
       site_id: activeSite.id,
@@ -173,6 +176,10 @@ export default function KeyTagsTab() {
 
   async function handleMove(e) {
     e.preventDefault();
+    if (moveKind === "pitch" && !movePitchId) {
+      setError("Pick a pitch from the list before saving.");
+      return;
+    }
     const tag = keyTags.find((t) => t.id === movingTagId);
     if (tag && openTagIds.has(tag.id)) {
       const proceed = window.confirm(
