@@ -239,15 +239,20 @@ export default function KeyTagsTab() {
 
   useEffect(refresh, [org, activeSite]);
 
-  const visibleTags = !search.trim()
-    ? []
-    : keyTags.filter((tag) => {
-        if (statusFilter === "lost" && tag.status !== "lost") return false;
-        if (statusFilter === "allocated" && (tag.status === "lost" || !(tag.pitch_id || tag.special_location_id))) return false;
-        if (statusFilter === "spare" && (tag.status === "lost" || tag.pitch_id || tag.special_location_id)) return false;
-        const haystack = `${locationLabel(tag, pitches, specialLocations)} ${tag.tag_uid}`.toLowerCase();
-        return haystack.includes(search.trim().toLowerCase());
-      });
+  // Lost tags are rare enough to just browse -- unlike "Allocated"/"Spare",
+  // which are close to the whole list and are exactly the size problem a
+  // search box exists to solve, so those still need a typed query.
+  const visibleTags =
+    !search.trim() && statusFilter !== "lost"
+      ? []
+      : keyTags.filter((tag) => {
+          if (statusFilter === "lost" && tag.status !== "lost") return false;
+          if (statusFilter === "allocated" && (tag.status === "lost" || !(tag.pitch_id || tag.special_location_id))) return false;
+          if (statusFilter === "spare" && (tag.status === "lost" || tag.pitch_id || tag.special_location_id)) return false;
+          if (!search.trim()) return true;
+          const haystack = `${locationLabel(tag, pitches, specialLocations)} ${tag.tag_uid}`.toLowerCase();
+          return haystack.includes(search.trim().toLowerCase());
+        });
 
   async function handleMarkLost(tag) {
     const notePrompt = window.prompt(
@@ -437,7 +442,7 @@ export default function KeyTagsTab() {
       {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
 
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
-      {keyTags.length > 0 && !search.trim() && (
+      {keyTags.length > 0 && !search.trim() && statusFilter !== "lost" && (
         <p style={{ color: colors.inkSoft, fontSize: "13px" }}>Type a pitch, area, location, or tag ID above to see its key tags.</p>
       )}
 
@@ -493,6 +498,9 @@ export default function KeyTagsTab() {
         </div>
       ))}
       {search.trim() && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this search.</p>}
+      {!search.trim() && statusFilter === "lost" && keyTags.length > 0 && visibleTags.length === 0 && (
+        <p style={{ color: colors.inkSoft }}>No tags are currently marked lost.</p>
+      )}
 
       <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
         <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Special locations</h3>
