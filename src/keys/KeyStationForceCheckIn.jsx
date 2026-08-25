@@ -1,17 +1,10 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
-import { supabase } from "../lib/supabaseClient.js";
+import { useKeyForceCheckIn } from "../lib/useKeyForceCheckIn.js";
+import { issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
-
-function issuedToSummary(checkout) {
-  if (checkout.issued_to_kind === "self") return checkout.checked_out_by_profile?.display_name || "the person who took it";
-  if (checkout.issued_to_kind === "contractor") return checkout.issued_to_contractor?.name || checkout.issued_to_name || "a contractor";
-  return checkout.issued_to_name || (checkout.issued_to_kind === "guest" ? "a guest" : "a customer");
-}
 
 // A separate, can_manage_keys-gated path from ordinary check-in
 // (KeyStationCheckIn.jsx, open to anyone with can_use_key_system) --
@@ -20,64 +13,8 @@ function issuedToSummary(checkout) {
 // the same override at the key station itself, not just from the office.
 export default function KeyStationForceCheckIn() {
   const navigate = useNavigate();
-  const { activeSite } = useAuth();
   const permissions = usePermissions();
-  const [view, setView] = useState("select"); // select | confirm | done
-  const [openTags, setOpenTags] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-
-  function refresh() {
-    if (!activeSite) return;
-    supabase
-      .from("key_checkouts")
-      .select(
-        `id, checked_out_at, reason, issued_to_kind, issued_to_name,
-         issued_to_contractor:contractors(name),
-         checked_out_by_profile:profiles!key_checkouts_checked_out_by_fkey(display_name),
-         key_tags!inner(id, tag_uid, site_id, pitch_id, special_location_id, pitches(pitch_number_or_name), key_special_locations(label))`
-      )
-      .is("checked_in_at", null)
-      .eq("key_tags.site_id", activeSite.id)
-      .then(({ data }) => {
-        setOpenTags(
-          (data || []).map((c) => ({
-            id: c.key_tags.id,
-            tag_uid: c.key_tags.tag_uid,
-            pitches: c.key_tags.pitches,
-            key_special_locations: c.key_tags.key_special_locations,
-            checkout: c,
-          }))
-        );
-      });
-  }
-
-  useEffect(refresh, [activeSite]);
-
-  function pickTag(tag) {
-    setError(null);
-    setSelected(tag);
-    setView("confirm");
-  }
-
-  function backToSelect() {
-    setView("select");
-    setSelected(null);
-    refresh();
-  }
-
-  async function handleConfirm() {
-    setSubmitting(true);
-    setError(null);
-    const { error: err } = await supabase.rpc("admin_force_check_in_key", { p_checkout_id: selected.checkout.id });
-    setSubmitting(false);
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    setView("done");
-  }
+  const { view, openTags, selected, submitting, error, pickTag, backToSelect, handleConfirm } = useKeyForceCheckIn();
 
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
