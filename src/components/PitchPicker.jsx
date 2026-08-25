@@ -23,12 +23,21 @@ function highlightMatch(text, query) {
   );
 }
 
-export default function PitchPicker({ pitches, value, onChange, placeholder = "Type to search…", style }) {
+export default function PitchPicker({ pitches, value, onChange, placeholder = "Type to search…", style, autoFocus = false }) {
   const selected = pitches.find((p) => p.id === value);
   const [query, setQuery] = useState(selected?.pitch_number_or_name || "");
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
+
+  // For screens where this appears right after a triggering action (e.g.
+  // scanning an RFID tag) -- lets the user start typing the pitch straight
+  // away instead of having to click into the box first.
+  useEffect(() => {
+    if (autoFocus) inputRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Keep the visible text in sync when the selection changes from outside
   // (parent resets it, or switches which record is being edited) -- keyed
@@ -95,6 +104,7 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
   return (
     <div ref={wrapperRef} style={{ position: "relative" }}>
       <input
+        ref={inputRef}
         value={query}
         onChange={handleChange}
         onFocus={() => setOpen(true)}

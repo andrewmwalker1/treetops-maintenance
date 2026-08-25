@@ -25,7 +25,7 @@ function locationLabel(tag, pitches, specialLocations) {
 // both need the same pitch-or-special-location choice NewJob.jsx already
 // establishes for job locations (pitch vs. area), just with key_tags'
 // two location columns instead.
-function LocationPicker({ pitches, specialLocations, kind, setKind, pitchId, setPitchId, specialLocationId, setSpecialLocationId }) {
+function LocationPicker({ pitches, specialLocations, kind, setKind, pitchId, setPitchId, specialLocationId, setSpecialLocationId, autoFocus = false }) {
   return (
     <>
       <div style={{ display: "flex", gap: "16px", marginBottom: "10px" }}>
@@ -37,7 +37,7 @@ function LocationPicker({ pitches, specialLocations, kind, setKind, pitchId, set
         </label>
       </div>
       {kind === "pitch" ? (
-        <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} />
+        <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} autoFocus={autoFocus} />
       ) : (
         <select required value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
           <option value="">—</option>
@@ -235,6 +235,39 @@ export default function KeyTagsTab() {
         Scan a tag to register it against a pitch or a special location. Multiple tags can share the same pitch (a caravan with more than one key).
       </p>
 
+      {/* Up here, not below the tag list, so scanning a tag doesn't mean
+          scrolling past a long (100-200+) list to reach where you actually
+          enter its location. */}
+      <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginBottom: "20px" }}>
+        <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Register a new tag</h3>
+        <RfidScanListener onScan={handleScan} />
+        {!scannedUid && (
+          <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+            Scan a tag on the reader connected to this computer.
+          </p>
+        )}
+        {scannedUid && (
+          <form onSubmit={handleAssign}>
+            <p style={{ fontSize: "13px", fontFamily: fonts.mono }}>Scanned tag: {scannedUid}</p>
+            <LocationPicker
+              pitches={pitches}
+              specialLocations={specialLocations}
+              kind={assignKind}
+              setKind={setAssignKind}
+              pitchId={assignPitchId}
+              setPitchId={setAssignPitchId}
+              specialLocationId={assignSpecialLocationId}
+              setSpecialLocationId={setAssignSpecialLocationId}
+              autoFocus
+            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="submit" style={buttonStyle.primary}>Save</button>
+              <button type="button" onClick={() => setScannedUid(null)} style={buttonStyle.secondary}>Cancel</button>
+            </div>
+          </form>
+        )}
+      </div>
+
       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
         {STATUS_FILTERS.map((s) => (
           <button
@@ -318,35 +351,6 @@ export default function KeyTagsTab() {
       ))}
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
       {keyTags.length > 0 && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this filter.</p>}
-
-      <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
-        <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Register a new tag</h3>
-        <RfidScanListener onScan={handleScan} />
-        {!scannedUid && (
-          <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
-            Scan a tag on the reader connected to this computer.
-          </p>
-        )}
-        {scannedUid && (
-          <form onSubmit={handleAssign}>
-            <p style={{ fontSize: "13px", fontFamily: fonts.mono }}>Scanned tag: {scannedUid}</p>
-            <LocationPicker
-              pitches={pitches}
-              specialLocations={specialLocations}
-              kind={assignKind}
-              setKind={setAssignKind}
-              pitchId={assignPitchId}
-              setPitchId={setAssignPitchId}
-              specialLocationId={assignSpecialLocationId}
-              setSpecialLocationId={setAssignSpecialLocationId}
-            />
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="submit" style={buttonStyle.primary}>Save</button>
-              <button type="button" onClick={() => setScannedUid(null)} style={buttonStyle.secondary}>Cancel</button>
-            </div>
-          </form>
-        )}
-      </div>
 
       <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
         <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Special locations</h3>
