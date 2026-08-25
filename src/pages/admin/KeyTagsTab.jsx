@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
@@ -19,6 +19,147 @@ function locationLabel(tag, pitches, specialLocations) {
   if (tag.pitch_id) return pitches.find((p) => p.id === tag.pitch_id)?.pitch_number_or_name || "Unknown pitch";
   if (tag.special_location_id) return specialLocations.find((s) => s.id === tag.special_location_id)?.label || "Unknown location";
   return "Unallocated (spare)";
+}
+
+const SEARCH_MAX_SUGGESTIONS = 50;
+
+function highlightMatch(text, query) {
+  if (!query) return text;
+  const i = text.toLowerCase().indexOf(query.toLowerCase());
+  if (i === -1) return text;
+  return (
+    <>
+      {text.slice(0, i)}
+      <strong style={{ color: colors.mossDark }}>{text.slice(i, i + query.length)}</strong>
+      {text.slice(i + query.length)}
+    </>
+  );
+}
+
+// The pitch codes already carry their area prefix (e.g. "YH-D6" is the
+// full pitch_number_or_name, not "D6" with area stored separately), so a
+// plain substring match against these already supports searching by area
+// ("YH"), area + row ("YH-D"), or one exact pitch ("YH-D6") with no extra
+// parsing needed -- what's here just surfaces suggestions as you type,
+// same look as PitchPicker.jsx, but picking one only fills in the text
+// (there's no single id to resolve to -- a prefix like "YH-D" is a valid,
+// useful search all on its own, matching many tags at once).
+function locationSuggestions(pitches, specialLocations, query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const pitchMatches = pitches.filter((p) => p.pitch_number_or_name.toLowerCase().includes(q)).map((p) => ({ key: `pitch:${p.id}`, label: p.pitch_number_or_name }));
+  const specialMatches = specialLocations.filter((s) => s.label.toLowerCase().includes(q)).map((s) => ({ key: `special:${s.id}`, label: s.label }));
+  return [...pitchMatches, ...specialMatches].slice(0, SEARCH_MAX_SUGGESTIONS);
+}
+
+// Replaces a plain text search box -- with 100-200+ tags, browsing the
+// full list at once made the screen unmanageably long (Andy, 2026-08-25),
+// so tags are now only ever shown in response to a search. This is that
+// search box: type-ahead suggestions like PitchPicker.jsx, but `onChange`
+// always receives the raw typed text (never clears on a partial match) --
+// the parent filters its list off whatever's currently typed, suggestion
+// picked or not.
+function LocationSearchBox({ pitches, specialLocations, value, onChange, style }) {
+  const [open, setOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const wrapperRef = useRef(null);
+
+  const suggestions = locationSuggestions(pitches, specialLocations, value);
+
+  function selectSuggestion(s) {
+    onChange(s.label);
+    setOpen(false);
+  }
+
+  function handleChange(e) {
+    onChange(e.target.value);
+    setOpen(true);
+    setHighlightedIndex(0);
+  }
+
+  function handleKeyDown(e) {
+    if (!open || suggestions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedIndex((i) => Math.min(i + 1, suggestions.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      selectSuggestion(suggestions[highlightedIndex]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function handleDocClick(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    return () => document.removeEventListener("mousedown", handleDocClick);
+  }, [open]);
+
+  return (
+    <div ref={wrapperRef} style={{ position: "relative" }}>
+      <input
+        value={value}
+        onChange={handleChange}
+        onFocus={() => setOpen(true)}
+        onKeyDown={handleKeyDown}
+        placeholder="Search by pitch, area, location, or tag ID…"
+        style={style}
+        autoComplete="off"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+      />
+      {open && suggestions.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 0,
+            zIndex: 20,
+            marginTop: "4px",
+            maxHeight: "260px",
+            overflowY: "auto",
+            background: colors.paper,
+            border: `1px solid ${colors.lineStrong}`,
+            borderRadius: "10px",
+            boxShadow: "0 8px 24px rgba(27, 36, 48, 0.16)",
+          }}
+        >
+          {suggestions.map((s, i) => (
+            <div
+              key={s.key}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => selectSuggestion(s)}
+              onMouseEnter={() => setHighlightedIndex(i)}
+              style={{
+                padding: "10px 12px",
+                cursor: "pointer",
+                fontFamily: fonts.body,
+                fontSize: "13px",
+                color: colors.ink,
+                background: i === highlightedIndex ? colors.line : "transparent",
+              }}
+            >
+              {highlightMatch(s.label, value.trim())}
+            </div>
+          ))}
+          {(pitches.length + specialLocations.length) > SEARCH_MAX_SUGGESTIONS && suggestions.length === SEARCH_MAX_SUGGESTIONS && (
+            <div style={{ padding: "6px 12px", fontSize: "12px", color: colors.inkSoft, fontStyle: "italic" }}>
+              Keep typing to narrow it down…
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Shared by the "register a new tag" form and each row's "move" form --
@@ -98,14 +239,15 @@ export default function KeyTagsTab() {
 
   useEffect(refresh, [org, activeSite]);
 
-  const visibleTags = keyTags.filter((tag) => {
-    if (statusFilter === "lost" && tag.status !== "lost") return false;
-    if (statusFilter === "allocated" && (tag.status === "lost" || !(tag.pitch_id || tag.special_location_id))) return false;
-    if (statusFilter === "spare" && (tag.status === "lost" || tag.pitch_id || tag.special_location_id)) return false;
-    if (!search.trim()) return true;
-    const haystack = `${locationLabel(tag, pitches, specialLocations)} ${tag.tag_uid}`.toLowerCase();
-    return haystack.includes(search.trim().toLowerCase());
-  });
+  const visibleTags = !search.trim()
+    ? []
+    : keyTags.filter((tag) => {
+        if (statusFilter === "lost" && tag.status !== "lost") return false;
+        if (statusFilter === "allocated" && (tag.status === "lost" || !(tag.pitch_id || tag.special_location_id))) return false;
+        if (statusFilter === "spare" && (tag.status === "lost" || tag.pitch_id || tag.special_location_id)) return false;
+        const haystack = `${locationLabel(tag, pitches, specialLocations)} ${tag.tag_uid}`.toLowerCase();
+        return haystack.includes(search.trim().toLowerCase());
+      });
 
   async function handleMarkLost(tag) {
     const notePrompt = window.prompt(
@@ -288,15 +430,16 @@ export default function KeyTagsTab() {
           </button>
         ))}
       </div>
-      <input
-        type="text"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search by pitch, location, or tag UID…"
-        style={{ ...fieldStyle, maxWidth: "360px" }}
-      />
+      <div style={{ maxWidth: "360px" }}>
+        <LocationSearchBox pitches={pitches} specialLocations={specialLocations} value={search} onChange={setSearch} style={fieldStyle} />
+      </div>
 
       {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+
+      {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
+      {keyTags.length > 0 && !search.trim() && (
+        <p style={{ color: colors.inkSoft, fontSize: "13px" }}>Type a pitch, area, location, or tag ID above to see its key tags.</p>
+      )}
 
       {visibleTags.map((tag) => (
         <div key={tag.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px" }}>
@@ -349,8 +492,7 @@ export default function KeyTagsTab() {
           )}
         </div>
       ))}
-      {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
-      {keyTags.length > 0 && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this filter.</p>}
+      {search.trim() && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this search.</p>}
 
       <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
         <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Special locations</h3>
