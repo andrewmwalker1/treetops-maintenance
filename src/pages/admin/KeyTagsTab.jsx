@@ -191,6 +191,7 @@ const STATUS_FILTERS = [
   { key: "allocated", label: "Allocated" },
   { key: "spare", label: "Spare" },
   { key: "lost", label: "Lost" },
+  { key: "handed_over", label: "Handed over" },
 ];
 
 export default function KeyTagsTab() {
@@ -212,12 +213,21 @@ export default function KeyTagsTab() {
   const [movePitchId, setMovePitchId] = useState("");
   const [moveSpecialLocationId, setMoveSpecialLocationId] = useState("");
 
+  const [handingOverTagId, setHandingOverTagId] = useState(null);
+  const [handoverTo, setHandoverTo] = useState("");
+  const [handoverNotes, setHandoverNotes] = useState("");
+  const [handoverFobConfirmed, setHandoverFobConfirmed] = useState(false);
+
   const [newLocationLabel, setNewLocationLabel] = useState("");
 
   function refresh() {
     if (!org || !activeSite) return;
     Promise.all([
-      supabase.from("key_tags").select("id, tag_uid, pitch_id, special_location_id, status, created_at").eq("site_id", activeSite.id).order("created_at"),
+      supabase
+        .from("key_tags")
+        .select("id, tag_uid, pitch_id, special_location_id, status, handed_over_at, handed_over_to, handed_over_notes, created_at")
+        .eq("site_id", activeSite.id)
+        .order("created_at"),
       supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).order("pitch_number_or_name"),
       supabase.from("key_special_locations").select("id, label").eq("site_id", activeSite.id).order("label"),
       supabase.from("key_checkouts").select("key_tag_id").is("checked_in_at", null),
@@ -244,16 +254,18 @@ export default function KeyTagsTab() {
   const searchablePitches = pitches.filter((p) => pitchIdsWithTags.has(p.id));
   const searchableSpecialLocations = specialLocations.filter((s) => specialLocationIdsWithTags.has(s.id));
 
-  // Lost tags are rare enough to just browse -- unlike "Allocated"/"Spare",
-  // which are close to the whole list and are exactly the size problem a
-  // search box exists to solve, so those still need a typed query.
+  // Lost and handed-over tags are rare enough to just browse -- unlike
+  // "Allocated"/"Spare", which are close to the whole list and are exactly
+  // the size problem a search box exists to solve, so those still need a
+  // typed query.
   const visibleTags =
-    !search.trim() && statusFilter !== "lost"
+    !search.trim() && statusFilter !== "lost" && statusFilter !== "handed_over"
       ? []
       : keyTags.filter((tag) => {
           if (statusFilter === "lost" && tag.status !== "lost") return false;
-          if (statusFilter === "allocated" && (tag.status === "lost" || !(tag.pitch_id || tag.special_location_id))) return false;
-          if (statusFilter === "spare" && (tag.status === "lost" || tag.pitch_id || tag.special_location_id)) return false;
+          if (statusFilter === "handed_over" && tag.status !== "handed_over") return false;
+          if (statusFilter === "allocated" && (tag.status !== "active" || !(tag.pitch_id || tag.special_location_id))) return false;
+          if (statusFilter === "spare" && (tag.status !== "active" || tag.pitch_id || tag.special_location_id)) return false;
           if (!search.trim()) return true;
           const haystack = `${locationLabel(tag, pitches, specialLocations)} ${tag.tag_uid}`.toLowerCase();
           return haystack.includes(search.trim().toLowerCase());
@@ -277,6 +289,24 @@ export default function KeyTagsTab() {
     const proceed = window.confirm(`Mark this key tag as found again? It'll go back to being usable at ${locationLabel(tag, pitches, specialLocations)}.`);
     if (!proceed) return;
     const { error: err } = await supabase.from("key_tags").update({ status: "active", lost_at: null, lost_notes: null }).eq("id", tag.id);
+    if (err) setError(err.message);
+    else refresh();
+  }
+
+  // The RFID fob itself gets recovered before a handed-over key's physical
+  // blank leaves the building (see startHandover/handleHandover below), so
+  // the same fob can end up back in service on a different pitch's key
+  // later -- a plain status flip back to 'active' (no side effect to
+  // undo, unlike the handover itself), same shape as handleReinstate.
+  async function handleReturnToPool(tag) {
+    const proceed = window.confirm(
+      `Put this tag back into service? It'll show as an active key for ${locationLabel(tag, pitches, specialLocations)} again -- only do this if the RFID fob has actually been recovered and is being reused.`
+    );
+    if (!proceed) return;
+    const { error: err } = await supabase
+      .from("key_tags")
+      .update({ status: "active", handed_over_at: null, handed_over_to: null, handed_over_notes: null })
+      .eq("id", tag.id);
     if (err) setError(err.message);
     else refresh();
   }
@@ -355,6 +385,36 @@ export default function KeyTagsTab() {
       return;
     }
     setMovingTagId(null);
+    refresh();
+  }
+
+  function startHandover(tag) {
+    setHandingOverTagId(tag.id);
+    setHandoverTo("");
+    setHandoverNotes("");
+    setHandoverFobConfirmed(false);
+  }
+
+  // Goes through handover_key_tag (48-key-tags-handover.sql) rather than a
+  // plain update -- it force-closes any open checkout on this tag in the
+  // same transaction, which a client-side update can't do. The fob
+  // checkbox is a reminder, not data the server checks: the only way this
+  // system knows about a physical key is via its RFID tag, so if the fob
+  // travels with the key to the customer, the tag itself effectively
+  // leaves too and can never be reused on a future key.
+  async function handleHandover(e) {
+    e.preventDefault();
+    if (!handoverTo.trim() || !handoverFobConfirmed) return;
+    const { error: err } = await supabase.rpc("handover_key_tag", {
+      p_key_tag_id: handingOverTagId,
+      p_handed_over_to: handoverTo.trim(),
+      p_notes: handoverNotes.trim() || null,
+    });
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setHandingOverTagId(null);
     refresh();
   }
 
@@ -450,7 +510,7 @@ export default function KeyTagsTab() {
       {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
 
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
-      {keyTags.length > 0 && !search.trim() && statusFilter !== "lost" && (
+      {keyTags.length > 0 && !search.trim() && statusFilter !== "lost" && statusFilter !== "handed_over" && (
         <p style={{ color: colors.inkSoft, fontSize: "13px" }}>Type a pitch, area, location, or tag ID above to see its key tags.</p>
       )}
 
@@ -465,6 +525,11 @@ export default function KeyTagsTab() {
                     LOST
                   </span>
                 )}
+                {tag.status === "handed_over" && (
+                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: "#FFFFFF", background: colors.mossDark, borderRadius: "999px", padding: "2px 10px" }}>
+                    HANDED OVER
+                  </span>
+                )}
                 {openTagIds.has(tag.id) && (
                   <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "999px", padding: "2px 10px" }}>
                     CHECKED OUT
@@ -472,13 +537,20 @@ export default function KeyTagsTab() {
                 )}
               </div>
               <div style={{ fontSize: "12px", color: colors.inkSoft, fontFamily: fonts.mono }}>{tag.tag_uid}</div>
+              {tag.status === "handed_over" && (
+                <div style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "4px" }}>
+                  To {tag.handed_over_to} on {new Date(tag.handed_over_at).toLocaleDateString("en-GB")}
+                  {tag.handed_over_notes ? ` — ${tag.handed_over_notes}` : ""}
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", gap: "8px" }}>
-              {tag.status === "lost" ? (
-                <button onClick={() => handleReinstate(tag)} style={buttonStyle.secondary}>Reinstate</button>
-              ) : (
+              {tag.status === "lost" && <button onClick={() => handleReinstate(tag)} style={buttonStyle.secondary}>Reinstate</button>}
+              {tag.status === "handed_over" && <button onClick={() => handleReturnToPool(tag)} style={buttonStyle.secondary}>Return to pool</button>}
+              {tag.status === "active" && (
                 <>
                   <button onClick={() => startMove(tag)} style={buttonStyle.secondary}>Move</button>
+                  {tag.pitch_id && <button onClick={() => startHandover(tag)} style={buttonStyle.secondary}>Handover</button>}
                   <button onClick={() => handleRemove(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Remove</button>
                   <button onClick={() => handleMarkLost(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Mark as lost</button>
                 </>
@@ -501,11 +573,71 @@ export default function KeyTagsTab() {
               </div>
             </form>
           )}
+          {handingOverTagId === tag.id && (
+            <form onSubmit={handleHandover} style={{ marginTop: "12px", borderTop: `1px solid ${colors.lineStrong}`, paddingTop: "12px" }}>
+              <p style={{ fontSize: "13px", marginTop: 0 }}>
+                This key is leaving for good, to the new owner of {locationLabel(tag, pitches, specialLocations)} — it'll drop off every
+                checkout/relocate screen and won't come back into the cupboard.
+              </p>
+              {openTagIds.has(tag.id) && (
+                <p style={{ fontSize: "13px", color: colors.inkSoft }}>
+                  This key is currently checked out — completing the handover will automatically check it back in, since it's not coming back.
+                </p>
+              )}
+              <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Handed over to</label>
+              <input
+                type="text"
+                required
+                autoFocus
+                value={handoverTo}
+                onChange={(e) => setHandoverTo(e.target.value)}
+                placeholder="Customer name"
+                style={fieldStyle}
+              />
+              <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Notes (optional)</label>
+              <textarea
+                value={handoverNotes}
+                onChange={(e) => setHandoverNotes(e.target.value)}
+                rows={2}
+                style={{ ...fieldStyle, resize: "vertical" }}
+              />
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: "8px",
+                  fontSize: "13px",
+                  padding: "10px 12px",
+                  marginBottom: "12px",
+                  borderRadius: "8px",
+                  border: `1px solid ${colors.gold}`,
+                  background: colors.paper,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={handoverFobConfirmed}
+                  onChange={(e) => setHandoverFobConfirmed(e.target.checked)}
+                  style={{ marginTop: "2px" }}
+                />
+                I've removed the RFID fob from this key — only the physical key goes to the customer, the fob stays with us.
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button type="submit" style={{ ...buttonStyle.primary, opacity: handoverTo.trim() && handoverFobConfirmed ? 1 : 0.5 }} disabled={!handoverTo.trim() || !handoverFobConfirmed}>
+                  Complete handover
+                </button>
+                <button type="button" onClick={() => setHandingOverTagId(null)} style={buttonStyle.secondary}>Cancel</button>
+              </div>
+            </form>
+          )}
         </div>
       ))}
       {search.trim() && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this search.</p>}
       {!search.trim() && statusFilter === "lost" && keyTags.length > 0 && visibleTags.length === 0 && (
         <p style={{ color: colors.inkSoft }}>No tags are currently marked lost.</p>
+      )}
+      {!search.trim() && statusFilter === "handed_over" && keyTags.length > 0 && visibleTags.length === 0 && (
+        <p style={{ color: colors.inkSoft }}>No tags have been handed over.</p>
       )}
 
       <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>

@@ -43,7 +43,7 @@ export function useKeyCheckout() {
       supabase.from("key_checkouts").select("key_tag_id").is("checked_in_at", null),
       supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name"),
     ]).then(([{ data: kt }, { data: open }, { data: c }]) => {
-      setKeyTags((kt || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status !== "lost"));
+      setKeyTags((kt || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status === "active"));
       setOpenTagIds(new Set((open || []).map((o) => o.key_tag_id)));
       setContractors(c || []);
     });

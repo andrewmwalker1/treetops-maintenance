@@ -38,7 +38,7 @@ export function useKeyRelocate() {
       supabase.from("key_special_locations").select("id, label").eq("site_id", activeSite.id).order("label"),
       supabase.from("key_checkouts").select("key_tag_id").is("checked_in_at", null),
     ]).then(([{ data: kt }, { data: p }, { data: s }, { data: open }]) => {
-      setKeyTags((kt || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status !== "lost"));
+      setKeyTags((kt || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status === "active"));
       setPitches(p || []);
       setSpecialLocations(s || []);
       setOpenTagIds(new Set((open || []).map((o) => o.key_tag_id)));
