@@ -211,7 +211,6 @@ export default function KeyTagsTab() {
 
   const [movingTagId, setMovingTagId] = useState(null);
   const [movePitchId, setMovePitchId] = useState("");
-  const [moveSpecialLocationId, setMoveSpecialLocationId] = useState("");
 
   const [handingOverTagId, setHandingOverTagId] = useState(null);
   const [handoverTo, setHandoverTo] = useState("");
@@ -387,25 +386,59 @@ export default function KeyTagsTab() {
   function startMove(tag) {
     setMovingTagId(tag.id);
     setMovePitchId(tag.pitch_id || "");
-    setMoveSpecialLocationId(tag.special_location_id || "");
   }
 
+  // Move is specifically "this key belongs to a different pitch now" --
+  // Andy: it happens because a caravan physically moved pitches, or
+  // because staff are correcting a mistaken pitch, never because the key
+  // itself is being carried somewhere else. So it only ever touches
+  // pitch_id; special_location_id is left exactly as it was (moving a
+  // key's physical location, e.g. into the prep ring, is Relocate's job).
+  // A pitch usually has more than one key (the original design allows
+  // several rows per pitch_id for exactly this), so moving just the one
+  // row you happened to click would leave a duplicate still pointing at
+  // the old pitch -- every other active key currently on the same origin
+  // pitch, wherever it's physically sitting, is offered the same move.
   async function handleMove(e) {
     e.preventDefault();
     const tag = keyTags.find((t) => t.id === movingTagId);
-    if (tag && openTagIds.has(tag.id)) {
+    if (!tag) return;
+    if (!movePitchId) {
+      setError("Pick a pitch from the list before saving.");
+      return;
+    }
+    if (openTagIds.has(tag.id)) {
       const proceed = window.confirm(
-        "This key is currently checked out. Moving it only changes where it normally lives — it won't check it in or affect the open checkout. The key could just be out being used to get the caravan ready. Continue?"
+        "This key is currently checked out. Moving it only changes which pitch it belongs to — it won't check it in or affect the open checkout. Continue?"
       );
       if (!proceed) return;
     }
-    const { error: err } = await supabase
-      .from("key_tags")
-      .update({
-        pitch_id: movePitchId || null,
-        special_location_id: moveSpecialLocationId || null,
-      })
-      .eq("id", movingTagId);
+
+    const oldPitchId = tag.pitch_id;
+    const siblingIds =
+      oldPitchId && oldPitchId !== movePitchId
+        ? keyTags.filter((t) => t.id !== tag.id && t.pitch_id === oldPitchId && t.status === "active").map((t) => t.id)
+        : [];
+
+    if (siblingIds.length > 0) {
+      const proceed = window.confirm(
+        `${siblingIds.length} other key${siblingIds.length > 1 ? "s" : ""} also belong${siblingIds.length > 1 ? "" : "s"} to this pitch. Move ` +
+          `${siblingIds.length > 1 ? "them" : "it"} to the new pitch too? Each one stays exactly where it's physically sitting -- only the pitch ` +
+          `changes. Press Cancel to move only this one key.`
+      );
+      if (proceed) {
+        const { error: err } = await supabase.from("key_tags").update({ pitch_id: movePitchId }).in("id", [tag.id, ...siblingIds]);
+        if (err) {
+          setError(err.message);
+          return;
+        }
+        setMovingTagId(null);
+        refresh();
+        return;
+      }
+    }
+
+    const { error: err } = await supabase.from("key_tags").update({ pitch_id: movePitchId }).eq("id", tag.id);
     if (err) {
       setError(err.message);
       return;
@@ -585,14 +618,13 @@ export default function KeyTagsTab() {
           </div>
           {movingTagId === tag.id && (
             <form onSubmit={handleMove} style={{ marginTop: "12px", borderTop: `1px solid ${colors.lineStrong}`, paddingTop: "12px" }}>
-              <LocationPicker
-                pitches={pitches}
-                specialLocations={specialLocations}
-                pitchId={movePitchId}
-                setPitchId={setMovePitchId}
-                specialLocationId={moveSpecialLocationId}
-                setSpecialLocationId={setMoveSpecialLocationId}
-              />
+              <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: 0, marginBottom: "8px" }}>
+                Currently at: {tag.special_location_id ? specialLocations.find((s) => s.id === tag.special_location_id)?.label || "Unknown location" : "the cupboard"}.
+                Moving only changes which pitch this key belongs to — it stays exactly where it's physically sitting. To move it somewhere else
+                physically, use Relocate instead.
+              </p>
+              <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>New pitch</label>
+              <PitchPicker pitches={pitches} value={movePitchId} onChange={setMovePitchId} style={fieldStyle} autoFocus />
               <div style={{ display: "flex", gap: "8px" }}>
                 <button type="submit" style={buttonStyle.primary}>Save</button>
                 <button type="button" onClick={() => setMovingTagId(null)} style={buttonStyle.secondary}>Cancel</button>
