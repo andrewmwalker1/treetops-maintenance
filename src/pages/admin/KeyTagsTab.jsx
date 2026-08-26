@@ -320,13 +320,39 @@ export default function KeyTagsTab() {
   // scan the key, its row appears already selected for editing. The
   // search box is set to the tag's own UID (unique) so that row is the
   // only one showing, regardless of what was typed/filtered before.
-  function handleScan(uid) {
+  //
+  // A fob recovered from a lost or handed-over key keeps its tag_uid, so
+  // reusing it on a new key later means scanning that *same* UID again --
+  // it'll never hit "Register a new tag" (the row already exists) and,
+  // without this, Move alone would leave status stuck on 'lost'/
+  // 'handed_over' forever, invisibly excluding it from every checkout/
+  // relocate/find-a-key picker even once it's back in daily use. Scanning
+  // it is exactly the signal that it's physically in hand again, so this
+  // reactivates it (after confirming) as part of the same scan, then
+  // opens Move so the new pitch can be picked straight away.
+  async function handleScan(uid) {
     setError(null);
     const existing = keyTags.find((t) => t.tag_uid === uid);
     if (existing) {
+      if (existing.status !== "active") {
+        const reason = existing.status === "lost" ? "marked lost" : "handed over";
+        const proceed = window.confirm(
+          `This tag was ${reason} (for ${locationLabel(existing, pitches, specialLocations)}). Scanning it now puts it back into service so you can move it to its new pitch — continue?`
+        );
+        if (!proceed) return;
+        const { error: err } = await supabase
+          .from("key_tags")
+          .update({ status: "active", lost_at: null, lost_notes: null, handed_over_at: null, handed_over_to: null, handed_over_notes: null })
+          .eq("id", existing.id);
+        if (err) {
+          setError(err.message);
+          return;
+        }
+        refresh();
+      }
       setStatusFilter("all");
       setSearch(existing.tag_uid);
-      startMove(existing);
+      startMove({ ...existing, status: "active" });
       setScannedUid(null);
       return;
     }
