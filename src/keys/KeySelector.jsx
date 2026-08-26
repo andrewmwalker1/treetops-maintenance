@@ -3,8 +3,22 @@ import RfidScanListener from "../components/RfidScanListener.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskCardStyle } from "../kiosk/kioskTheme.js";
 
+// A key's home pitch and its current special location (if any) are now
+// independent columns (47-key-tags-pitch-persists-through-special-location.sql)
+// -- a key can be "for OP-B06" and "currently at Caravan Prep" at once, so
+// the label shows both rather than one hiding the other. Exported so
+// KeyTagsTab.jsx and the checkout-log helpers (which look these up from
+// plain id/array lookups rather than a Supabase join) render identically
+// instead of drifting into their own formatting.
+export function formatKeyLocation(pitchLabel, specialLabel, fallback = "Unallocated tag") {
+  if (specialLabel && pitchLabel) return `${specialLabel} (${pitchLabel})`;
+  if (specialLabel) return specialLabel;
+  if (pitchLabel) return pitchLabel;
+  return fallback;
+}
+
 export function locationLabel(tag) {
-  return tag.pitches?.pitch_number_or_name || tag.key_special_locations?.label || "Unallocated tag";
+  return formatKeyLocation(tag.pitches?.pitch_number_or_name, tag.key_special_locations?.label);
 }
 
 const searchFieldStyle = {

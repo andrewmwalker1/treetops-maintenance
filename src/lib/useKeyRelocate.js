@@ -18,7 +18,9 @@ export function useKeyRelocate() {
   const [openTagIds, setOpenTagIds] = useState(new Set());
   const [selectedTag, setSelectedTag] = useState(null);
 
-  const [kind, setKind] = useState("pitch");
+  // pitch_id and special_location_id are independent now (47-key-tags-
+  // pitch-persists-through-special-location.sql) -- no more "kind" to
+  // switch between, both fields are just edited directly.
   const [pitchId, setPitchId] = useState("");
   const [specialLocationId, setSpecialLocationId] = useState("");
 
@@ -48,7 +50,6 @@ export function useKeyRelocate() {
   function pickTag(tag) {
     setError(null);
     setSelectedTag(tag);
-    setKind(tag.special_location_id ? "special" : "pitch");
     setPitchId(tag.pitch_id || "");
     setSpecialLocationId(tag.special_location_id || "");
     setView("confirm");
@@ -60,7 +61,10 @@ export function useKeyRelocate() {
     refresh();
   }
 
-  const canSubmit = kind === "pitch" ? Boolean(pitchId) : Boolean(specialLocationId);
+  // At least one of the two must stay set from this screen -- dropping a
+  // key to no location at all is what KeyTagsTab's dedicated "Remove"
+  // action is for, not a side effect of relocating.
+  const canSubmit = Boolean(pitchId || specialLocationId);
 
   async function handleSubmit() {
     if (!canSubmit) return;
@@ -69,8 +73,8 @@ export function useKeyRelocate() {
     const { error: err } = await supabase
       .from("key_tags")
       .update({
-        pitch_id: kind === "pitch" ? pitchId : null,
-        special_location_id: kind === "special" ? specialLocationId : null,
+        pitch_id: pitchId || null,
+        special_location_id: specialLocationId || null,
       })
       .eq("id", selectedTag.id);
     setSubmitting(false);
@@ -88,8 +92,6 @@ export function useKeyRelocate() {
     specialLocations,
     openTagIds,
     selectedTag,
-    kind,
-    setKind,
     pitchId,
     setPitchId,
     specialLocationId,

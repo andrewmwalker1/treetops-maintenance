@@ -4,6 +4,7 @@
 // instead of drifting into two slightly different queries over time.
 
 import { supabase } from "./supabaseClient.js";
+import { formatKeyLocation } from "../keys/KeySelector.jsx";
 
 export async function queryOpenKeyCheckouts(siteId) {
   const { data } = await supabase
@@ -21,7 +22,7 @@ export async function queryOpenKeyCheckouts(siteId) {
 }
 
 export function keyLocationLabel(checkout) {
-  return checkout.key_tags?.pitches?.pitch_number_or_name || checkout.key_tags?.key_special_locations?.label || "Unknown location";
+  return formatKeyLocation(checkout.key_tags?.pitches?.pitch_number_or_name, checkout.key_tags?.key_special_locations?.label, "Unknown location");
 }
 
 export function keyIssuedToLabel(checkout) {

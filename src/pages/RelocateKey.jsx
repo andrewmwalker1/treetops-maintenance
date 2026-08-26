@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { usePermissions } from "../lib/permissions.js";
 import { useKeyRelocate } from "../lib/useKeyRelocate.js";
-import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
+import KeySelector, { locationLabel, formatKeyLocation } from "../keys/KeySelector.jsx";
 import PitchPicker from "../components/PitchPicker.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
@@ -38,8 +38,6 @@ export default function RelocateKey() {
     specialLocations,
     openTagIds,
     selectedTag,
-    kind,
-    setKind,
     pitchId,
     setPitchId,
     specialLocationId,
@@ -63,7 +61,10 @@ export default function RelocateKey() {
   }
 
   if (view === "done") {
-    const newLabel = kind === "pitch" ? pitches.find((p) => p.id === pitchId)?.pitch_number_or_name : specialLocations.find((s) => s.id === specialLocationId)?.label;
+    const newLabel = formatKeyLocation(
+      pitches.find((p) => p.id === pitchId)?.pitch_number_or_name,
+      specialLocations.find((s) => s.id === specialLocationId)?.label
+    );
     return (
       <div style={{ maxWidth: "560px" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Relocated</h1>
@@ -91,25 +92,15 @@ export default function RelocateKey() {
         )}
 
         <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px", fontSize: "14px" }}>Move to…</p>
-          <div style={{ display: "flex", gap: "16px", marginBottom: "10px" }}>
-            <label style={{ fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
-              <input type="radio" checked={kind === "pitch"} onChange={() => setKind("pitch")} /> Pitch
-            </label>
-            <label style={{ fontSize: "14px", display: "flex", alignItems: "center", gap: "6px" }}>
-              <input type="radio" checked={kind === "special"} onChange={() => setKind("special")} /> Special location
-            </label>
-          </div>
-          {kind === "pitch" ? (
-            <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} />
-          ) : (
-            <select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
-              <option value="">—</option>
-              {specialLocations.map((s) => (
-                <option key={s.id} value={s.id}>{s.label}</option>
-              ))}
-            </select>
-          )}
+          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "4px", fontSize: "14px" }}>Home pitch</p>
+          <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} />
+          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "4px", fontSize: "14px" }}>Currently at a special location</p>
+          <select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
+            <option value="">— in the cupboard at its pitch —</option>
+            {specialLocations.map((s) => (
+              <option key={s.id} value={s.id}>{s.label}</option>
+            ))}
+          </select>
         </div>
 
         {error && <p style={{ color: colors.immediate }}>{error}</p>}

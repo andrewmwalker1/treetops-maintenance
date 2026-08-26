@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
 import PitchPicker from "../../components/PitchPicker.jsx";
+import { formatKeyLocation } from "../../keys/KeySelector.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -16,9 +17,9 @@ const fieldStyle = {
 };
 
 function locationLabel(tag, pitches, specialLocations) {
-  if (tag.pitch_id) return pitches.find((p) => p.id === tag.pitch_id)?.pitch_number_or_name || "Unknown pitch";
-  if (tag.special_location_id) return specialLocations.find((s) => s.id === tag.special_location_id)?.label || "Unknown location";
-  return "Unallocated (spare)";
+  const pitchLabel = tag.pitch_id ? pitches.find((p) => p.id === tag.pitch_id)?.pitch_number_or_name || "Unknown pitch" : null;
+  const specialLabel = tag.special_location_id ? specialLocations.find((s) => s.id === tag.special_location_id)?.label || "Unknown location" : null;
+  return formatKeyLocation(pitchLabel, specialLabel, "Unallocated (spare)");
 }
 
 const SEARCH_MAX_SUGGESTIONS = 50;
@@ -162,31 +163,25 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
   );
 }
 
-// Shared by the "register a new tag" form and each row's "move" form --
-// both need the same pitch-or-special-location choice NewJob.jsx already
-// establishes for job locations (pitch vs. area), just with key_tags'
-// two location columns instead.
-function LocationPicker({ pitches, specialLocations, kind, setKind, pitchId, setPitchId, specialLocationId, setSpecialLocationId, autoFocus = false }) {
+// Shared by the "register a new tag" form and each row's "move" form.
+// Pitch and special location are independent fields (47-key-tags-pitch-
+// persists-through-special-location.sql), not a pick-one choice: a key
+// keeps its home pitch the whole time it's sitting at a special location
+// (e.g. the caravan prep ring), so both are always editable together --
+// clearing the special-location field alone is "moved back to the main
+// cupboard".
+function LocationPicker({ pitches, specialLocations, pitchId, setPitchId, specialLocationId, setSpecialLocationId, autoFocus = false }) {
   return (
     <>
-      <div style={{ display: "flex", gap: "16px", marginBottom: "10px" }}>
-        <label style={{ fontSize: "13px" }}>
-          <input type="radio" checked={kind === "pitch"} onChange={() => setKind("pitch")} /> Pitch
-        </label>
-        <label style={{ fontSize: "13px" }}>
-          <input type="radio" checked={kind === "special"} onChange={() => setKind("special")} /> Special location
-        </label>
-      </div>
-      {kind === "pitch" ? (
-        <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} autoFocus={autoFocus} />
-      ) : (
-        <select required value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
-          <option value="">—</option>
-          {specialLocations.map((s) => (
-            <option key={s.id} value={s.id}>{s.label}</option>
-          ))}
-        </select>
-      )}
+      <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Home pitch</label>
+      <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} autoFocus={autoFocus} />
+      <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Currently at a special location</label>
+      <select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
+        <option value="">— in the cupboard at its pitch —</option>
+        {specialLocations.map((s) => (
+          <option key={s.id} value={s.id}>{s.label}</option>
+        ))}
+      </select>
     </>
   );
 }
@@ -210,12 +205,10 @@ export default function KeyTagsTab() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const [scannedUid, setScannedUid] = useState(null);
-  const [assignKind, setAssignKind] = useState("pitch");
   const [assignPitchId, setAssignPitchId] = useState("");
   const [assignSpecialLocationId, setAssignSpecialLocationId] = useState("");
 
   const [movingTagId, setMovingTagId] = useState(null);
-  const [moveKind, setMoveKind] = useState("pitch");
   const [movePitchId, setMovePitchId] = useState("");
   const [moveSpecialLocationId, setMoveSpecialLocationId] = useState("");
 
@@ -288,10 +281,26 @@ export default function KeyTagsTab() {
     else refresh();
   }
 
+  // Physical key tags carry no visible number -- an RFID scan is the only
+  // way to know which key_tags row a key in your hand actually is. A new
+  // (unregistered) UID opens "Register a new tag" as before; a UID that's
+  // already on file jumps straight to that row's Move form instead of
+  // erroring, since that's exactly the case Andy needs for fixing up keys
+  // sitting in a special location with no home pitch attached yet --
+  // scan the key, its row appears already selected for editing. The
+  // search box is set to the tag's own UID (unique) so that row is the
+  // only one showing, regardless of what was typed/filtered before.
   function handleScan(uid) {
     setError(null);
+    const existing = keyTags.find((t) => t.tag_uid === uid);
+    if (existing) {
+      setStatusFilter("all");
+      setSearch(existing.tag_uid);
+      startMove(existing);
+      setScannedUid(null);
+      return;
+    }
     setScannedUid(uid);
-    setAssignKind("pitch");
     setAssignPitchId("");
     setAssignSpecialLocationId("");
   }
@@ -299,19 +308,12 @@ export default function KeyTagsTab() {
   async function handleAssign(e) {
     e.preventDefault();
     if (!scannedUid) return;
-    // PitchPicker only resolves to a real id on an exact match -- a select
-    // enforced this with the required attribute, but a free-typed search
-    // box needs the same check done explicitly.
-    if (assignKind === "pitch" && !assignPitchId) {
-      setError("Pick a pitch from the list before saving.");
-      return;
-    }
     const { error: err } = await supabase.from("key_tags").insert({
       org_id: org.id,
       site_id: activeSite.id,
       tag_uid: scannedUid,
-      pitch_id: assignKind === "pitch" ? assignPitchId : null,
-      special_location_id: assignKind === "special" ? assignSpecialLocationId : null,
+      pitch_id: assignPitchId || null,
+      special_location_id: assignSpecialLocationId || null,
     });
     if (err) {
       if (err.code === "23505") {
@@ -328,17 +330,12 @@ export default function KeyTagsTab() {
 
   function startMove(tag) {
     setMovingTagId(tag.id);
-    setMoveKind(tag.special_location_id ? "special" : "pitch");
     setMovePitchId(tag.pitch_id || "");
     setMoveSpecialLocationId(tag.special_location_id || "");
   }
 
   async function handleMove(e) {
     e.preventDefault();
-    if (moveKind === "pitch" && !movePitchId) {
-      setError("Pick a pitch from the list before saving.");
-      return;
-    }
     const tag = keyTags.find((t) => t.id === movingTagId);
     if (tag && openTagIds.has(tag.id)) {
       const proceed = window.confirm(
@@ -349,8 +346,8 @@ export default function KeyTagsTab() {
     const { error: err } = await supabase
       .from("key_tags")
       .update({
-        pitch_id: moveKind === "pitch" ? movePitchId : null,
-        special_location_id: moveKind === "special" ? moveSpecialLocationId : null,
+        pitch_id: movePitchId || null,
+        special_location_id: moveSpecialLocationId || null,
       })
       .eq("id", movingTagId);
     if (err) {
@@ -391,7 +388,8 @@ export default function KeyTagsTab() {
     <div>
       <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Key RFID tags</h2>
       <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
-        Scan a tag to register it against a pitch or a special location. Multiple tags can share the same pitch (a caravan with more than one key).
+        Scan a tag to register a new one, or to jump straight to an existing tag's own Move form below (physical keys carry no visible number, so
+        scanning is the only reliable way to find the right row). Multiple tags can share the same pitch (a caravan with more than one key).
       </p>
 
       {/* Up here, not below the tag list, so scanning a tag doesn't mean
@@ -411,8 +409,6 @@ export default function KeyTagsTab() {
             <LocationPicker
               pitches={pitches}
               specialLocations={specialLocations}
-              kind={assignKind}
-              setKind={setAssignKind}
               pitchId={assignPitchId}
               setPitchId={setAssignPitchId}
               specialLocationId={assignSpecialLocationId}
@@ -494,8 +490,6 @@ export default function KeyTagsTab() {
               <LocationPicker
                 pitches={pitches}
                 specialLocations={specialLocations}
-                kind={moveKind}
-                setKind={setMoveKind}
                 pitchId={movePitchId}
                 setPitchId={setMovePitchId}
                 specialLocationId={moveSpecialLocationId}

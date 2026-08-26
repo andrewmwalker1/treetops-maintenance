@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { queryKeyCheckouts } from "../../lib/keyCheckoutsQuery.js";
+import { formatKeyLocation } from "../../keys/KeySelector.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -40,7 +41,7 @@ function formatDateTime(iso) {
 }
 
 function locationLabel(checkout) {
-  return checkout.key_tags?.pitches?.pitch_number_or_name || checkout.key_tags?.key_special_locations?.label || "Unknown location";
+  return formatKeyLocation(checkout.key_tags?.pitches?.pitch_number_or_name, checkout.key_tags?.key_special_locations?.label, "Unknown location");
 }
 
 function issuedToLabel(checkout) {
