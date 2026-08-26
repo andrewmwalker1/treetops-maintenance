@@ -41,7 +41,7 @@ function formatDateTime(iso) {
 }
 
 function locationLabel(checkout) {
-  return formatKeyLocation(checkout.key_tags?.pitches?.pitch_number_or_name, checkout.key_tags?.key_special_locations?.label, "Unknown location");
+  return formatKeyLocation(checkout.key_tags?.pitches?.pitch_number_or_name, checkout.key_tags?.key_special_locations?.label);
 }
 
 function issuedToLabel(checkout) {
