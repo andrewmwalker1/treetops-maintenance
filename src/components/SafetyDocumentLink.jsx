@@ -5,20 +5,22 @@ import { colors, fonts } from "../lib/theme.js";
 const buttonVariants = {
   // Matches the kiosk's touch-sized machine-selection buttons -- Andy
   // found the default text link too small to reliably tap on the
-  // workshop touchscreen.
-  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px" },
+  // workshop touchscreen. Outlined, same as it's always been -- kiosk
+  // screens weren't part of the later "make it contrast more" ask.
+  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px", background: "transparent", border: colors.lineStrong },
   // Matches the in-app (phone) machine list buttons' proportions
   // (listButtonStyle in CheckoutKit.jsx/CheckinKit.jsx) -- same
   // button-per-document treatment, sized for the smaller non-kiosk view.
-  button: { padding: "12px 16px", typeSize: "11px", titleSize: "15px", descSize: "13px" },
+  // Filled solid (Andy: the outlined version blended into the page
+  // background) rather than transparent like the kiosk variant.
+  button: { padding: "12px 16px", typeSize: "11px", titleSize: "15px", descSize: "13px", background: colors.moss, border: colors.moss, color: "#FFFFFF", mutedColor: "rgba(255, 255, 255, 0.75)" },
 };
 
 // Renders one RA/MS library entry: type, title (linked to a signed PDF
 // URL once resolved), and the optional secondary summary. `variant`
 // swaps the default compact text link ("text") for a tappable button
-// ("button" / "kiosk-button") -- outlined rather than filled solid like
-// the machine-selection buttons, since a document is something to open,
-// not a choice to make.
+// ("button" / "kiosk-button") -- each variant's own look/colours are in
+// buttonVariants above.
 export default function SafetyDocumentLink({ doc, variant = "text" }) {
   const [url, setUrl] = useState(null);
 
@@ -39,23 +41,25 @@ export default function SafetyDocumentLink({ doc, variant = "text" }) {
   const buttonSizing = buttonVariants[variant];
   if (buttonSizing) {
     const Tag = url ? "a" : "div";
+    const textColor = buttonSizing.color || colors.mossDark;
+    const mutedColor = buttonSizing.mutedColor || colors.inkSoft;
     return (
       <Tag
         {...(url ? { href: url, target: "_blank", rel: "noreferrer" } : {})}
         style={{
           display: "block",
           textDecoration: "none",
-          background: "transparent",
-          border: `2px solid ${colors.lineStrong}`,
+          background: buttonSizing.background,
+          border: `2px solid ${buttonSizing.border}`,
           borderRadius: "14px",
           padding: buttonSizing.padding,
           marginBottom: "10px",
           fontFamily: fonts.body,
-          color: colors.mossDark,
+          color: textColor,
           cursor: url ? "pointer" : "default",
         }}
       >
-        <div style={{ fontSize: buttonSizing.typeSize, color: colors.inkSoft, textTransform: "capitalize", marginBottom: "4px" }}>
+        <div style={{ fontSize: buttonSizing.typeSize, color: mutedColor, textTransform: "capitalize", marginBottom: "4px" }}>
           {doc.type.replace("_", " ")}
         </div>
         <div style={{ fontSize: buttonSizing.titleSize, fontWeight: 700 }}>
@@ -63,7 +67,7 @@ export default function SafetyDocumentLink({ doc, variant = "text" }) {
           {!doc.pdf_storage_path && " (no PDF yet)"}
         </div>
         {doc.description && (
-          <div style={{ fontSize: buttonSizing.descSize, color: colors.inkSoft, marginTop: "6px" }}>{doc.description}</div>
+          <div style={{ fontSize: buttonSizing.descSize, color: mutedColor, marginTop: "6px" }}>{doc.description}</div>
         )}
       </Tag>
     );
