@@ -52,6 +52,9 @@ export function useEquipmentCheckin() {
           for (const link of docLinks || []) {
             (documentsByType[link.equipment_type_id] ||= []).push(link.document);
           }
+          for (const docs of Object.values(documentsByType)) {
+            docs.sort((a, b) => a.title.localeCompare(b.title));
+          }
         }
         setCheckouts(
           rows.map((c) => ({

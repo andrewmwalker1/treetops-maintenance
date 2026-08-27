@@ -42,7 +42,7 @@ export default function EquipmentTypesTab() {
     Promise.all([
       supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout, sort_order").eq("org_id", org.id).order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
-      supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id),
+      supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id).order("title"),
       supabase.from("equipment_type_documents").select("equipment_type_id, document_id"),
     ]).then(([{ data: t, error: err }, { data: eq }, { data: docs }, { data: links }]) => {
       if (err) setError(err.message);

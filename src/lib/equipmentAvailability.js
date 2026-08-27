@@ -31,6 +31,9 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
   for (const link of docLinks || []) {
     documentsByType[link.equipment_type_id] = [...(documentsByType[link.equipment_type_id] || []), link.document];
   }
+  for (const docs of Object.values(documentsByType)) {
+    docs.sort((a, b) => a.title.localeCompare(b.title));
+  }
 
   return (types || []).map((t) => ({
     id: t.id,

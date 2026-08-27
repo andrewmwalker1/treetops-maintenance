@@ -27,7 +27,7 @@ export default function ActivityTypesTab() {
   function refresh() {
     Promise.all([
       supabase.from("task_types").select("id, name, equipment_category").eq("org_id", org.id),
-      supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id),
+      supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id).order("title"),
       supabase.from("activity_type_documents").select("task_type_id, document_id"),
     ]).then(([{ data: tt }, { data: docs }, { data: links }]) => {
       setActivityTypes(tt || []);
