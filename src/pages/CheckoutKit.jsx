@@ -98,6 +98,16 @@ export default function CheckoutKit() {
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{selectedType.name}</h1>
 
+        {selectedType.documents.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSafety(true)}
+            style={{ ...buttonStyle.secondary, marginBottom: "12px", color: colors.immediate, borderColor: colors.immediate }}
+          >
+            ⚠ Health &amp; Safety
+          </button>
+        )}
+
         {selectedType.preUseChecklist.length > 0 && (
           <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginTop: 0 }}>Before you take it</h2>
@@ -168,6 +178,23 @@ export default function CheckoutKit() {
               </button>
             </div>
           </>
+        )}
+
+        {showSafety && (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
+            onClick={() => setShowSafety(false)}
+          >
+            <div style={{ ...cardStyle, padding: "20px", maxWidth: "480px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "17px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
+              {selectedType.documents.map((doc) => (
+                <SafetyDocumentLink key={doc.id} doc={doc} />
+              ))}
+              <button type="button" style={{ ...buttonStyle.secondary, marginTop: "14px" }} onClick={() => setShowSafety(false)}>
+                Close
+              </button>
+            </div>
+          </div>
         )}
       </div>
     );
