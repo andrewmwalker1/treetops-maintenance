@@ -78,6 +78,15 @@ export default function JobDetail() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completeDate, setCompleteDate] = useState(today());
   const [completeComment, setCompleteComment] = useState("");
+  // Only relevant when job.equipment_id is set (see
+  // 49-equipment-repair-jobs.sql) -- what completing this repair job should
+  // do to the machine it's linked to.
+  const [equipmentOutcome, setEquipmentOutcome] = useState("available"); // available | decommission
+  const [equipmentRepairNote, setEquipmentRepairNote] = useState("");
+  const [equipmentRepairCost, setEquipmentRepairCost] = useState("");
+  const [equipmentRepairVendor, setEquipmentRepairVendor] = useState("");
+  const [equipmentDecommissionReason, setEquipmentDecommissionReason] = useState("scrapped");
+  const [equipmentDecommissionNotes, setEquipmentDecommissionNotes] = useState("");
   const [reopenTargetStatusId, setReopenTargetStatusId] = useState(null);
   const [reopenComment, setReopenComment] = useState("");
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
@@ -303,6 +312,17 @@ export default function JobDetail() {
   // server-side too, see 33-checklist-photo-blocks-completion.sql.
   const outstandingPhotoItems = subtasks.filter((s) => s.requires_photo && !s.is_checked);
 
+  function openCompleteModal() {
+    setError(null);
+    setEquipmentOutcome("available");
+    setEquipmentRepairNote("");
+    setEquipmentRepairCost("");
+    setEquipmentRepairVendor("");
+    setEquipmentDecommissionReason("scrapped");
+    setEquipmentDecommissionNotes("");
+    setShowCompleteModal(true);
+  }
+
   async function handleStatusChange(newStatusId) {
     if (newStatusId === job.status_id) return;
     const newStatus = statuses.find((s) => s.id === newStatusId);
@@ -313,8 +333,7 @@ export default function JobDetail() {
     // captured together — the plain dropdown just redirects there instead
     // of applying the change itself.
     if (newStatus?.name === "Completed" && !oldCompleted) {
-      setError(null);
-      setShowCompleteModal(true);
+      openCompleteModal();
       return;
     }
 
@@ -391,13 +410,29 @@ export default function JobDetail() {
       if (!proceed) return;
     }
 
-    const { error: err } = await writeJobCompletion({
+    const { error: err, equipmentError } = await writeJobCompletion({
       jobId: job.id,
       oldStatusId: job.status_id,
       completedStatusId: completedStatus.id,
       actorProfileId: profile.id,
       completedDate: completeDate,
       comment: completeComment,
+      equipmentResolution: job.equipment_id
+        ? equipmentOutcome === "decommission"
+          ? {
+              equipmentId: job.equipment_id,
+              outcome: "decommission",
+              decommissionReason: equipmentDecommissionReason,
+              decommissionNotes: equipmentDecommissionNotes,
+            }
+          : {
+              equipmentId: job.equipment_id,
+              outcome: "available",
+              note: equipmentRepairNote,
+              cost: equipmentRepairCost,
+              vendor: equipmentRepairVendor,
+            }
+        : null,
     });
     if (err) {
       setError(err.message);
@@ -407,6 +442,7 @@ export default function JobDetail() {
     setShowCompleteModal(false);
     setCompleteDate(today());
     setCompleteComment("");
+    if (equipmentError) setError(`Job completed, but updating the equipment failed: ${equipmentError}`);
     loadAll();
   }
 
@@ -845,6 +881,18 @@ export default function JobDetail() {
             </p>
           )}
 
+          {job.equipment_id && (
+            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: colors.inkSoft }}>Equipment: </span>
+              <span
+                onClick={() => navigate(`/equipment/${job.equipment_id}`)}
+                style={{ color: colors.moss, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+              >
+                {job.equipment?.name || "View machine"}
+              </span>
+            </p>
+          )}
+
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Photo required to complete</label>
           {canRequireJobPhoto ? (
             <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", margin: "4px 0 14px", cursor: "pointer" }}>
@@ -1180,7 +1228,7 @@ export default function JobDetail() {
           )}
           <button
             type="button"
-            onClick={() => setShowCompleteModal(true)}
+            onClick={openCompleteModal}
             disabled={outstandingPhotoItems.length > 0}
             title={outstandingPhotoItems.length > 0 ? "Check off all photo-required checklist items first" : undefined}
             style={{
@@ -1227,6 +1275,74 @@ export default function JobDetail() {
             <p style={{ color: colors.immediate, fontSize: "13px" }}>
               {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo — go back to the checklist and add {outstandingPhotoItems.length === 1 ? "it" : "them"} before completing.
             </p>
+          )}
+
+          {job.equipment_id && (
+            <div style={{ borderTop: `1px solid ${colors.line}`, marginTop: "4px", paddingTop: "14px" }}>
+              <label style={modalLabelStyle}>
+                This job is linked to <strong>{job.equipment?.name || "a machine"}</strong> — what's the outcome?
+              </label>
+              <div style={{ display: "flex", gap: "16px", marginBottom: "10px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
+                  <input type="radio" checked={equipmentOutcome === "available"} onChange={() => setEquipmentOutcome("available")} /> Mark available again
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
+                  <input type="radio" checked={equipmentOutcome === "decommission"} onChange={() => setEquipmentOutcome("decommission")} /> Decommission
+                </label>
+              </div>
+
+              {equipmentOutcome === "available" ? (
+                <>
+                  <label style={modalLabelStyle}>Repair note (optional)</label>
+                  <textarea
+                    value={equipmentRepairNote}
+                    onChange={(e) => setEquipmentRepairNote(e.target.value)}
+                    rows={2}
+                    style={{ ...selectStyle, resize: "vertical" }}
+                  />
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={modalLabelStyle}>Cost (optional)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={equipmentRepairCost}
+                        onChange={(e) => setEquipmentRepairCost(e.target.value)}
+                        style={selectStyle}
+                      />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={modalLabelStyle}>Vendor (optional)</label>
+                      <input
+                        value={equipmentRepairVendor}
+                        onChange={(e) => setEquipmentRepairVendor(e.target.value)}
+                        style={selectStyle}
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label style={modalLabelStyle}>Reason</label>
+                  <select
+                    value={equipmentDecommissionReason}
+                    onChange={(e) => setEquipmentDecommissionReason(e.target.value)}
+                    style={selectStyle}
+                  >
+                    <option value="scrapped">Scrapped</option>
+                    <option value="sold">Sold</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <label style={modalLabelStyle}>Notes (optional)</label>
+                  <textarea
+                    value={equipmentDecommissionNotes}
+                    onChange={(e) => setEquipmentDecommissionNotes(e.target.value)}
+                    rows={2}
+                    style={{ ...selectStyle, resize: "vertical" }}
+                  />
+                </>
+              )}
+            </div>
           )}
 
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>

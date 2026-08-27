@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { supabase } from "./supabaseClient.js";
 import { getEquipmentTypeAvailabilityCounts, getAvailableUnits } from "./equipmentAvailability.js";
+import { notifyJobAssigned } from "./jobAssignmentNotify.js";
 
 export function useEquipmentCheckout() {
   const { profile, org } = useAuth();
@@ -107,7 +108,7 @@ export function useEquipmentCheckout() {
   async function handleReportIssue(unitId, description) {
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.rpc("report_equipment_fault", {
+    const { data, error: err } = await supabase.rpc("report_equipment_fault", {
       p_equipment_id: unitId,
       p_description: description,
       p_close_checkout_id: null,
@@ -116,6 +117,21 @@ export function useEquipmentCheckout() {
     if (err) {
       setError(err.message);
       return;
+    }
+    const jobId = (Array.isArray(data) ? data[0] : data)?.job_id;
+    if (jobId) {
+      supabase
+        .from("jobs")
+        .select("id, description, assignee_profile_id, assignee_group_id")
+        .eq("id", jobId)
+        .single()
+        .then(({ data: newJob }) => {
+          if (newJob) {
+            notifyJobAssigned({ job: newJob, actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err2) =>
+              console.error("Failed to notify repair job assignee", err2)
+            );
+          }
+        });
     }
     setReportingIssueFor(null);
     setUnits((prev) => prev.filter((u) => u.id !== unitId));

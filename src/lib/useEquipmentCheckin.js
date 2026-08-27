@@ -9,6 +9,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { supabase } from "./supabaseClient.js";
+import { notifyJobAssigned } from "./jobAssignmentNotify.js";
 
 export function useEquipmentCheckin() {
   const { profile } = useAuth();
@@ -132,7 +133,7 @@ export function useEquipmentCheckin() {
     const checkout = checkouts.find((c) => c.id === checkoutId);
     setBusy(true);
     setError(null);
-    const { error: err } = await supabase.rpc("report_equipment_fault", {
+    const { data, error: err } = await supabase.rpc("report_equipment_fault", {
       p_equipment_id: checkout.equipment.id,
       p_description: description,
       p_close_checkout_id: checkoutId,
@@ -141,6 +142,21 @@ export function useEquipmentCheckin() {
     if (err) {
       setError(err.message);
       return;
+    }
+    const jobId = (Array.isArray(data) ? data[0] : data)?.job_id;
+    if (jobId) {
+      supabase
+        .from("jobs")
+        .select("id, description, assignee_profile_id, assignee_group_id")
+        .eq("id", jobId)
+        .single()
+        .then(({ data: newJob }) => {
+          if (newJob) {
+            notifyJobAssigned({ job: newJob, actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err2) =>
+              console.error("Failed to notify repair job assignee", err2)
+            );
+          }
+        });
     }
     setReportingIssueFor(null);
     setSelectedIds((prev) => {

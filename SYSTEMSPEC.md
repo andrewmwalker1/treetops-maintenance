@@ -170,7 +170,7 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 | **job_type_task_types** | `job_type_id→job_types`, `task_type_id→task_types`, PK(both) | The *default* activity types a template pre-ticks on New Job — not a hard link; `job_activity_types` (below) is the real per-job source of truth. |
 | **schedules** | `id`, `org_id`, `site_id`, `job_type_id` (nullable — "no template" is a valid, fully-supported choice), `rrule` (text — full RFC5545 string **including DTSTART**), `lead_in_days` (int), `last_generated_date` (date, nullable), `description` (text, required, **not nullable** — backfilled from the job type's name for any pre-existing row when this column was added), `priority` (`job_priority`, default medium), `assignee_profile_id` / `assignee_group_id` (nullable, **at most one set**, person/group only — deliberately no contractor option for a recurring schedule), `pitch_id` / `area_id` (nullable), `is_active` (bool, default true) | Every field a generated job needs now lives on the schedule itself (full parity with New Job), rather than only a job-type template. Pausing sets `is_active=false`; the generator skips inactive rows entirely. Resuming resets `last_generated_date` to yesterday first, so a schedule paused for weeks doesn't immediately burst out a backlog of missed occurrences on resume — it just picks up from "due as of today." |
 | **schedule_task_types** | `schedule_id→schedules`, `task_type_id→task_types`, PK(both) | The activity types a generated job should carry, mirroring `job_activity_types` the same way `job_type_task_types` mirrors it for templates — set once on the schedule, copied onto every job it generates. |
-| **jobs** | `id`, `org_id`, `site_id`, `job_type_id` (nullable), `description` (required), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set — `num_nonnulls(...) <= 1`**), `priority` (`job_priority`, default medium), `status_id` (required), `due_date` (date, nullable), `lead_in_date` (date, nullable), `pitch_id` / `area_id` (nullable), `schedule_id→schedules` (nullable — set only by the generator), `closed_by→profiles` (nullable), `created_by→profiles` (nullable — null for scheduler-generated jobs), `created_at`, `client_generated_id` (uuid, unique — offline creation dedup), `completed_date` (date, nullable — the date work actually happened, may be backdated, distinct from `created_at`), `requires_photo` (bool, default false — hard per-job flag, distinct from `job_type.requires_completion_photo`, see §6.3), `due_reminder_sent_at` (timestamptz, nullable) | Indexed on (`org_id`,`site_id`), `assignee_profile_id`, `assignee_group_id`, `status_id`. `due_reminder_sent_at` gates the scheduler's same-day due-date push reminder (§7, §13) so it fires once, not once per cron run. |
+| **jobs** | `id`, `org_id`, `site_id`, `job_type_id` (nullable), `description` (required), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set — `num_nonnulls(...) <= 1`**), `priority` (`job_priority`, default medium), `status_id` (required), `due_date` (date, nullable), `lead_in_date` (date, nullable), `pitch_id` / `area_id` (nullable), `equipment_id→equipment` (nullable — set only by `report_equipment_fault`, see §4.5/§6.12), `schedule_id→schedules` (nullable — set only by the generator), `closed_by→profiles` (nullable), `created_by→profiles` (nullable — null for scheduler-generated jobs), `created_at`, `client_generated_id` (uuid, unique — offline creation dedup), `completed_date` (date, nullable — the date work actually happened, may be backdated, distinct from `created_at`), `requires_photo` (bool, default false — hard per-job flag, distinct from `job_type.requires_completion_photo`, see §6.3), `due_reminder_sent_at` (timestamptz, nullable) | Indexed on (`org_id`,`site_id`), `assignee_profile_id`, `assignee_group_id`, `status_id`, `equipment_id`. `due_reminder_sent_at` gates the scheduler's same-day due-date push reminder (§7, §13) so it fires once, not once per cron run. |
 | **job_photos** | `id`, `job_id→jobs`, `storage_path`, `uploaded_by→profiles`, `uploaded_at`, `job_subtask_id→job_subtasks` (nullable, `ON DELETE SET NULL`) | Storage path convention: `<job_id>/<uuid>-<filename>` in the `job-photos` bucket. `job_subtask_id` is set when a photo was captured to satisfy a specific checklist item's photo requirement (§6.3a) — null for ordinary job-level photos. |
 | **job_subtasks** | `id`, `job_id→jobs`, `label`, `is_checked` (bool), `sort_order` (int), `requires_photo` (bool, default false) | The per-job checklist. Checking off an item that doesn't require a photo never needs a permission; renaming/reordering/deleting an existing item requires `can_edit_job_checklist` (enforced server-side, not just hidden client-side — see §6.2). Checking off an item where `requires_photo=true` requires either an attached photo (`job_photos.job_subtask_id`) or `can_check_off_item_without_photo` — see §6.3a. Setting `requires_photo` itself requires `can_require_checklist_item_photo` — see §6.3a. |
 | **job_activity** | `id`, `job_id→jobs`, `event_type` (`status_change`/`reallocation`/`comment`/`edit`/`contractor_email`), `actor_profile_id→profiles`, `previous_value` (jsonb), `new_value` (jsonb), `created_at` | **Append-only.** A DB trigger unconditionally blocks `DELETE` on this table (with one narrow, transaction-scoped exception used only by the `delete_job` RPC's cascade — see §6.5). Rows *can* be corrected via `UPDATE`. |
@@ -191,9 +191,10 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 |---|---|---|
 | **equipment_types** | `id`, `org_id`, `name`, unique(`org_id`,`name`), `pre_use_checklist` (jsonb, same shape as `job_types.template_schema`), `sort_order` (int), `allow_multi_checkout` (bool, default false) | Groups individual units by what they are (e.g. all of ST1/ST2/ST3 are "Strimmer"). `pre_use_checklist` is shown read-only on the kiosk before checkout. `sort_order` controls the kiosk's checkout category grid order. `allow_multi_checkout` switches the kiosk's unit picker to a tick-many-then-continue flow (e.g. batteries). |
 | **equipment_type_documents** | `equipment_type_id→equipment_types`, `document_id→ra_ms_documents`, PK(both) | Many-to-many, same shape as `activity_type_documents` (§4.4) — lets an equipment type (not just an activity type) carry its own linked RA/MS documents. Managed from the Equipment Types admin tab (§11); surfaced as a "Health & Safety" button on the kiosk check-out screen (§12.5) and browsable stand-alone from the kiosk's Health & Safety screen (§12.8). |
-| **equipment** | `id`, `org_id`, `site_id` (nullable), `held_by_profile_id→profiles` (nullable — long-term personal issue, distinct from kiosk checkouts, nothing currently writes it from the UI), `name` ("Kit ID" in the UI, e.g. `ST1`), `status` (`equipment_status`, default in_service), `check_frequency_days` (int, nullable — loaded but never surfaced in any UI), `equipment_type_id→equipment_types` (nullable), `make`, `model` (text, nullable), `serial_number`, `other_id_number` (text, nullable), `date_added` (date, nullable) | |
+| **equipment** | `id`, `org_id`, `site_id` (nullable), `held_by_profile_id→profiles` (nullable — long-term personal issue, distinct from kiosk checkouts, nothing currently writes it from the UI), `name` ("Kit ID" in the UI, e.g. `ST1`), `status` (`equipment_status` — in_service/faulty/in_repair/scrapped/**decommissioned**, default in_service), `check_frequency_days` (int, nullable — loaded but never surfaced in any UI), `equipment_type_id→equipment_types` (nullable), `make`, `model` (text, nullable), `serial_number`, `other_id_number` (text, nullable), `date_added` (date, nullable), `decommissioned_at` (date, nullable), `decommission_reason` (text, nullable — `scrapped`/`sold`/`other`), `decommission_notes` (text, nullable) | Decommissioning (Equipment admin tab) is the structured, everyday alternative to deleting a row — flips `status` and records why/when. A repair job's completion (§6.12) can also decommission the machine it's linked to, using the same three columns. |
+| **equipment_type_repair_assignees** | `id`, `org_id`, `equipment_type_id→equipment_types` (nullable — null row is the org-wide default), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set**), `created_at` | Who a reported fault's auto-created repair job gets routed to, per equipment type (Dave fixes strimmers, Andy fixes small tractors, Maintenance fixes blowers, etc.) — see §6.12. At most one type-specific row and one default (`equipment_type_id is null`) row per org, enforced by partial unique indexes. Managed from the Equipment Types admin tab (§11). A row with all three assignee columns null is treated the same as no row at all (falls through to the default). |
 | **equipment_checks** | `id`, `equipment_id→equipment`, `checked_by→profiles`, `checked_at`, `passed` (bool) | Any signed-in user (not permission-gated) can log a pass/fail check from the Equipment Detail page. |
-| **fault_reports** | `id`, `equipment_id→equipment`, `reported_by→profiles`, `description`, `appointed_person_id→profiles` (nullable — loaded nowhere currently, dead field), `created_at` | |
+| **fault_reports** | `id`, `equipment_id→equipment`, `reported_by→profiles`, `description`, `appointed_person_id→profiles` (nullable — **superseded by `job_id` below as of migration 49**; left in place for old rows, no longer written by the app), `job_id→jobs` (nullable — the auto-created repair job, see §6.12; null only if the org had no site/status configured at report time), `created_at` | |
 | **fault_photos** | `id`, `fault_report_id→fault_reports`, `storage_path` | Storage path: `<equipment_id>/<uuid>-<filename>` in the `fault-photos` bucket. |
 | **repair_records** | `id`, `equipment_id→equipment`, `fault_report_id→fault_reports` (nullable), `note` (required), `cost` (numeric, nullable), `vendor` (text, nullable), `repaired_at` (nullable), `repaired_by→profiles` | Logged only by `can_manage_equipment_status` holders; visible to anyone who can see the equipment. |
 | **common_fault_descriptions** | `id`, `org_id`, `equipment_type_id→equipment_types`, `description`, `sort_order` | Admin-managed picklist shown on the kiosk's "Report an Issue" screen, scoped per equipment type. |
@@ -411,7 +412,7 @@ remove them from the `job-photos` bucket after the RPC succeeds.
   changed by *any* update path (self check-in, fault-report RPC, or
   admin force-check-in) — only the checked-in-family columns may move.
 
-### 6.7 `report_equipment_fault(equipment_id, description, close_checkout_id?)`
+### 6.7 `report_equipment_fault(equipment_id, description, close_checkout_id?)` → `(fault_report_id, job_id)`
 Security-definer RPC ("pink ticketing" a machine, in the business's own
 terminology). Atomically: inserts a `fault_reports` row, flips
 `equipment.status` to `faulty`, and — if a matching open checkout id
@@ -419,7 +420,12 @@ belonging to the caller is supplied — closes that checkout in the same
 transaction, recording the fault report id on it. Lets an ordinary staff
 member flip equipment status through this one narrow, audited path
 without weakening the general `equipment_update` policy (which still
-requires `can_manage_equipment_status` for arbitrary status changes).
+requires `can_manage_equipment_status` for arbitrary status changes). Also
+auto-creates a linked repair job — see §6.12 — and returns its id
+alongside the fault report's; every caller (Equipment Detail's own fault
+form, the kiosk check-in/check-out "report an issue" flows) goes through
+this one RPC rather than each inserting `fault_reports` separately, so the
+job-creation logic can't drift between them.
 
 ### 6.8 `admin_force_check_in(checkout_id)`
 Security-definer RPC, requires `can_manage_equipment_status`. Closes
@@ -443,6 +449,38 @@ Security-definer RPC, the only client-facing way to read `auth.users.email`
 alongside profile/role/site-scope data. Checks `can_manage_users` inside
 the function body (not left to the caller) and always scopes to the
 caller's own org.
+
+### 6.12 Repair jobs — auto-created on fault, resolved on completion
+Reporting a fault (§6.7) always attempts to create a linked `jobs` row
+(`equipment_id` set, `priority = 'high'`, description auto-filled as
+`Repair: <equipment name> — <fault description>`), assigned per
+`equipment_type_repair_assignees` (§4.5): the reported equipment's own
+type first, falling back to the org-wide default row
+(`equipment_type_id is null`), falling back to unassigned if neither is
+configured. `jobs.site_id` is `not null` but `equipment.site_id` can be
+null (personally-held kit) — the RPC falls back to one of the reporter's
+own `site_scope` rows in that case. Job creation is skipped (fault report
+and status flip still succeed) only if the org has no site or job status
+configured at all, which shouldn't happen post-seed.
+
+Completing a job with `equipment_id` set (`JobDetail.jsx`'s Complete
+modal only — not the kiosk, same accepted-gap precedent as §17 item 13)
+asks for an outcome:
+- **Mark available again** — sets `equipment.status = 'in_service'` and
+  inserts a `repair_records` row (optional note/cost/vendor, linked to
+  the fault report via `fault_reports.job_id` if one's found), so the
+  repair shows up in Equipment Detail's combined history like any other.
+- **Decommission** — sets `equipment.status = 'decommissioned'` plus
+  `decommissioned_at`/`decommission_reason`/`decommission_notes`, the same
+  fields the Equipment admin tab's own decommission action writes.
+
+Both outcomes are written by `writeJobCompletion` (`src/lib/completeJob.js`)
+as a best-effort step *after* the job itself is completed — a failure here
+surfaces as a warning (`equipmentError`) but doesn't undo or block the
+completion that already succeeded. The kiosk's own completion path
+(`KioskJobs.jsx`) doesn't pass an `equipmentResolution`, so completing a
+repair job there leaves the equipment's status untouched until someone
+updates it by hand.
 
 ---
 
@@ -758,7 +796,7 @@ faulty=immediate, in_repair=gold, scrapped=ink-soft).
 
 - **Header** — name, type/make/model, status (editable select if `can_manage_equipment_status`, else read-only text).
 - **Checks** — "Log passed check"/"Log failed check" buttons, open to **any signed-in user** (not permission-gated); history list of who/when/pass-fail.
-- **Fault reports** — open to any user: description textarea + "Report fault (with photo)" — photo capture failure/cancellation is silently tolerated (photo is optional here). History shows description + reporter + timestamp.
+- **Fault reports** — open to any user: description textarea + "Report fault (with photo)" — photo capture failure/cancellation is silently tolerated (photo is optional here). Goes through `report_equipment_fault` (§6.7/§6.12), which also auto-creates a linked repair job and pushes its assignee. History shows description + reporter + timestamp.
 - **Repair history** — visible to anyone who can see the equipment, but the log-a-repair form (note required, vendor optional, cost optional in £) only renders for `can_manage_equipment_status` holders.
 - Note: `check_frequency_days` is loaded but never displayed anywhere on this page in the current build — either surface it or drop the column if replicating cleanly.
 
@@ -786,7 +824,7 @@ buttons; the first permitted tab auto-selects. Full tab list:
 | Safety Library | `can_manage_reference_data` | `ra_ms_documents`: type radio, title, description, PDF upload (client-generated id so the storage path is known before upload, upsert-with-`{upsert:true}`) |
 | Recurring Jobs (Schedules) | `can_manage_reference_data` | `schedules`: template (optional — "no template" is explicitly supported, not just an initial-selection default), site (if >1), frequency (daily/weekly/monthly + interval), weekly weekday checkboxes, monthly day-of-month or Nth-weekday-of-month, start date, lead-in days, **description** (required textarea — save is blocked, not silently backfilled, if left blank), **priority** select, **assignee** (radio Person/Group, matching select — no contractor option), **location** (radio Pitch/Area/None, Area as free text with a `<datalist>` of existing names, creating a new `areas` row on save exactly like New Job does), **activity type checkboxes** (written to `schedule_task_types`). List view shows the priority bar, assignee, and location alongside each schedule. A **Pause/Resume** button toggles `is_active`; resuming resets `last_generated_date` to yesterday first so a long-paused schedule doesn't burst out a backlog of missed jobs on resume. Built on the `rrule` package (`buildRule`/`parseRule`/`describeRule` via `RRule.toText()`). |
 | Equipment | `can_manage_equipment_status` | `equipment`: Kit ID, type, make, model, serial number, other ID number, date added; new items default to `in_service`. Inline "Force check-in" per open checkout. Delete cleans up fault-photo storage objects explicitly (DB rows cascade; storage does not). |
-| Equipment Types | `can_manage_equipment_status` | `equipment_types`: name, pre-use checklist, manual reorder (↑/↓), a "Copy checklist from…" merge-in-without-duplicating action, allow-multi-checkout checkbox, linked RA/MS documents (diffed, same pattern as Activity Types) |
+| Equipment Types | `can_manage_equipment_status` | `equipment_types`: name, pre-use checklist, manual reorder (↑/↓), a "Copy checklist from…" merge-in-without-duplicating action, allow-multi-checkout checkbox, linked RA/MS documents (diffed, same pattern as Activity Types), and a per-type **repair assignee** (person/group/contractor radio, §6.12) plus an always-visible **default repair assignee** card above the type list for when a type has none set |
 | Common Faults | `can_manage_equipment_status` | `common_fault_descriptions`, scoped per equipment type via a type-selector pill row; reorderable picklist |
 | Checkout Log (now "Equipment history") | `can_manage_equipment_status` | Read-mostly, merging three tables into one chronological log: `equipment_checkouts`, `fault_reports`, and `repair_records` (each fault/repair is its own row, not folded into its checkout — they land adjacent once sorted by date instead of being described twice). Status filter (open/closed) only narrows checkout rows, since it has no meaning for a fault/repair; "Faults & repairs only" hides checkouts entirely instead. Equipment/type/person filters, date range, free-text search, sortable columns, per-row force-check-in (checkout rows only), CSV export. |
 | RFID Fobs | `can_manage_users` | `rfid_tags`: scan-to-register flow (hidden `RfidScanListener`, assign scanned UID to a profile via select), list + revoke. Friendly duplicate-UID error identifying the existing owner. |
@@ -1079,9 +1117,9 @@ not bugs:
 3. **`admin_access_log` is unused.** The table and RLS carve-out for `platform_admins` exist, but nothing writes an audit row on cross-org access yet. Wire this up before onboarding a second organisation.
 4. ~~No `schedules` pause/active flag.~~ **Resolved** — `schedules.is_active` (migration 30) plus a Pause/Resume button on the admin tab (§11).
 5. **No admin CRUD for `training_videos`.** Content must be inserted directly against the database — no UI exists to manage it, unlike every other reference table.
-6. **`equipment.check_frequency_days` and `fault_reports.appointed_person_id`** are modeled and loaded in places but never surfaced or acted on anywhere in the UI — dead columns as currently built. Either implement their intended behaviour (scheduled recheck reminders; a named responsible person for a fault) or drop them.
+6. **`equipment.check_frequency_days`** is modeled and loaded but never surfaced or acted on anywhere in the UI — a dead column as currently built. Either implement its intended behaviour (scheduled recheck reminders) or drop it. ~~`fault_reports.appointed_person_id`~~ **Resolved differently than originally scoped** — rather than surface that field directly, migration 49 routes a "who's responsible for this fault" answer through a real, notifying, trackable `jobs` row instead (§6.12); the column itself is left in place for old rows but the app no longer writes it.
 7. **`equipment.held_by_profile_id`** (long-term personal issue) has no write path anywhere in the UI — only the short-term kiosk `equipment_checkouts` concept is actually used day to day.
-8. **Notification triggers cover jobs, not equipment.** Job assignment/reallocation and scheduled-job generation/due-reminders all push now (§13), but nothing in the equipment lifecycle calls `sendNotification()` yet — e.g. no "equipment you hold went faulty" push.
+8. ~~Notification triggers cover jobs, not equipment.~~ **Partially resolved** — reporting a fault now creates and pushes a linked repair job (§6.12), which covers the most common case ("something you're responsible for fixing just broke"). Still no push for anything else equipment-lifecycle-shaped, e.g. "equipment you hold went faulty" with no repair job involved.
 9. ~~`getQueueStatus()` has no UI caller.~~ **Resolved** — `Layout.jsx` now shows a live "N jobs queued/syncing" header pill (§14).
 10. **Unused dependencies**: `workbox-routing` and `workbox-strategies` are declared but not used by the hand-written `sw.js` (which only uses `workbox-core`/`workbox-precaching`).
 11. **No automated tests, no lint script.** `package.json` defines only `dev`/`build`/`preview`. Decide whether a rebuild should add test coverage given how much business logic lives in trigger/RLS interactions that are easy to regress silently.

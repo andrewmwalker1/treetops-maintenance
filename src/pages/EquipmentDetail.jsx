@@ -4,6 +4,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
+import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
 const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
@@ -180,25 +181,44 @@ export default function EquipmentDetail() {
   async function handleReportFault(e) {
     e.preventDefault();
     if (!faultDescription.trim()) return;
-    const { data: faultReport, error: err } = await supabase
-      .from("fault_reports")
-      .insert({ equipment_id: id, reported_by: profile.id, description: faultDescription })
-      .select()
-      .single();
+    // Goes through the same RPC the kiosk uses (report_equipment_fault,
+    // see 49-equipment-repair-jobs.sql) rather than a plain insert, so this
+    // screen also gets the auto-created, auto-assigned repair job instead
+    // of the two code paths drifting apart.
+    const { data, error: err } = await supabase.rpc("report_equipment_fault", {
+      p_equipment_id: id,
+      p_description: faultDescription,
+    });
     if (err) {
       setError(err.message);
       return;
     }
+    const result = Array.isArray(data) ? data[0] : data;
+    const faultId = result?.fault_report_id;
+    const jobId = result?.job_id;
 
     try {
       const file = await capturePhoto();
       const path = `${id}/${crypto.randomUUID()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("fault-photos").upload(path, file);
-      if (!uploadError) {
-        await supabase.from("fault_photos").insert({ fault_report_id: faultReport.id, storage_path: path });
+      if (!uploadError && faultId) {
+        await supabase.from("fault_photos").insert({ fault_report_id: faultId, storage_path: path });
       }
     } catch {
       // Photo is optional on a fault report — skip silently if cancelled.
+    }
+
+    if (jobId) {
+      const { data: newJob } = await supabase
+        .from("jobs")
+        .select("id, description, assignee_profile_id, assignee_group_id")
+        .eq("id", jobId)
+        .single();
+      if (newJob) {
+        notifyJobAssigned({ job: newJob, actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err2) =>
+          console.error("Failed to notify repair job assignee", err2)
+        );
+      }
     }
 
     setFaultDescription("");

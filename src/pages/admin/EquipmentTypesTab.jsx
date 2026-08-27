@@ -26,7 +26,56 @@ const iconButtonStyle = {
   fontSize: "13px",
 };
 
-const blank = { id: null, name: "", pre_use_checklist: [], allow_multi_checkout: false, documentIds: [] };
+const blank = { id: null, name: "", pre_use_checklist: [], allow_multi_checkout: false, documentIds: [], assigneeKind: "none", assigneeId: "" };
+
+// One row's assignee is stored as whichever of the three columns is
+// non-null (see equipment_type_repair_assignees, 49-equipment-repair-jobs.sql)
+// -- these two helpers convert between that shape and the kind/id pair the
+// radio+select UI below actually edits.
+function assigneeKindAndIdFromRow(row) {
+  if (!row) return { assigneeKind: "none", assigneeId: "" };
+  if (row.assignee_profile_id) return { assigneeKind: "person", assigneeId: row.assignee_profile_id };
+  if (row.assignee_group_id) return { assigneeKind: "group", assigneeId: row.assignee_group_id };
+  if (row.assignee_contractor_id) return { assigneeKind: "contractor", assigneeId: row.assignee_contractor_id };
+  return { assigneeKind: "none", assigneeId: "" };
+}
+
+function assigneeLabel(row, { people, groups, contractors }) {
+  const { assigneeKind, assigneeId } = assigneeKindAndIdFromRow(row);
+  if (assigneeKind === "person") return people.find((p) => p.id === assigneeId)?.display_name;
+  if (assigneeKind === "group") return groups.find((g) => g.id === assigneeId)?.name;
+  if (assigneeKind === "contractor") return contractors.find((c) => c.id === assigneeId)?.name;
+  return null;
+}
+
+// Shared by the per-type picker (inside the edit-type modal) and the
+// org-wide default picker (its own always-visible card) -- same
+// person/group/contractor/none shape as a job's own assignee, minus the
+// "unassigned" job concept (here "none" means "fall through", not "nobody").
+function AssigneePicker({ kind, id, onChange, people, groups, contractors }) {
+  const options = kind === "person" ? people : kind === "group" ? groups : kind === "contractor" ? contractors : [];
+  const labelKey = kind === "person" ? "display_name" : "name";
+  return (
+    <div>
+      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "8px" }}>
+        {["none", "person", "group", "contractor"].map((k) => (
+          <label key={k} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+            <input type="radio" checked={kind === k} onChange={() => onChange(k, "")} />
+            {k === "none" ? "None (use default)" : k.charAt(0).toUpperCase() + k.slice(1)}
+          </label>
+        ))}
+      </div>
+      {kind !== "none" && (
+        <select value={id} onChange={(e) => onChange(kind, e.target.value)} style={{ ...fieldStyle, marginBottom: 0 }}>
+          <option value="">Choose…</option>
+          {options.map((o) => (
+            <option key={o.id} value={o.id}>{o[labelKey]}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
 
 export default function EquipmentTypesTab() {
   const { org } = useAuth();
@@ -34,6 +83,13 @@ export default function EquipmentTypesTab() {
   const [counts, setCounts] = useState({});
   const [documents, setDocuments] = useState([]);
   const [linksByType, setLinksByType] = useState({});
+  const [people, setPeople] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [contractors, setContractors] = useState([]);
+  const [assigneesByType, setAssigneesByType] = useState({}); // equipment_type_id -> row
+  const [defaultAssigneeRow, setDefaultAssigneeRow] = useState(null); // the equipment_type_id-is-null row
+  const [defaultAssigneeDraft, setDefaultAssigneeDraft] = useState({ assigneeKind: "none", assigneeId: "" });
+  const [savingDefaultAssignee, setSavingDefaultAssignee] = useState(false);
   const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
   const [copyFromId, setCopyFromId] = useState("");
@@ -44,7 +100,11 @@ export default function EquipmentTypesTab() {
       supabase.from("equipment").select("equipment_type_id"),
       supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id).order("title"),
       supabase.from("equipment_type_documents").select("equipment_type_id, document_id"),
-    ]).then(([{ data: t, error: err }, { data: eq }, { data: docs }, { data: links }]) => {
+      supabase.from("profiles").select("id, display_name").eq("org_id", org.id).eq("is_active", true).order("display_name"),
+      supabase.from("groups").select("id, name").eq("org_id", org.id).order("name"),
+      supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name"),
+      supabase.from("equipment_type_repair_assignees").select("id, equipment_type_id, assignee_profile_id, assignee_group_id, assignee_contractor_id").eq("org_id", org.id),
+    ]).then(([{ data: t, error: err }, { data: eq }, { data: docs }, { data: links }, { data: p }, { data: g }, { data: c }, { data: assignees }]) => {
       if (err) setError(err.message);
       else setTypes(t || []);
       const grouped = {};
@@ -58,6 +118,18 @@ export default function EquipmentTypesTab() {
         linkGroups[link.equipment_type_id] = [...(linkGroups[link.equipment_type_id] || []), link.document_id];
       }
       setLinksByType(linkGroups);
+      setPeople(p || []);
+      setGroups(g || []);
+      setContractors(c || []);
+      const byType = {};
+      let defaultRow = null;
+      for (const row of assignees || []) {
+        if (row.equipment_type_id) byType[row.equipment_type_id] = row;
+        else defaultRow = row;
+      }
+      setAssigneesByType(byType);
+      setDefaultAssigneeRow(defaultRow);
+      setDefaultAssigneeDraft(assigneeKindAndIdFromRow(defaultRow));
     });
   }
 
@@ -76,6 +148,42 @@ export default function EquipmentTypesTab() {
 
   useEffect(refresh, [org]);
 
+  // Shared by the per-type assignee (equipment_type_id set) and the
+  // org-wide default row (equipment_type_id null) -- "none" deletes
+  // whatever row exists (falling through to the default, or to
+  // unassigned), anything else upserts the one matching column.
+  async function saveAssigneeRow({ equipmentTypeId, existingRowId, assigneeKind, assigneeId }) {
+    if (assigneeKind === "none") {
+      if (!existingRowId) return null;
+      const { error: err } = await supabase.from("equipment_type_repair_assignees").delete().eq("id", existingRowId);
+      return err?.message || null;
+    }
+    const payload = {
+      org_id: org.id,
+      equipment_type_id: equipmentTypeId,
+      assignee_profile_id: assigneeKind === "person" ? assigneeId : null,
+      assignee_group_id: assigneeKind === "group" ? assigneeId : null,
+      assignee_contractor_id: assigneeKind === "contractor" ? assigneeId : null,
+    };
+    const { error: err } = existingRowId
+      ? await supabase.from("equipment_type_repair_assignees").update(payload).eq("id", existingRowId)
+      : await supabase.from("equipment_type_repair_assignees").insert(payload);
+    return err?.message || null;
+  }
+
+  async function handleSaveDefaultAssignee() {
+    setSavingDefaultAssignee(true);
+    setError(null);
+    const err = await saveAssigneeRow({
+      equipmentTypeId: null,
+      existingRowId: defaultAssigneeRow?.id,
+      ...defaultAssigneeDraft,
+    });
+    setSavingDefaultAssignee(false);
+    if (err) setError(err);
+    else refresh();
+  }
+
   function editType(t) {
     setError(null);
     setCopyFromId("");
@@ -85,6 +193,7 @@ export default function EquipmentTypesTab() {
       pre_use_checklist: t.pre_use_checklist || [],
       allow_multi_checkout: t.allow_multi_checkout || false,
       documentIds: linksByType[t.id] || [],
+      ...assigneeKindAndIdFromRow(assigneesByType[t.id]),
     });
   }
 
@@ -144,6 +253,18 @@ export default function EquipmentTypesTab() {
       }
     }
 
+    const assigneeErr = await saveAssigneeRow({
+      equipmentTypeId: saved.id,
+      existingRowId: assigneesByType[saved.id]?.id,
+      assigneeKind: form.assigneeKind,
+      assigneeId: form.assigneeId,
+    });
+    if (assigneeErr) {
+      setError(`Saved, but couldn't update its repair assignee: ${assigneeErr}`);
+      refresh();
+      return;
+    }
+
     setForm(null);
     refresh();
   }
@@ -164,12 +285,37 @@ export default function EquipmentTypesTab() {
         Groups individual equipment items (e.g. ST1, ST2, ST3) under what they actually are (e.g. "Strimmer").
       </p>
 
+      <div style={{ ...cardStyle, padding: "14px 16px", marginBottom: "16px" }}>
+        <div style={{ fontWeight: 600, marginBottom: "4px" }}>Default repair assignee</div>
+        <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: 0, marginBottom: "10px" }}>
+          Used when a fault's reported against a type with no assignee set below. Reporting a fault always creates a
+          repair job, routed to whoever's configured to fix that type of machine.
+        </p>
+        <AssigneePicker
+          kind={defaultAssigneeDraft.assigneeKind}
+          id={defaultAssigneeDraft.assigneeId}
+          onChange={(assigneeKind, assigneeId) => setDefaultAssigneeDraft({ assigneeKind, assigneeId })}
+          people={people}
+          groups={groups}
+          contractors={contractors}
+        />
+        <button
+          type="button"
+          onClick={handleSaveDefaultAssignee}
+          disabled={savingDefaultAssignee}
+          style={{ ...buttonStyle.secondary, marginTop: "10px" }}
+        >
+          {savingDefaultAssignee ? "Saving…" : "Save default"}
+        </button>
+      </div>
+
       {types.map((t, i) => (
         <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
               {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""} · {(linksByType[t.id] || []).length} RA/MS document(s) linked
+              {" · Repairs: "}{assigneeLabel(assigneesByType[t.id], { people, groups, contractors }) || "default"}
             </div>
           </div>
           <div style={{ display: "flex", gap: "8px" }}>
@@ -259,6 +405,18 @@ export default function EquipmentTypesTab() {
                 Linked RA/MS documents
               </label>
               <DocumentPicker documents={documents} selectedIds={form.documentIds} onToggle={toggleDocument} />
+
+              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, margin: "14px 0 6px" }}>
+                Repair assignee (who a reported fault's job gets routed to)
+              </label>
+              <AssigneePicker
+                kind={form.assigneeKind}
+                id={form.assigneeId}
+                onChange={(assigneeKind, assigneeId) => setForm({ ...form, assigneeKind, assigneeId })}
+                people={people}
+                groups={groups}
+                contractors={contractors}
+              />
 
               {error && <p style={{ color: colors.immediate, fontSize: "13px", marginTop: "10px" }}>{error}</p>}
 
