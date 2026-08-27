@@ -5,14 +5,13 @@ import { colors, fonts } from "../lib/theme.js";
 const buttonVariants = {
   // Matches the kiosk's touch-sized machine-selection buttons -- Andy
   // found the default text link too small to reliably tap on the
-  // workshop touchscreen. Outlined, same as it's always been -- kiosk
-  // screens weren't part of the later "make it contrast more" ask.
-  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px", background: "transparent", border: colors.lineStrong },
+  // workshop touchscreen, then filled solid for the same reason as the
+  // "button" variant below (the outlined version blended into the page
+  // background).
+  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px", background: colors.moss, border: colors.moss, color: "#FFFFFF", mutedColor: "rgba(255, 255, 255, 0.75)" },
   // Matches the in-app (phone) machine list buttons' proportions
   // (listButtonStyle in CheckoutKit.jsx/CheckinKit.jsx) -- same
   // button-per-document treatment, sized for the smaller non-kiosk view.
-  // Filled solid (Andy: the outlined version blended into the page
-  // background) rather than transparent like the kiosk variant.
   button: { padding: "12px 16px", typeSize: "11px", titleSize: "15px", descSize: "13px", background: colors.moss, border: colors.moss, color: "#FFFFFF", mutedColor: "rgba(255, 255, 255, 0.75)" },
 };
 
