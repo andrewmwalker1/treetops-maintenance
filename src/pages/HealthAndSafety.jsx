@@ -45,6 +45,9 @@ export default function HealthAndSafety() {
         for (const link of docLinks || []) {
           grouped[link.task_type_id] = [...(grouped[link.task_type_id] || []), link.document];
         }
+        for (const docs of Object.values(grouped)) {
+          docs.sort((a, b) => a.title.localeCompare(b.title));
+        }
         setDocumentsByActivityType(grouped);
       }
 

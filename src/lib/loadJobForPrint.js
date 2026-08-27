@@ -45,6 +45,9 @@ export async function loadJobForPrint(jobId) {
     for (const link of docLinks || []) {
       documentsByActivityType[link.task_type_id] = [...(documentsByActivityType[link.task_type_id] || []), link.document];
     }
+    for (const docs of Object.values(documentsByActivityType)) {
+      docs.sort((a, b) => a.title.localeCompare(b.title));
+    }
   }
 
   return { job, subtasks, photos, activity, activityTypes, documentsByActivityType };

@@ -35,7 +35,7 @@ export default function KioskCheckIn() {
     const reportingCheckout = reportingIssueFor ? selected.find((c) => c.id === reportingIssueFor) : null;
     const documents = [
       ...new Map(selected.flatMap((c) => c.equipment.equipment_type?.documents || []).map((d) => [d.id, d])).values(),
-    ];
+    ].sort((a, b) => a.title.localeCompare(b.title));
 
     return (
       <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>

@@ -49,7 +49,7 @@ export default function CheckinKit() {
     const reportingCheckout = reportingIssueFor ? selected.find((c) => c.id === reportingIssueFor) : null;
     const documents = [
       ...new Map(selected.flatMap((c) => c.equipment.equipment_type?.documents || []).map((d) => [d.id, d])).values(),
-    ];
+    ].sort((a, b) => a.title.localeCompare(b.title));
 
     return (
       <div style={{ maxWidth: "560px" }}>
