@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEquipmentCheckout } from "../lib/useEquipmentCheckout.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
@@ -28,17 +27,6 @@ export default function KioskCheckOut() {
     handleCheckOut,
     handleReportIssue,
   } = useEquipmentCheckout();
-  const [showSafety, setShowSafety] = useState(false);
-
-  function openCategoryAndResetSafety(type) {
-    setShowSafety(false);
-    openCategory(type);
-  }
-
-  function backToCategoriesAndResetSafety() {
-    setShowSafety(false);
-    backToCategories();
-  }
 
   if (view === "results" && checkoutOutcome) {
     return (
@@ -83,16 +71,6 @@ export default function KioskCheckOut() {
           ← Back
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{selectedType.name}</h1>
-
-        {selectedType.documents.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowSafety(true)}
-            style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "16px", borderColor: colors.immediate, color: colors.immediate }}
-          >
-            ⚠ Health &amp; Safety
-          </button>
-        )}
 
         {selectedType.preUseChecklist.length > 0 && (
           <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
@@ -161,23 +139,6 @@ export default function KioskCheckOut() {
             </div>
           </>
         )}
-
-        {showSafety && (
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
-            onClick={() => setShowSafety(false)}
-          >
-            <div style={{ ...kioskCardStyle, maxWidth: "560px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "20px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
-              {selectedType.documents.map((doc) => (
-                <SafetyDocumentLink key={doc.id} doc={doc} />
-              ))}
-              <button type="button" style={{ ...kioskSecondaryButtonStyle, marginTop: "16px" }} onClick={() => setShowSafety(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -188,20 +149,11 @@ export default function KioskCheckOut() {
       <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto", paddingBottom: multi ? "110px" : "24px", boxSizing: "border-box" }}>
         <button
           style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }}
-          onClick={backToCategoriesAndResetSafety}
+          onClick={backToCategories}
         >
           ← Categories
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{selectedType.name}</h1>
-        {selectedType.documents.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowSafety(true)}
-            style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "16px", borderColor: colors.immediate, color: colors.immediate }}
-          >
-            ⚠ Health &amp; Safety
-          </button>
-        )}
         {multi && units.length > 0 && (
           <p style={{ color: colors.inkSoft, marginTop: "-8px" }}>Tick everything you need, then continue.</p>
         )}
@@ -235,6 +187,15 @@ export default function KioskCheckOut() {
             )
           )}
         </div>
+
+        {selectedType.documents.length > 0 && (
+          <div style={{ marginTop: "24px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginBottom: "8px" }}>Health &amp; Safety</h2>
+            {selectedType.documents.map((doc) => (
+              <SafetyDocumentLink key={doc.id} doc={doc} />
+            ))}
+          </div>
+        )}
         {multi && (
           <div
             style={{
@@ -257,23 +218,6 @@ export default function KioskCheckOut() {
             </button>
           </div>
         )}
-
-        {showSafety && (
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
-            onClick={() => setShowSafety(false)}
-          >
-            <div style={{ ...kioskCardStyle, maxWidth: "560px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "20px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
-              {selectedType.documents.map((doc) => (
-                <SafetyDocumentLink key={doc.id} doc={doc} />
-              ))}
-              <button type="button" style={{ ...kioskSecondaryButtonStyle, marginTop: "16px" }} onClick={() => setShowSafety(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -292,7 +236,7 @@ export default function KioskCheckOut() {
         {categories.map((c) => (
           <button
             key={c.id}
-            onClick={() => openCategoryAndResetSafety(c)}
+            onClick={() => openCategory(c)}
             style={{
               ...kioskButtonStyle,
               opacity: c.availableCount === 0 ? 0.6 : 1,

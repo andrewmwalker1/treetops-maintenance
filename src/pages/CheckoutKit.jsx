@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useEquipmentCheckout } from "../lib/useEquipmentCheckout.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
@@ -45,17 +44,6 @@ export default function CheckoutKit() {
     handleCheckOut,
     handleReportIssue,
   } = useEquipmentCheckout();
-  const [showSafety, setShowSafety] = useState(false);
-
-  function openCategoryAndResetSafety(type) {
-    setShowSafety(false);
-    openCategory(type);
-  }
-
-  function backToCategoriesAndResetSafety() {
-    setShowSafety(false);
-    backToCategories();
-  }
 
   if (view === "results" && checkoutOutcome) {
     return (
@@ -97,16 +85,6 @@ export default function CheckoutKit() {
           ← Back
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{selectedType.name}</h1>
-
-        {selectedType.documents.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowSafety(true)}
-            style={{ ...buttonStyle.secondary, marginBottom: "12px", color: colors.immediate, borderColor: colors.immediate }}
-          >
-            ⚠ Health &amp; Safety
-          </button>
-        )}
 
         {selectedType.preUseChecklist.length > 0 && (
           <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
@@ -179,23 +157,6 @@ export default function CheckoutKit() {
             </div>
           </>
         )}
-
-        {showSafety && (
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
-            onClick={() => setShowSafety(false)}
-          >
-            <div style={{ ...cardStyle, padding: "20px", maxWidth: "480px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "17px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
-              {selectedType.documents.map((doc) => (
-                <SafetyDocumentLink key={doc.id} doc={doc} />
-              ))}
-              <button type="button" style={{ ...buttonStyle.secondary, marginTop: "14px" }} onClick={() => setShowSafety(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -204,19 +165,10 @@ export default function CheckoutKit() {
     const multi = selectedType.allowMultiCheckout;
     return (
       <div style={{ maxWidth: "560px" }}>
-        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToCategoriesAndResetSafety}>
+        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToCategories}>
           ← Kit
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{selectedType.name}</h1>
-        {selectedType.documents.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowSafety(true)}
-            style={{ ...buttonStyle.secondary, marginBottom: "12px", color: colors.immediate, borderColor: colors.immediate }}
-          >
-            ⚠ Health &amp; Safety
-          </button>
-        )}
         {multi && units.length > 0 && (
           <p style={{ color: colors.inkSoft, fontSize: "14px", marginTop: "-4px" }}>Tick everything you need, then continue.</p>
         )}
@@ -250,6 +202,16 @@ export default function CheckoutKit() {
             )
           )}
         </div>
+
+        {selectedType.documents.length > 0 && (
+          <div style={{ marginTop: "20px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginBottom: "8px" }}>Health &amp; Safety</h2>
+            {selectedType.documents.map((doc) => (
+              <SafetyDocumentLink key={doc.id} doc={doc} />
+            ))}
+          </div>
+        )}
+
         {multi && (
           <button
             style={{ ...buttonStyle.primary, width: "100%", marginTop: "16px", opacity: selectedIds.size === 0 ? 0.5 : 1 }}
@@ -258,23 +220,6 @@ export default function CheckoutKit() {
           >
             Continue{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
           </button>
-        )}
-
-        {showSafety && (
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
-            onClick={() => setShowSafety(false)}
-          >
-            <div style={{ ...cardStyle, padding: "20px", maxWidth: "480px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "17px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
-              {selectedType.documents.map((doc) => (
-                <SafetyDocumentLink key={doc.id} doc={doc} />
-              ))}
-              <button type="button" style={{ ...buttonStyle.secondary, marginTop: "14px" }} onClick={() => setShowSafety(false)}>
-                Close
-              </button>
-            </div>
-          </div>
         )}
       </div>
     );
@@ -288,7 +233,7 @@ export default function CheckoutKit() {
         {categories.map((c) => (
           <button
             key={c.id}
-            onClick={() => openCategoryAndResetSafety(c)}
+            onClick={() => openCategory(c)}
             style={{ ...listButtonStyle, opacity: c.availableCount === 0 ? 0.6 : 1 }}
           >
             <span>{c.name}</span>

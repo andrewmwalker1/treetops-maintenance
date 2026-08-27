@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useEquipmentCheckin } from "../lib/useEquipmentCheckin.js";
 import ReportIssueForm from "../kiosk/ReportIssueForm.jsx";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
@@ -37,38 +36,19 @@ export default function CheckinKit() {
     handleConfirmClean,
     handleReportIssue,
   } = useEquipmentCheckin();
-  const [showSafety, setShowSafety] = useState(false);
-
-  function backToListAndResetSafety() {
-    setShowSafety(false);
-    backToList();
-  }
 
   if (view === "confirm") {
     const selected = checkouts.filter((c) => selectedIds.has(c.id));
     const reportingCheckout = reportingIssueFor ? selected.find((c) => c.id === reportingIssueFor) : null;
-    const documents = [
-      ...new Map(selected.flatMap((c) => c.equipment.equipment_type?.documents || []).map((d) => [d.id, d])).values(),
-    ].sort((a, b) => a.title.localeCompare(b.title));
 
     return (
       <div style={{ maxWidth: "560px" }}>
-        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToListAndResetSafety}>
+        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToList}>
           ← Back
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>
           {selected.length > 1 ? `Checking in ${selected.length}` : selected[0]?.equipment.name}
         </h1>
-
-        {documents.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setShowSafety(true)}
-            style={{ ...buttonStyle.secondary, marginBottom: "12px", color: colors.immediate, borderColor: colors.immediate }}
-          >
-            ⚠ Health &amp; Safety
-          </button>
-        )}
 
         {error && <p style={{ color: colors.immediate }}>{error}</p>}
 
@@ -132,28 +112,13 @@ export default function CheckinKit() {
             </div>
           </>
         )}
-
-        {showSafety && (
-          <div
-            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
-            onClick={() => setShowSafety(false)}
-          >
-            <div style={{ ...cardStyle, padding: "20px", maxWidth: "480px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "17px", color: colors.mossDark, marginTop: 0 }}>
-                ⚠ Health &amp; Safety{selected.length === 1 ? ` — ${selected[0].equipment.name}` : ""}
-              </h2>
-              {documents.map((doc) => (
-                <SafetyDocumentLink key={doc.id} doc={doc} />
-              ))}
-              <button type="button" style={{ ...buttonStyle.secondary, marginTop: "14px" }} onClick={() => setShowSafety(false)}>
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     );
   }
+
+  const documents = [
+    ...new Map(checkouts.flatMap((c) => c.equipment.equipment_type?.documents || []).map((d) => [d.id, d])).values(),
+  ].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
     <div style={{ maxWidth: "560px" }}>
@@ -189,6 +154,15 @@ export default function CheckinKit() {
           )
         )}
       </div>
+
+      {documents.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginBottom: "8px" }}>Health &amp; Safety</h2>
+          {documents.map((doc) => (
+            <SafetyDocumentLink key={doc.id} doc={doc} />
+          ))}
+        </div>
+      )}
 
       {selectedIds.size > 0 && (
         <button
