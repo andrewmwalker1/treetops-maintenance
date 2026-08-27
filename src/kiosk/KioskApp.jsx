@@ -7,6 +7,7 @@ import KioskCheckOut from "./KioskCheckOut.jsx";
 import KioskCheckIn from "./KioskCheckIn.jsx";
 import KioskSafety from "./KioskSafety.jsx";
 import { kioskPageStyle } from "./kioskTheme.js";
+import { colors, fonts } from "../lib/theme.js";
 
 // Idle sign-out: staff don't have to re-tap between quick consecutive
 // actions, but a forgotten sign-out on a shared kiosk doesn't stay open
@@ -52,6 +53,26 @@ export default function KioskApp() {
         <Route path="/kiosk/checkin" element={<KioskCheckIn />} />
         <Route path="/kiosk/safety" element={<KioskSafety />} />
       </Routes>
+      {/* Kiosk has no Layout.jsx chrome to inherit the main app's version
+          footer from, but it's just as easy to leave running on a stale
+          cached build on a walk-up terminal nobody reloads by hand -- so
+          it gets its own copy of the same build stamp, out of the way in
+          a corner rather than competing with the touch targets. */}
+      <div
+        style={{
+          position: "fixed",
+          bottom: "4px",
+          right: "10px",
+          fontFamily: fonts.mono,
+          fontSize: "10px",
+          color: colors.inkSoft,
+          opacity: 0.65,
+          pointerEvents: "none",
+          zIndex: 150,
+        }}
+      >
+        v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
+      </div>
     </div>
   );
 }
