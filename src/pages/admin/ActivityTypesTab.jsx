@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
+import DocumentPicker from "../../components/DocumentPicker.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -70,10 +71,26 @@ export default function ActivityTypesTab() {
     const toRemove = previousLinks.filter((id) => !form.documentIds.includes(id));
 
     if (toAdd.length > 0) {
-      await supabase.from("activity_type_documents").insert(toAdd.map((document_id) => ({ task_type_id: saved.id, document_id })));
+      const { error: linkErr } = await supabase
+        .from("activity_type_documents")
+        .insert(toAdd.map((document_id) => ({ task_type_id: saved.id, document_id })));
+      if (linkErr) {
+        setError(`Saved, but couldn't update its linked documents: ${linkErr.message}`);
+        refresh();
+        return;
+      }
     }
     for (const document_id of toRemove) {
-      await supabase.from("activity_type_documents").delete().eq("task_type_id", saved.id).eq("document_id", document_id);
+      const { error: unlinkErr } = await supabase
+        .from("activity_type_documents")
+        .delete()
+        .eq("task_type_id", saved.id)
+        .eq("document_id", document_id);
+      if (unlinkErr) {
+        setError(`Saved, but couldn't update its linked documents: ${unlinkErr.message}`);
+        refresh();
+        return;
+      }
     }
 
     setForm(blank);
@@ -117,13 +134,7 @@ export default function ActivityTypesTab() {
           />
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Linked RA/MS documents</label>
-          {documents.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No documents in the library yet — add some in the Safety Library tab first.</p>}
-          {documents.map((d) => (
-            <label key={d.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
-              <input type="checkbox" checked={form.documentIds.includes(d.id)} onChange={() => toggleDocument(d.id)} />
-              <span style={{ fontSize: "12px", color: colors.inkSoft, textTransform: "capitalize" }}>{d.type.replace("_", " ")}</span> {d.title}
-            </label>
-          ))}
+          <DocumentPicker documents={documents} selectedIds={form.documentIds} onToggle={toggleDocument} />
 
           {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
 
