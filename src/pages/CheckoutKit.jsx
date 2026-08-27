@@ -207,7 +207,7 @@ export default function CheckoutKit() {
           <div style={{ marginTop: "20px" }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginBottom: "8px" }}>Health &amp; Safety</h2>
             {selectedType.documents.map((doc) => (
-              <SafetyDocumentLink key={doc.id} doc={doc} />
+              <SafetyDocumentLink key={doc.id} doc={doc} variant="button" />
             ))}
           </div>
         )}
