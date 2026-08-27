@@ -84,6 +84,16 @@ export default function KioskCheckOut() {
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{selectedType.name}</h1>
 
+        {selectedType.documents.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setShowSafety(true)}
+            style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "16px", borderColor: colors.immediate, color: colors.immediate }}
+          >
+            ⚠ Health &amp; Safety
+          </button>
+        )}
+
         {selectedType.preUseChecklist.length > 0 && (
           <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Before you take it</h2>
@@ -150,6 +160,23 @@ export default function KioskCheckOut() {
               </button>
             </div>
           </>
+        )}
+
+        {showSafety && (
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(20, 40, 64, 0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px", zIndex: 200 }}
+            onClick={() => setShowSafety(false)}
+          >
+            <div style={{ ...kioskCardStyle, maxWidth: "560px", width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ fontFamily: fonts.display, fontSize: "20px", color: colors.mossDark, marginTop: 0 }}>⚠ Health &amp; Safety — {selectedType.name}</h2>
+              {selectedType.documents.map((doc) => (
+                <SafetyDocumentLink key={doc.id} doc={doc} />
+              ))}
+              <button type="button" style={{ ...kioskSecondaryButtonStyle, marginTop: "16px" }} onClick={() => setShowSafety(false)}>
+                Close
+              </button>
+            </div>
+          </div>
         )}
       </div>
     );
