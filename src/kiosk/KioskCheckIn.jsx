@@ -149,7 +149,7 @@ export default function KioskCheckIn() {
         <div style={{ marginTop: "24px" }}>
           <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginBottom: "8px" }}>Health &amp; Safety</h2>
           {documents.map((doc) => (
-            <SafetyDocumentLink key={doc.id} doc={doc} />
+            <SafetyDocumentLink key={doc.id} doc={doc} large />
           ))}
         </div>
       )}
