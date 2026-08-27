@@ -23,6 +23,11 @@ export function useEquipmentCheckin() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
+  // Fetches each checked-out item's equipment type's RA/MS documents in a
+  // second pass (same "junction table, then merge in JS" approach as
+  // getEquipmentTypeAvailabilityCounts) so the confirm screen can show a
+  // Health & Safety list for whatever's being checked in, same as the
+  // check-out flow already does for the type being taken.
   const refresh = useCallback(() => {
     if (!profile) return;
     supabase
@@ -31,9 +36,34 @@ export function useEquipmentCheckin() {
       .eq("profile_id", profile.id)
       .is("checked_in_at", null)
       .order("checked_out_at")
-      .then(({ data, error: err }) => {
-        if (err) setError(err.message);
-        else setCheckouts(data || []);
+      .then(async ({ data, error: err }) => {
+        if (err) {
+          setError(err.message);
+          return;
+        }
+        const rows = data || [];
+        const typeIds = [...new Set(rows.map((c) => c.equipment.equipment_type_id).filter(Boolean))];
+        const documentsByType = {};
+        if (typeIds.length > 0) {
+          const { data: docLinks } = await supabase
+            .from("equipment_type_documents")
+            .select("equipment_type_id, document:ra_ms_documents(id, type, title, description, pdf_storage_path)")
+            .in("equipment_type_id", typeIds);
+          for (const link of docLinks || []) {
+            (documentsByType[link.equipment_type_id] ||= []).push(link.document);
+          }
+        }
+        setCheckouts(
+          rows.map((c) => ({
+            ...c,
+            equipment: {
+              ...c.equipment,
+              equipment_type: c.equipment.equipment_type
+                ? { ...c.equipment.equipment_type, documents: documentsByType[c.equipment.equipment_type_id] || [] }
+                : c.equipment.equipment_type,
+            },
+          }))
+        );
       });
   }, [profile]);
 
