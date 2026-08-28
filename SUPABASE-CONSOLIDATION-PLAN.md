@@ -425,6 +425,207 @@ min (no in-app banner exists to enforce this).
   once the migration is verified done, per the plan's own hygiene notes
   above.
 
+---
+
+# Direction reversed (28 Aug 2026, later same evening)
+
+**Status: new direction approved by Andy, execution not yet resumed.**
+
+Everything above (target = `qkbpsqlrzygcairtidye`, Maintenance moves) was
+Phase-0-preflighted and about to start Phase 1 when Andy reconsidered the
+target choice mid-session:
+
+> "My view is everything should move into the maintenance DB as that is by
+> far the most live app. Hub is pretty simple and ParkMan2 is a prototype."
+>
+> "parkman2 is a prototype, it may be complex but it's far from live.
+> Maintenance is live and you did an amazing job on it"
+
+**New direction: Hub + ParkMan2 move into Maintenance's project
+(`ozhwgrzlpvfdemmogmav`). Maintenance itself stays completely untouched.**
+
+Nothing had been written to either database when this happened (Phase 1
+step 9 was about to run) — clean point to redirect, no rollback needed.
+
+## Why this isn't just swapping which project ref is "target"
+
+The original plan chose `qkbpsqlrzygcairtidye` specifically because only
+*one* app (Maintenance) needed to move — Hub and ParkMan2 were already
+co-located there. Reversing it means **two** apps need the full
+port/reconcile/cutover treatment instead of one, and — discovered during
+re-preflighting below — Hub's SQL is written in a meaningfully messier
+style than Maintenance's, so it isn't a mechanical find/replace like
+Maintenance's port would have been.
+
+Andy's reasoning stands regardless: Maintenance is the busiest, most
+relied-on app day-to-day (RFID kiosk, staff constantly checking
+in/out/completing jobs), and not putting it through a migration at all is
+worth the extra work of moving the other two instead. ParkMan2's
+complexity (26 migration files, real customer/invoicing data) is schema
+complexity, not usage risk — Andy's assessment is it's genuinely
+low-traffic ("a prototype... far from live") — so porting it is
+lower-stakes than its table count suggests.
+
+## Re-preflighted: Maintenance project as target (ozhwgrzlpvfdemmogmav)
+
+Same checks as original Phase 0 steps 3–7, re-run against the new target:
+
+- **No Auth Hook conflict** — `hook_custom_access_token_enabled: false`.
+  (Side note: Maintenance's own `custom_access_token_hook`, created by its
+  migration 46, was never actually wired up here either — irrelevant now
+  since Maintenance isn't moving.)
+- **`pgrst.db_schemas`**: currently unset (serves only `public` —
+  Maintenance's own schema). Will become
+  `public, hub, parkman2` once both land.
+- **8 Edge Functions already live**: `manage-users`,
+  `generate-scheduled-jobs`, `rfid-login`, `send-notice-push`,
+  `flush-dnd-notifications`, `send-contractor-job-email`,
+  `contractor-document-reminders`, `register-terminal-session`.
+- **Secrets already set**: the `SUPABASE_*` platform-provided ones,
+  `RESEND_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`.
+
+### Collisions found (same shape as before, direction reversed)
+
+1. **`send-notice-push`** — Maintenance already runs one live. **Hub's**
+   copy is the one that must be renamed now (`hub-send-notice-push`),
+   not Maintenance's.
+2. **`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`** — Maintenance's are
+   already set and in active use. **Hub's** VAPID secrets must be
+   prefixed `HUB_VAPID_PUBLIC_KEY` / `HUB_VAPID_PRIVATE_KEY` /
+   `HUB_VAPID_SUBJECT` this time.
+3. **`RESEND_API_KEY`** — Maintenance already uses this; safe to keep
+   shared/unprefixed (unchanged conclusion from before).
+4. **`push_subscriptions` table name** — Maintenance already has its own
+   (2 rows, live). Not a real conflict once Hub's copy is correctly
+   schema-qualified into `hub.push_subscriptions` — see below for why
+   that's less automatic than it sounds for Hub specifically.
+
+## ParkMan2 → `parkman2` schema (straightforward — already isolated)
+
+Scanned all 24 SQL files in `ParkMan2/supabase/`: **zero** unqualified
+references anywhere — every single object reference across all 24 files
+is already schema-qualified as `parkman2.` (confirmed by grep count,
+`public.` count is 0 in every file). This app was built *for* this exact
+consolidation pattern from day one.
+
+- Replay files `01, 02, 04–26` verbatim, no text substitution needed at
+  all. Skip `03-expose-schema.sql` — write a new equivalent for the new
+  target instead (same `grant usage on schema parkman2 to authenticated`
+  / `grant select, insert, update, delete on all tables in schema
+  parkman2 to authenticated` / `alter default privileges...` pattern,
+  just pointed at `ozhwgrzlpvfdemmogmav`).
+- The 5 standalone `public` occurrences found are all benign: comments,
+  the `pgrst.db_schemas` value string (handled separately, not via
+  substitution), and two `storage.buckets (id, name, public)` column
+  lists (the boolean "is this bucket public" column, unrelated to
+  schemas).
+- Edge Function `parkman2-manage-users` already passes
+  `{ db: { schema: "parkman2" } }` to `createClient()` — **zero source
+  changes needed**, redeploy as-is. No name collision with Maintenance's
+  8 functions.
+- Storage buckets: need to check ParkMan2's actual bucket names for
+  collisions against Maintenance's 4 (`job-photos`, `fault-photos`,
+  `ra-ms-pdfs`, `contractor-documents`) before Phase 3 — not yet checked.
+
+## Hub → new `hub` schema (the genuinely new complexity)
+
+Unlike Maintenance and ParkMan2, **Hub's SQL is not consistently
+schema-qualified** — grep found 4 of 8 files with **zero** `public.`
+references at all, relying entirely on the session's default
+`search_path`. A blind `public.` → `hub.` substitution (which worked
+cleanly for Maintenance) would silently miss all of these and let
+objects land in Maintenance's own `public` schema instead — exactly the
+kind of mistake this project's CLAUDE.md warns about generally
+("never trust a filename alone... this has happened before").
+
+Full accounting, file by file:
+
+| File | `public.`-qualified? | Needs |
+|---|---|---|
+| `01-app-data-baseline.sql` | Yes (10) | substitution + 3× `schemaname = 'public'` string-literal fix |
+| `03-device-stats.sql` | **No (0)** | `SET search_path = hub;` wrapper + 2× `search_path = public` → `hub` |
+| `04-full-table-stats.sql` | **No (0)** | `SET search_path = hub;` wrapper + 1× `search_path = public` → `hub` |
+| `04-info-pdfs-storage.sql` | **No (0)**, but only touches `storage.*` | replay verbatim, no change needed |
+| `05-real-admin-auth.sql` | Yes (16) | substitution + 2× `schemaname = 'public'` string-literal fix |
+| `06-fix-hub-admins-rls-recursion.sql` | Yes (12) | substitution + `search_path = public, pg_temp` → `hub, pg_temp` |
+| `07-fix-public-write-policy-names.sql` | Yes (3) | substitution only (policy names like `"Public write"` are quoted identifiers, not schema refs — untouched by design) |
+| `setup-admin-pin.sql` | **No (0)** | **skip entirely** — see below |
+
+Additional substitution categories beyond plain `public.` → `hub.`,
+found by classifying every standalone (non-dot-qualified) `public` token
+across all 8 files:
+- `search_path = public` → `search_path = hub` (5 occurrences; one is
+  `search_path = public, extensions` in the skipped
+  `setup-admin-pin.sql`, moot).
+- `schemaname = 'public'` → `schemaname = 'hub'` (6 occurrences, all
+  inside `pg_policies` existence checks in `do $$ ... $$` blocks —
+  **not** caught by dot-based substitution since these are string
+  literals, not identifiers. Missing this would make the idempotency
+  checks silently always-false on any future re-run, always trying to
+  recreate policies that already exist.)
+- `storage.buckets (id, name, public)` (4 occurrences, the boolean
+  column) and `revoke ... from authenticated, anon, public` (PUBLIC
+  role keyword) — confirmed present in Maintenance's files too, both
+  naturally safe since neither matches `public.` with a trailing dot.
+
+**`setup-admin-pin.sql` should be skipped, not ported.** It creates a
+`admin_auth` table + `verify_admin_pin()` function for an old PIN-based
+admin check. Grepped `App.jsx` (the live app) for both names — zero
+references. It's dead code, superseded by `05-real-admin-auth.sql`'s real
+Supabase Auth login. Porting it would just add unused surface area.
+
+### Edge Functions — two different fix patterns needed, not one
+
+Only `invite-hub-admin`'s source is in the repo; `send-notice-push` isn't
+(matches the original plan's warning: "Hub's [repo source] is known
+incomplete"). Downloaded the real deployed source via
+`supabase functions download send-notice-push --project-ref
+qkbpsqlrzygcairtidye` to check it directly:
+
+- **`invite-hub-admin`** — uses `createClient()` with no schema option,
+  same pattern as Maintenance's functions. Fix: add
+  `{ db: { schema: "hub" } }`. No name collision, can keep its name.
+- **`send-notice-push`** — does **not** use `supabase-js`'s
+  `createClient()` at all. It calls the PostgREST REST API directly via
+  raw `fetch()` (`${SUPABASE_URL}/rest/v1/push_subscriptions...`). Schema
+  selection for raw REST calls isn't a client option — it's the
+  `Accept-Profile` header (GET) / `Content-Profile` header
+  (POST/PATCH/DELETE). Fix is different from every other function in
+  this whole migration: add `"Accept-Profile": "hub"` to the GET request
+  headers and `"Content-Profile": "hub"` to the DELETE request headers,
+  **and** rename to `hub-send-notice-push`, **and** update it to read
+  `HUB_VAPID_PUBLIC_KEY` / `HUB_VAPID_PRIVATE_KEY` / `HUB_VAPID_SUBJECT`.
+
+## Updated runbook (supersedes the Phase 1–5 numbering above for this direction)
+
+Phase 0 (credentials, backup approach, risk-check method) carries over
+unchanged in *method* — just re-run against the new target/sources.
+Already re-done above for the target. Still needed before Phase 1:
+- Backup + independent data dump of **both** Hub's and ParkMan2's current
+  database (they're moving *out* of `qkbpsqlrzygcairtidye`, which itself
+  doesn't need backing up since it's not being decommissioned — but the
+  data leaving it does).
+- ParkMan2 storage bucket names (not yet checked against Maintenance's 4).
+- Whether any Hub or ParkMan2 user email needs reconciling against an
+  existing Maintenance account — the original "everyone uses the same
+  email" confirmation was scoped to Hub/ParkMan2 overlap, not Maintenance.
+  **Needs asking Andy again for this direction specifically.**
+
+Phase 1 (schema + data port), Phase 2 (auth reconciliation), Phase 3
+(storage/secrets/functions/cron), Phase 4 (freeze + cutover), Phase 5
+(verify + decommission) — same shapes as the original runbook, just run
+twice (once for Hub into `hub` schema, once for ParkMan2 into `parkman2`
+schema), against `ozhwgrzlpvfdemmogmav` as target throughout. Maintenance's
+own cron jobs (`generate-scheduled-jobs-daily`,
+`contractor-document-reminders-daily`) are untouched throughout — nothing
+about them changes since Maintenance never moves.
+
+The old `qkbpsqlrzygcairtidye` project doesn't get decommissioned the same
+way the original plan's old Maintenance project would have — it currently
+also hosts nothing else, so once both Hub and ParkMan2 are verified moved,
+it becomes the one to eventually delete (same one-week-safety-net rule
+applies).
+
 ## Why this needs a local Claude Code session, not a cloud one
 Discovered 28 Aug 2026: a cloud/web Claude Code session's network egress
 policy blocks **all** outbound traffic to Supabase — both the direct
