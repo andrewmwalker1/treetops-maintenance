@@ -805,6 +805,28 @@ Both Hub and ParkMan2 are now live on `ozhwgrzlpvfdemmogmav`, verified via
 their deployed bundles and (for Hub) direct functional testing. Maintenance
 itself untouched throughout.
 
+## Second live bug found and fixed (28 Aug 2026, ~19:50 UTC, via Andy testing)
+
+Andy noticed the app still showed his existing push subscription as "on"
+after the cutover. Investigating found the real bug: **the client-side
+`VAPID_PUBLIC_KEY` constant in `App.jsx` was never updated** when the
+fresh VAPID pair was generated in Phase 3 — only the server-side
+`HUB_VAPID_*` Edge Function secret got the new key. `subscribeToPush()`
+was therefore still signing new subscription requests against the *old*
+public key, which the server's new private key can't sign for — so even
+a manual notifications-off-then-on toggle wouldn't have fixed anything
+until this was caught.
+
+Fixed properly rather than just patching the constant: added
+`subscriptionMatchesCurrentKey()`, comparing an existing subscription's
+`applicationServerKey` against the current `VAPID_PUBLIC_KEY` byte-for-byte,
+and wired it into both `subscribeToPush()` and the on-mount status check.
+Any guest with a subscription from before this migration gets it silently
+unsubscribed and replaced next time they open the app — no need to tell
+users to manually toggle anything off and on, which was the original
+plan and wouldn't have been reliable to communicate to real park guests
+anyway.
+
 ## What's left — Phase 5 (verify + decommission)
 
 Smoke test as real users over the next few days (Andy: try an actual
