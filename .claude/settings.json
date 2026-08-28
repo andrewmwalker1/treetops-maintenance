@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx supabase functions deploy *)",
+      "Bash(npx supabase db push *)",
+      "Bash(npx supabase link *)",
+      "Bash(npx supabase status)",
+      "Bash(npx supabase projects list)"
+    ]
+  }
+}

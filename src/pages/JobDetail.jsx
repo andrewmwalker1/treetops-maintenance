@@ -22,17 +22,20 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+const CONTRACTOR_EMAIL_SUBJECT = "Request from Tree Tops";
+const CONTRACTOR_EMAIL_SIGNATURE = ["Kind Regards", "Tree Tops Caravan Park", "Tel: 01756 560279", "Email: Info@treetopscaravanpark.co.uk"].join("\n");
+
 // Starting point for the contractor-email modal's editable body -- same
 // facts the old fixed-template email used to send (see
 // send-contractor-job-email/index.ts's git history), just as plain text
 // the office user can freely rewrite before sending rather than a
-// template the Edge Function baked in unseen.
+// template the Edge Function baked in unseen. Leads with the job
+// description itself (Andy, after seeing the first live send) rather than
+// a "Hi <name>," greeting, and always closes with the standard signature.
 function buildDefaultContractorEmailBody(job, subtasks) {
   const location = job.pitch?.pitch_number_or_name || job.area?.name || "Not set";
   const lines = [
-    `Hi ${job.assignee_contractor?.name || "there"},`,
-    "",
-    "Please find the details for this job below:",
+    job.description,
     "",
     `Priority: ${job.priority}`,
     `Due date: ${job.due_date || "Not set"}`,
@@ -43,6 +46,7 @@ function buildDefaultContractorEmailBody(job, subtasks) {
     lines.push("", "Checklist:");
     subtasks.forEach((s) => lines.push(`- ${s.label}`));
   }
+  lines.push("", CONTRACTOR_EMAIL_SIGNATURE);
   return lines.join("\n");
 }
 
@@ -763,10 +767,14 @@ export default function JobDetail() {
   }
 
   function openContractorEmailModal() {
-    setContractorEmailSubject(`Job instruction: ${job.description}`);
+    setContractorEmailSubject(CONTRACTOR_EMAIL_SUBJECT);
     setContractorEmailBody(buildDefaultContractorEmailBody(job, subtasks));
     setContractorEmailCc(session?.user?.email || "");
-    setContractorEmailPhotoIds(new Set());
+    // Andy: if the job has a photo, send it -- so whatever's already on
+    // the job is attached by default, not an opt-in the sender has to
+    // remember. Still just checkboxes in the modal, so any of them can be
+    // unticked before sending.
+    setContractorEmailPhotoIds(new Set(photos.map((p) => p.id)));
     setContractorEmailError(null);
     setShowContractorEmailModal(true);
   }
