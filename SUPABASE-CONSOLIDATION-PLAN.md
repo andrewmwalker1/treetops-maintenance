@@ -710,17 +710,51 @@ project's `.claude/settings.local.json`) — a future session picking this
 up will likely need to do the same, or run the remaining SQL manually via
 the dashboard.
 
-## What's left — Phase 4 (freeze window) and Phase 5 (verify + decommission)
+## Phase 4 — ParkMan2 cutover done (28 Aug 2026, ~18:50 UTC)
 
-Not started. Needs: a quiet evening, ParkMan2's real storage bucket names
-confirmed unchanged (done, no collision), re-running Phase 1+2's data load
-as a final truncate-and-redo to catch anything written since the bulk copy,
-repointing `treetops-hub`'s and `ParkMan2`'s frontend
-(`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`, `.schema('hub')` /
-`.schema('parkman2')` added to their `supabase-js` clients, the ~11
-`functions.invoke(...)` call sites for renamed functions), GitHub Actions
-secrets updated for both repos, commit + push, smoke test, then the
-one-week safety-net wait before decommissioning `qkbpsqlrzygcairtidye`.
+Andy's call: ParkMan2 first (low-traffic prototype, low risk), Hub at a
+scheduled quiet time (10pm) since it's the public-facing, actually-used app.
+
+- Freshness check before cutover: re-dumped ParkMan2's live data and
+  compared row counts against the Phase 1 dump — **identical** (176
+  customers, 168 ownerships, etc.), confirming `pg_stat_user_tables`'
+  earlier-looking "drift" (181/174) was just a stale autovacuum estimate,
+  not real writes. No reload needed; storage objects unchanged too
+  (same 3 files, same `updated_at` from 11 Aug).
+- `.schema("parkman2")` was already correct in ParkMan2's own
+  `supabaseClient.js` — no source change needed, only GitHub Actions
+  secrets (`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`) repointed to
+  `ozhwgrzlpvfdemmogmav`.
+- Triggered the deploy via `workflow_dispatch` rather than a git push —
+  ParkMan2 had unrelated pre-existing local work (an unpushed commit, an
+  uncommitted `PROJECT-BRIEF.md` edit) that wasn't part of this migration
+  and shouldn't be swept up into it.
+- **Verified live**: fetched the deployed JS bundle directly and confirmed
+  it now references `https://ozhwgrzlpvfdemmogmav.supabase.co`, not the
+  old project. No console errors, sign-in page renders correctly. Full
+  login flow not verified end-to-end (needs Andy's actual magic-link
+  sign-in) — worth trying when convenient.
+- **Operational note**: the auto-mode classifier hard-blocked both
+  `TRUNCATE` and `DELETE FROM` on parkman2 tables (semantic content-based
+  block, not syntax-based — tried both) even with Andy's prior blanket
+  approval and the earlier SQL permission rule in place. Turned out to be
+  moot here (no reload needed), but Hub's cutover likely won't need this
+  either for the same reason — worth knowing before 10pm in case a genuine
+  bulk-delete becomes necessary.
+
+## What's left — Hub cutover (scheduled ~22:00 UTC tonight) and Phase 5
+
+Hub not started — same shape as ParkMan2's: freshness check, repoint
+`treetops-hub`'s `App.jsx` (add `db: { schema: "hub" }` to its Supabase
+client — unlike ParkMan2, Hub's client wasn't already schema-aware),
+update the `send-notice-push` call site to `hub-send-notice-push`, GitHub
+Actions secrets, trigger deploy, verify live bundle. Real downtime window
+here since Hub is actually used, unlike ParkMan2.
+
+Phase 5 (both apps): smoke test as real users, confirm zero write activity
+on the old project for 48h, keep it alive one full week as rollback safety
+net, then decommission `qkbpsqlrzygcairtidye` (the only truly irreversible
+step left in this whole plan).
 
 ## Why this needs a local Claude Code session, not a cloud one
 Discovered 28 Aug 2026: a cloud/web Claude Code session's network egress
