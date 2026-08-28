@@ -1,159 +1,185 @@
 # Consolidating Tree Tops apps into one Supabase project — plan sketch (not started)
 
-**Written:** 28 Aug 2026. **Status:** exploratory only — nothing below has been built.
+**Written:** 28 Aug 2026, updated same day after scanning ParkMan2.
+**Status:** exploratory only — nothing below has been built.
 Trigger: tonight's Maintenance app slowdown turned out to be Supabase's smallest
 (Nano/Free) compute tier under load, not a bug — fixable for $25/mo (Pro +
 Micro). That prompted the question: instead of paying that per app, could all
 three Tree Tops apps (Hub, Maintenance, ParkMan2) share **one** Supabase
 project and one bill?
 
-This sits alongside `AZURE-SQL-MIGRATION-PLAN.md` (15 Aug) as the other side of
-the same cost question — that plan was "leave Supabase for Azure SQL,"
-multi-week, payoff only once there's a second park. This plan is "stay on
-Supabase, just stop paying for three separate projects" — much smaller, and
-useful regardless of whether the Hub ever gets gifted elsewhere.
+This sits alongside `AZURE-SQL-MIGRATION-PLAN.md` (15 Aug, in the Hub repo) as
+the other side of the same cost question — that plan was "leave Supabase for
+Azure SQL," multi-week, payoff only once there's a second park. This plan is
+"stay on Supabase, stop paying for separate projects" — smaller, and useful
+regardless of whether the Hub ever gets gifted elsewhere.
 
-## What's actually being compared
+## Important correction: two of the three apps are already consolidated
 
-| | **Tree Tops Hub** | **Tree Tops Maintenance** | **ParkMan2** |
-|---|---|---|---|
-| Repo | `treetops-hub` | `treetops-maintenance` (this repo) | not accessible this session — see gap below |
-| Supabase project | `qkbpsqlrzygcairtidye` | separate project (per this repo's own CLAUDE.md: "never point this app at the Hub's project") | unknown — presumed separate again |
-| Data model | One generic `app_data` key/value table + `hub_admins`, `usage_events`, `push_subscriptions`. No multi-tenancy concept at all — single park, hardcoded. | Fully normalised, deliberately multi-tenant from day one: `organisations → sites → profiles/roles/groups → jobs`, ~30+ tables, heavy RLS. | Owns the master pitch/park data — Hub's own `public/pitches.json` is a static export *from* ParkMan2, already known to drift (Hub's CLAUDE.md: "14 pitches drawn on the map don't exist in ParkMan2"). |
-| Auth | Real Supabase Auth, but only for `hub_admins` gating — the anon key is deliberately public, RLS/`security definer` functions are the only gate. Everyday guests are unauthenticated. | Full per-user auth, RLS keyed to `auth.uid()` everywhere, roles/permissions/site-scope model — see this repo's SYSTEMSPEC.md §5. | unknown |
-| Edge Functions | `invite-hub-admin`, `send-notice-push` | `generate-scheduled-jobs`, `manage-users`, `rfid-login`, `send-contractor-job-email`, `contractor-document-reminders`, `flush-dnd-notifications` | unknown |
-| Compute tier today | presumably Free/Nano | Free/Nano (tonight's incident) | unknown |
+The original version of this doc assumed three separate Supabase projects.
+That was wrong. **ParkMan2's own `PROJECT-BRIEF.md` and `supabase/01-schema.sql`
+show it already runs inside Hub's project** (`qkbpsqlrzygcairtidye`), in a
+dedicated `parkman2` Postgres schema — chosen back on 7 Aug 2026 as "a
+temporary bridge" because a third free-tier project was paused and reactivating
+it meant paying anyway. ParkMan2's own brief explicitly flags the exact
+question this doc is now answering: *"at that point also revisit whether
+ParkMan2 and Maintenance should eventually share one permanent project
+instead... since that's the one choice that actually matters for how easily a
+future merge goes."*
 
-**Gap:** ParkMan2's repo isn't in this session's accessible list — everything
-below about it is inferred from Hub's references, not a real scan. Before
-committing to this plan, it needs the same repo-scan treatment Hub and
-Maintenance got here.
+So the real current state is **two projects, not three**:
 
-## The one concrete collision already found
+| | **Hub + ParkMan2** (already merged) | **Maintenance** (separate) |
+|---|---|---|
+| Supabase project | `qkbpsqlrzygcairtidye` | separate project (this repo's own CLAUDE.md: "never point this app at the Hub's project") |
+| Schema layout | Hub in `public`, ParkMan2 in its own `parkman2` schema (`alter role authenticator set pgrst.db_schemas = 'public, parkman2'`) | everything in `public` |
+| `auth.users` | shared between Hub and ParkMan2 already — "Andy's Hub login also works [in ParkMan2]" | its own separate pool |
+| Anon access | Hub's anon key is deliberately public (guest-facing, no login) — RLS is the only gate | ParkMan2 grants `authenticated` only, explicitly **no** anon grant (staff-only app, no public use case) — same posture as Maintenance |
+| Data model | Hub: one generic `app_data` key/value table + `hub_admins`, `usage_events`, `push_subscriptions`. No multi-tenancy. ParkMan2: real relational schema — `business, park, area, season, customer, caravan, pitch, ownership, placement, licence, insurance`, plus invoicing/nominal codes/VAT/roles/document register (26 migration files, genuinely the most complex of the three commercially). | Fully normalised, deliberately multi-tenant: `organisations → sites → profiles/roles/groups → jobs`, 30+ tables, heavy RLS (this repo's SYSTEMSPEC.md §5). |
+| Edge Functions | `invite-hub-admin`, `send-notice-push` (Hub) · `parkman2-manage-users` (ParkMan2 — already app-prefixed, no collision) | `generate-scheduled-jobs`, `manage-users`, `rfid-login`, `send-contractor-job-email`, `contractor-document-reminders`, `flush-dnd-notifications` |
+| Compute tier | presumably still Free/Nano | Free/Nano (tonight's incident) |
 
-Hub has a `push_subscriptions` table. Maintenance has a `push_subscriptions`
-table (SYSTEMSPEC.md §4.6). Same name, different shape, different meaning.
-Naively merging both apps' schemas into one Postgres `public` schema would
-silently break one or both. **This is exactly the kind of thing Postgres
-schemas (not just table-naming discipline) solve properly** — see below.
+**What this changes:** the question isn't "prove schema-per-app works" — it
+already does, in production, for two of three apps. The question is narrower:
+**does Maintenance join that existing project too**, or does everything move
+to a fresh one. Also worth noting: ParkMan2's own plan already called for
+*leaving* the shared project once Maintenance was "fully live" and Andy was
+paying for Supabase anyway — this doc proposes the opposite of that original
+intent (staying merged, and pulling Maintenance in rather than splitting
+ParkMan2 out), because the cost logic changed once Maintenance needed its own
+paid tier regardless.
+
+## One concrete naming collision (unaffected by the above)
+
+Hub has a `public.push_subscriptions` table. Maintenance has a
+`public.push_subscriptions` table (SYSTEMSPEC.md §4.6). Same name, different
+shape. If Maintenance's tables ever moved into the shared project's `public`
+schema this would break silently — but per the pattern ParkMan2 already
+proved out, Maintenance should get its **own** dedicated schema
+(`maintenance`, mirroring `parkman2`), not land in `public` at all. Doing that
+sidesteps this collision and any future one for free.
 
 ## Two different things "one database" could mean
 
-These are genuinely different projects with very different risk/cost, and
-worth deciding between explicitly rather than drifting into one:
+Worth keeping deliberately separate, same as before:
 
-### Option A — Same project, separate Postgres schemas (recommended first step)
+### Option A — Maintenance joins the existing Hub+ParkMan2 project, in its own schema (recommended)
 
-Each app keeps its own tables, RLS policies, and internal data model exactly
-as-is, just inside dedicated Postgres schemas (`hub.*`, `maintenance.*`,
-`parkman.*`) instead of three separate Supabase projects. PostgREST (what
-Supabase's client library talks to) can expose multiple schemas, and
-`supabase-js` supports `.schema('hub')` to target one explicitly. This is the
-direct Postgres equivalent of the Azure plan's "elastic pool" idea — one
-shared compute footprint, several logically independent databases-in-
-everything-but-name.
+Concretely: create a `maintenance` schema in the `qkbpsqlrzygcairtidye`
+project, port this repo's ~30 tables and RLS policies into it verbatim (same
+tables, same policies, just schema-qualified), expose it via the same
+`pgrst.db_schemas` mechanism ParkMan2 already uses, migrate the data, repoint
+this app's `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` and add
+`.schema('maintenance')` to its `supabase-js` client. Three apps, one
+project, one bill, each still fully independent under the hood.
 
-- **Solves the actual problem** (three separate Free-tier projects, one of
-  which already needed upgrading) with the least new design work.
-  Fixes the `push_subscriptions` collision and any future ones for free —
-  each app's tables live in their own namespace.
-- Each app's RLS, auth assumptions, and security posture stay untouched — no
-  need to reconcile Hub's "anon key is public by design" model with
-  Maintenance's "every table is RLS-gated per authenticated user" model,
-  since they never touch the same rows.
-- Shared secrets get to be genuinely shared instead of duplicated per
-  project: one `RESEND_API_KEY`, one set of VAPID keys, one service role key
-  to rotate instead of three.
-- Auth is the one real wrinkle: Supabase Auth's `auth.users` table is
-  project-wide, not per-schema. Hub's `hub_admins` and Maintenance's
-  `profiles` would both reference the *same* `auth.users` pool. That's
-  probably fine (an email either has an account or doesn't; nothing forces
-  cross-app visibility), but needs a deliberate check that Hub's admin
-  invite flow and Maintenance's staff invite flow don't collide if the same
-  person ever needs both.
+- **This is provably low-risk** — it's the exact pattern already running in
+  production for Hub+ParkMan2, not a new idea being tried for the first time.
+- Auth is the one real wrinkle, same as ParkMan2 already accepted: Maintenance's
+  `profiles` and ParkMan2's `parkman2.profiles` would both sit on top of the
+  same shared `auth.users`. That's presumably fine (same business, likely
+  overlapping staff — Andy already uses one login across Hub and ParkMan2)
+  but is worth a deliberate one-time check: does anyone currently have a
+  Maintenance account and a Hub/ParkMan2 account with different emails that
+  would now need reconciling?
+- Hub's public-anon model living alongside Maintenance's fully-gated model is
+  **already the exact situation ParkMan2 solved** — its own `03-expose-schema.sql`
+  explicitly grants schema usage to `authenticated` only, never `anon`, for
+  precisely this reason. Maintenance's migration should copy that same
+  grant shape.
+- Shared secrets stop being duplicated: one `RESEND_API_KEY` (Maintenance
+  already uses this for contractor emails; worth checking whether Hub/ParkMan2
+  need email too), one VAPID key pair (Hub and Maintenance both do push
+  notifications independently today), one service role key to rotate.
 
-### Option B — Genuinely shared data model (bigger, separate initiative)
+### Option B — Genuinely shared data model (bigger, already partly road-mapped)
 
-Beyond Option A: actually unify overlapping concepts — one canonical
-`pitches` table instead of Maintenance's `pitches` + ParkMan2's pitch data +
-Hub's static `pitches.json` export, one login working across all three apps,
-shared reference data (areas, equipment) visible everywhere it's relevant.
-This is where the *real* long-term value is — it would retire the
-already-documented pitch-data drift between Hub and ParkMan2 — but it means
-redesigning each app's data model around shared tables, not just relocating
-them. Genuinely a separate, larger project. **Recommend treating this as a
-future phase, not part of the cost-saving consolidation itself** — mixing
-"save money by sharing compute" with "redesign our data model" in one
-migration multiplies risk for no immediate reason.
+ParkMan2's own `PROJECT-BRIEF.md` already names this explicitly under
+"Maintenance integration": pulling Maintenance's job-tracking into ParkMan2
+so work on pitches/caravans can be tracked and billed in one place, and
+explicitly plans reusing Maintenance's `site_scope` (`profile_id, site_id`)
+pattern for ParkMan2's own future multi-park access control, and
+Maintenance's `role_permissions` pattern for ParkMan2's own future
+section-level permission gating. None of this is built yet — ParkMan2's brief
+is explicit that it's "deliberately not designed or built yet," to avoid
+guessing ahead of the real merge being scheduled.
+
+This is real, already-intended future work, not a new idea — but it's a data
+model redesign (one canonical `pitches` table instead of Maintenance's
+`pitches` + ParkMan2's `parkman2.pitch` + Hub's static `pitches.json` export,
+which is already known to drift), not a relocation. **Recommend treating this
+as the follow-up phase once Option A is live and stable**, exactly as
+ParkMan2's own brief already anticipated ("revisit... once that merge is
+actually being planned").
 
 ## Proposed plan (Option A)
 
-1. **Decide the home project.** Either provision a fresh, empty Supabase
-   project as the shared home (cleanest cutover, easiest rollback — the old
-   projects stay untouched until everything's verified), or repurpose
-   Maintenance's existing project (it's already the most sophisticated
-   schema and likely the first to need a Pro-tier upgrade anyway, per
-   tonight). Recommend the fresh-project route — decommissioning three old
-   projects at the end is the same either way, but a fresh home means
-   nothing about the migration can accidentally disrupt Maintenance's
-   already-live, already-fixed-tonight production data mid-move.
-2. **Create dedicated schemas** (`hub`, `maintenance`, `parkman`) in the new
-   project; enable them in PostgREST's exposed-schemas config
-   (Project Settings → API → Exposed schemas).
-3. **Port each app's SQL migrations into its schema** — mostly mechanical
-   (`create table public.foo` → `create table hub.foo`), but every RLS
-   policy, `security definer` function, and storage bucket policy needs its
-   fully-qualified schema references checked, not just table names.
-4. **Migrate data** — `pg_dump`/`pg_restore` per app's existing project,
-   loaded into its new schema in the shared project (there are only three
-   sources, none large from what's been scanned so far).
-5. **Consolidate secrets** — one `RESEND_API_KEY`, one VAPID key pair, redeploy
-   each app's Edge Functions into the one project.
-6. **Repoint each app's frontend** — new `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY`,
-   and every `supabase-js` call site needs `.schema('hub')` (or whichever)
-   added if it isn't already scoped. For Maintenance specifically, this
-   touches every file listed in SYSTEMSPEC.md §8.5 (the shared query
-   modules) plus every direct `supabase.from(...)` call — a real but
-   mechanical find-and-adjust pass.
-7. **Verify, then decommission** the three old projects only once each app
-   has run against the shared project in production for a real stretch of
-   time (recommend at least a week, given how today's issue only showed up
-   under real usage).
+1. **Confirm the target stays `qkbpsqlrzygcairtidye`** rather than a fresh
+   project — unlike the original version of this doc, there's now a real
+   reason to prefer reusing it: two of three apps are already there and
+   working, and moving *them* again would undo real, tested infrastructure
+   for no benefit. Maintenance is the one that should move, not the other
+   two.
+2. **Create the `maintenance` schema**, copy the exact GRANT/expose pattern
+   from ParkMan2's `03-expose-schema.sql` (`authenticated` only, no `anon`
+   grant — Maintenance has no public/guest use case).
+3. **Port this repo's SQL migrations** into the `maintenance` schema —
+   mechanical for table definitions, but every RLS policy and `security
+   definer` function needs its schema-qualified references checked, and
+   this repo leans on RLS more heavily than either Hub or ParkMan2 (see
+   SYSTEMSPEC.md §5's helper-function pattern) — this is the part worth
+   taking slowly.
+4. **Migrate data** — `pg_dump`/`pg_restore` from Maintenance's current
+   project into the `maintenance` schema in the shared project.
+5. **Consolidate secrets** — one `RESEND_API_KEY`, one VAPID key pair, three
+   apps' worth of Edge Functions redeployed into the one project
+   (`generate-scheduled-jobs`, `manage-users` — note this collides in name
+   with nothing today, but would be worth prefixing `maintenance-manage-users`
+   to match ParkMan2's own `parkman2-manage-users` convention, rather than
+   relying on it never colliding with something Hub or ParkMan2 add later —
+   etc., alongside `rfid-login`, `send-contractor-job-email`,
+   `contractor-document-reminders`, `flush-dnd-notifications`).
+6. **Repoint Maintenance's frontend** — new `VITE_SUPABASE_URL`/
+   `VITE_SUPABASE_ANON_KEY`, and `.schema('maintenance')` added wherever this
+   app's `supabase-js` client is constructed, plus checking every direct
+   `supabase.from(...)` call site (this repo's SYSTEMSPEC.md §8.5 lists the
+   shared query modules — start there).
+7. **Verify, then decommission** Maintenance's old project only once it's
+   run against the shared project in production for a real stretch (at
+   least a week, given tonight's issue only showed up under real usage).
 
 ## Honest effort/risk read
 
-- **Small:** Hub's port (Phase 3) — only ~4 tables, 2 Edge Functions, 1
-  storage bucket, per the Azure plan's own repo scan.
-- **Medium:** Maintenance's port — the schema is large (30+ tables) but
-  mechanical; the real work is re-checking every RLS policy's schema
-  references, since this app's security model leans on RLS more heavily
-  than Hub's does.
-- **Unknown, likely medium:** ParkMan2 — needs its own repo scan before this
-  estimate means anything.
-- **The genuine risk, not the busywork:** verifying no RLS policy
-  accidentally becomes *more* permissive once everything shares one
-  Postgres instance and one `auth.users` table. Two apps built years apart
-  with two different security philosophies (Hub: "anon is public, RLS
-  narrows it down"; Maintenance: "everything's gated, RLS is the only
-  thing standing between a request and the data") sitting in the same
-  database is the part worth taking slowly and testing thoroughly, not the
-  schema-renaming.
+- **Already done:** proving schema-per-app works in production — Hub+ParkMan2
+  already demonstrate it. This is the one thing the original version of this
+  doc treated as the main open risk, and it turns out to already be solved.
+- **Medium:** Maintenance's port — the schema is the largest of the three
+  (30+ tables) but mechanical; the real work is re-checking every RLS policy
+  and `security definer` function's schema references.
+- **Small, but worth doing deliberately:** the `auth.users` overlap check —
+  does any current Maintenance user's email need reconciling against an
+  existing Hub/ParkMan2 account for the same person.
+- **Not a risk any more:** ParkMan2's own unknowns are gone now that it's
+  been scanned directly — its schema, auth model, and even the exact GRANT
+  pattern to reuse are all in hand.
 
 ## Cost read
 
-Today: up to three Supabase projects, at least one (Maintenance) now needing
-Pro + Micro ($25/mo) after tonight. If Hub or ParkMan2 hit the same growth
-wall independently, that's potentially 2–3× $25/mo separately. Consolidated
-onto one Pro project: **$25/mo total** covers all three apps' compute unless
-combined load genuinely outgrows Micro — a real, near-term saving, not a
-someday one (contrast with the Azure plan, whose payoff explicitly doesn't
-land until there's a second park).
+Today: **two** Supabase projects, not three. Hub+ParkMan2 already share one
+(presumably still Free/Nano); Maintenance is separate and now needs Pro+Micro
+($25/mo) after tonight regardless of this plan. Folding Maintenance into the
+existing shared project means that **one** $25/mo Pro upgrade covers all
+three apps' compute, rather than Maintenance paying for its own upgrade while
+Hub+ParkMan2 separately risk hitting the same Free-tier wall later and paying
+again. Real, near-term saving either way — the only question is whether it's
+paid once or (potentially) twice.
 
 ## Before starting
 
-1. Get ParkMan2's repo added so it gets the same real scan Hub and
-   Maintenance got here, rather than this plan guessing at its scope.
-2. Decide fresh-project vs repurpose-Maintenance's-project (recommend fresh).
-3. Confirm nobody currently needs a Hub admin account and a Maintenance
-   staff account to be genuinely separate identities — Option A puts them
-   in the same `auth.users` pool.
+1. ~~Get ParkMan2's repo added~~ — done, scanned directly (28 Aug 2026).
+2. Confirm with Andy: does anyone hold both a Maintenance account and a
+   Hub/ParkMan2 account under different email addresses? That's the one
+   thing worth resolving before merging `auth.users` pools, not after.
+3. Decide whether to also rename `manage-users` → `maintenance-manage-users`
+   as part of the move, matching ParkMan2's own naming convention, purely to
+   keep future additions from colliding by accident.
