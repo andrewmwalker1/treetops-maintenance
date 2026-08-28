@@ -5,13 +5,13 @@
 // a hand-copied second version that drifts over time -- same split as
 // useEquipmentCheckout.js/CheckoutKit.jsx. Each caller supplies its own
 // JSX/styling -- this only owns state and writes.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { supabase } from "./supabaseClient.js";
 
 export const OTHER_CONTRACTOR = "__other__";
 
-export function useKeyCheckout() {
+export function useKeyCheckout(presetTagId) {
   const { profile, org, activeSite } = useAuth();
   const [view, setView] = useState("select"); // select | confirm | done
   const [keyTags, setKeyTags] = useState([]);
@@ -159,6 +159,24 @@ export function useKeyCheckout() {
   }
 
   const availableTags = keyTags.filter((t) => !openTagIds.has(t.id));
+
+  // Lets the key-station Menu (and KeysHome) jump straight past the picker
+  // when a scan already told it which tag this is and that it's available
+  // -- see KeyStationMenu.jsx's handleScan. autoPickedRef stops this from
+  // re-firing every time refresh() reloads keyTags (e.g. after backToSelect
+  // from an unrelated flow). If the tag isn't actually in availableTags by
+  // the time this list lands (someone else took it in the meantime, or it
+  // has no location yet), this just silently does nothing and the ordinary
+  // picker shows -- no dead-end error screen for a race that's already rare.
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    if (!presetTagId || autoPickedRef.current) return;
+    const tag = availableTags.find((t) => t.id === presetTagId);
+    if (tag) {
+      autoPickedRef.current = true;
+      pickTag(tag);
+    }
+  }, [presetTagId, availableTags]);
 
   return {
     view,

@@ -5,7 +5,7 @@
 // a hand-copied second version that drifts over time -- same split as
 // useEquipmentCheckin.js/CheckinKit.jsx. Each caller supplies its own
 // JSX/styling -- this only owns state and writes.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./AuthContext.jsx";
 import { supabase } from "./supabaseClient.js";
 
@@ -15,7 +15,7 @@ export function issuedToSummary(checkout) {
   return checkout.issued_to_name || (checkout.issued_to_kind === "guest" ? "a guest" : "a customer");
 }
 
-export function useKeyCheckin() {
+export function useKeyCheckin(presetTagId) {
   const { profile, activeSite } = useAuth();
   const [view, setView] = useState("select"); // select | confirm | done
   const [openTags, setOpenTags] = useState([]);
@@ -81,6 +81,18 @@ export function useKeyCheckin() {
     }
     setView("done");
   }
+
+  // Same "scan already told us which tag" fast path as useKeyCheckout.js --
+  // see KeyStationMenu.jsx's handleScan for how presetTagId gets here.
+  const autoPickedRef = useRef(false);
+  useEffect(() => {
+    if (!presetTagId || autoPickedRef.current) return;
+    const tag = openTags.find((t) => t.id === presetTagId);
+    if (tag) {
+      autoPickedRef.current = true;
+      pickTag(tag);
+    }
+  }, [presetTagId, openTags]);
 
   return {
     view,

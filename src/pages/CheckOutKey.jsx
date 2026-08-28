@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useKeyCheckout, OTHER_CONTRACTOR } from "../lib/useKeyCheckout.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
@@ -30,6 +30,7 @@ const fieldStyle = {
 
 export default function CheckOutKey() {
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     view,
     availableTags,
@@ -57,7 +58,7 @@ export default function CheckOutKey() {
     pickTag,
     backToSelect,
     handleSubmit,
-  } = useKeyCheckout();
+  } = useKeyCheckout(location.state?.presetTagId);
 
   if (view === "done") {
     return (

@@ -212,11 +212,6 @@ export default function KeyTagsTab() {
   const [movingTagId, setMovingTagId] = useState(null);
   const [movePitchId, setMovePitchId] = useState("");
 
-  const [handingOverTagId, setHandingOverTagId] = useState(null);
-  const [handoverTo, setHandoverTo] = useState("");
-  const [handoverNotes, setHandoverNotes] = useState("");
-  const [handoverFobConfirmed, setHandoverFobConfirmed] = useState(false);
-
   const [newLocationLabel, setNewLocationLabel] = useState("");
 
   function refresh() {
@@ -293,8 +288,8 @@ export default function KeyTagsTab() {
   }
 
   // The RFID fob itself gets recovered before a handed-over key's physical
-  // blank leaves the building (see startHandover/handleHandover below), so
-  // the same fob can end up back in service on a different pitch's key
+  // blank leaves the building (see useKeyHandover.js's fobConfirmed step),
+  // so the same fob can end up back in service on a different pitch's key
   // later -- a plain status flip back to 'active' (no side effect to
   // undo, unlike the handover itself), same shape as handleReinstate.
   async function handleReturnToPool(tag) {
@@ -447,34 +442,20 @@ export default function KeyTagsTab() {
     refresh();
   }
 
-  function startHandover(tag) {
-    setHandingOverTagId(tag.id);
-    setHandoverTo("");
-    setHandoverNotes("");
-    setHandoverFobConfirmed(false);
-  }
-
-  // Goes through handover_key_tag (48-key-tags-handover.sql) rather than a
-  // plain update -- it force-closes any open checkout on this tag in the
-  // same transaction, which a client-side update can't do. The fob
-  // checkbox is a reminder, not data the server checks: the only way this
-  // system knows about a physical key is via its RFID tag, so if the fob
-  // travels with the key to the customer, the tag itself effectively
-  // leaves too and can never be reused on a future key.
-  async function handleHandover(e) {
-    e.preventDefault();
-    if (!handoverTo.trim() || !handoverFobConfirmed) return;
-    const { error: err } = await supabase.rpc("handover_key_tag", {
-      p_key_tag_id: handingOverTagId,
-      p_handed_over_to: handoverTo.trim(),
-      p_notes: handoverNotes.trim() || null,
-    });
-    if (err) {
-      setError(err.message);
-      return;
-    }
-    setHandingOverTagId(null);
-    refresh();
+  // Return-to-store is the everyday reverse of a special-location move
+  // (e.g. sales ring -> back in the cupboard) -- Relocate (kiosk/in-app,
+  // can_manage_keys) already covers this by picking the blank "in the
+  // cupboard" option, but Admin's own card actions never got an equivalent
+  // one-click version, which read as "there's no way to do this" (Andy,
+  // 2026-08-28). Only clears special_location_id -- pitch_id (its home)
+  // stays exactly as it was, same as Relocate leaves it.
+  async function handleReturnToStore(tag) {
+    const specialLabel = specialLocations.find((s) => s.id === tag.special_location_id)?.label || "its special location";
+    const proceed = window.confirm(`Move this key back to the cupboard at ${locationLabel(tag, pitches, specialLocations)}? It'll no longer show as at ${specialLabel}.`);
+    if (!proceed) return;
+    const { error: err } = await supabase.from("key_tags").update({ special_location_id: null }).eq("id", tag.id);
+    if (err) setError(err.message);
+    else refresh();
   }
 
   async function handleRemove(tag) {
@@ -509,6 +490,8 @@ export default function KeyTagsTab() {
       <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
         Scan a tag to register a new one, or to jump straight to an existing tag's own Move form below (physical keys carry no visible number, so
         scanning is the only reliable way to find the right row). Multiple tags can share the same pitch (a caravan with more than one key).
+        Handing a key over to its new owner is now done from the key station or the Keys page, not here — this list still shows the history
+        once it's done.
       </p>
 
       {/* Up here, not below the tag list, so scanning a tag doesn't mean
@@ -609,7 +592,7 @@ export default function KeyTagsTab() {
               {tag.status === "active" && (
                 <>
                   <button onClick={() => startMove(tag)} style={buttonStyle.secondary}>Move</button>
-                  {tag.pitch_id && <button onClick={() => startHandover(tag)} style={buttonStyle.secondary}>Handover</button>}
+                  {tag.special_location_id && <button onClick={() => handleReturnToStore(tag)} style={buttonStyle.secondary}>Return to store</button>}
                   <button onClick={() => handleRemove(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Remove</button>
                   <button onClick={() => handleMarkLost(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Mark as lost</button>
                 </>
@@ -628,63 +611,6 @@ export default function KeyTagsTab() {
               <div style={{ display: "flex", gap: "8px" }}>
                 <button type="submit" style={buttonStyle.primary}>Save</button>
                 <button type="button" onClick={() => setMovingTagId(null)} style={buttonStyle.secondary}>Cancel</button>
-              </div>
-            </form>
-          )}
-          {handingOverTagId === tag.id && (
-            <form onSubmit={handleHandover} style={{ marginTop: "12px", borderTop: `1px solid ${colors.lineStrong}`, paddingTop: "12px" }}>
-              <p style={{ fontSize: "13px", marginTop: 0 }}>
-                This key is leaving for good, to the new owner of {locationLabel(tag, pitches, specialLocations)} — it'll drop off every
-                checkout/relocate screen and won't come back into the cupboard.
-              </p>
-              {openTagIds.has(tag.id) && (
-                <p style={{ fontSize: "13px", color: colors.inkSoft }}>
-                  This key is currently checked out — completing the handover will automatically check it back in, since it's not coming back.
-                </p>
-              )}
-              <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Handed over to</label>
-              <input
-                type="text"
-                required
-                autoFocus
-                value={handoverTo}
-                onChange={(e) => setHandoverTo(e.target.value)}
-                placeholder="Customer name"
-                style={fieldStyle}
-              />
-              <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Notes (optional)</label>
-              <textarea
-                value={handoverNotes}
-                onChange={(e) => setHandoverNotes(e.target.value)}
-                rows={2}
-                style={{ ...fieldStyle, resize: "vertical" }}
-              />
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "8px",
-                  fontSize: "13px",
-                  padding: "10px 12px",
-                  marginBottom: "12px",
-                  borderRadius: "8px",
-                  border: `1px solid ${colors.gold}`,
-                  background: colors.paper,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={handoverFobConfirmed}
-                  onChange={(e) => setHandoverFobConfirmed(e.target.checked)}
-                  style={{ marginTop: "2px" }}
-                />
-                I've removed the RFID fob from this key — only the physical key goes to the customer, the fob stays with us.
-              </label>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" style={{ ...buttonStyle.primary, opacity: handoverTo.trim() && handoverFobConfirmed ? 1 : 0.5 }} disabled={!handoverTo.trim() || !handoverFobConfirmed}>
-                  Complete handover
-                </button>
-                <button type="button" onClick={() => setHandingOverTagId(null)} style={buttonStyle.secondary}>Cancel</button>
               </div>
             </form>
           )}

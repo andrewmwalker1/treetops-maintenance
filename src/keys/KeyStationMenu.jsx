@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { supabase } from "../lib/supabaseClient.js";
 import { usePermissions } from "../lib/permissions.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
+import RfidScanListener from "../components/RfidScanListener.jsx";
 import StatDial from "../components/StatDial.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
@@ -15,6 +17,7 @@ export default function KeyStationMenu() {
   const permissions = usePermissions();
   const [openCheckouts, setOpenCheckouts] = useState(null); // null = loading
   const [detailGroup, setDetailGroup] = useState(null); // { label, rows } | null
+  const [scanError, setScanError] = useState(null);
 
   // Andy's ask: the same "keys currently out" visibility the main app's
   // Dashboard has, but on the key station itself, since staff mostly live
@@ -38,6 +41,53 @@ export default function KeyStationMenu() {
   function openDetail(label, rows) {
     if (rows.length === 0) return;
     setDetailGroup({ label, rows });
+  }
+
+  // Andy: standing at the cupboard, scanning the key in hand should be
+  // enough on its own to get to the right screen -- no need to first tap
+  // "Check out" or "Check in" and then scan again. This looks the tag up
+  // itself (rather than just guessing from openCheckouts, which only knows
+  // about tags currently out) so a lost/handed-over/unallocated tag gets a
+  // clear reason instead of silently landing on the wrong screen. The
+  // target screen re-does its own fetch and only auto-selects the tag if
+  // it's still there (see useKeyCheckout.js/useKeyCheckin.js's presetTagId
+  // handling) -- if it isn't (someone else got there first), it just falls
+  // back to the ordinary picker rather than erroring twice.
+  async function handleScan(uid) {
+    setScanError(null);
+    const { data: tag, error: err } = await supabase
+      .from("key_tags")
+      .select("id, status, pitch_id, special_location_id")
+      .eq("site_id", activeSite.id)
+      .eq("tag_uid", uid)
+      .maybeSingle();
+    if (err) {
+      setScanError(err.message);
+      return;
+    }
+    if (!tag) {
+      setScanError("That tag isn't registered here.");
+      return;
+    }
+    if (tag.status !== "active") {
+      setScanError(tag.status === "lost" ? "This tag is marked lost." : "This key has already been handed over to its owner.");
+      return;
+    }
+    if (!tag.pitch_id && !tag.special_location_id) {
+      setScanError("This tag isn't allocated to a pitch yet — see Admin ▸ Key Tags.");
+      return;
+    }
+    const { data: openCheckout, error: coErr } = await supabase
+      .from("key_checkouts")
+      .select("id")
+      .eq("key_tag_id", tag.id)
+      .is("checked_in_at", null)
+      .maybeSingle();
+    if (coErr) {
+      setScanError(coErr.message);
+      return;
+    }
+    navigate(openCheckout ? "/keys/checkin" : "/keys/checkout", { state: { presetTagId: tag.id } });
   }
 
   if (detailGroup) {
@@ -66,10 +116,14 @@ export default function KeyStationMenu() {
 
   return (
     <div style={{ padding: "32px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
+      <RfidScanListener onScan={handleScan} />
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "28px", marginBottom: "4px" }}>
         Hi {profile?.display_name || "there"}
       </h1>
-      <p style={{ color: colors.inkSoft, fontSize: "16px", marginTop: 0, marginBottom: "20px" }}>What do you need?</p>
+      <p style={{ color: colors.inkSoft, fontSize: "16px", marginTop: 0, marginBottom: "20px" }}>
+        Scan a key to check it out or in, or pick what you need below.
+      </p>
+      {scanError && <p style={{ color: colors.immediate, fontSize: "15px", marginTop: "-12px" }}>{scanError}</p>}
 
       {openCheckouts !== null && (
         <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
@@ -102,6 +156,7 @@ export default function KeyStationMenu() {
             <>
               <button style={smallButtonStyle} onClick={() => navigate("/keys/relocate")}>Relocate</button>
               <button style={smallButtonStyle} onClick={() => navigate("/keys/force-checkin")}>Force check-in</button>
+              <button style={smallButtonStyle} onClick={() => navigate("/keys/handover")}>Handover</button>
             </>
           )}
         </div>

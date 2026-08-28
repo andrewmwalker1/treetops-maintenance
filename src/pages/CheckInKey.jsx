@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useKeyCheckin, issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
@@ -26,7 +26,8 @@ const fieldStyle = {
 
 export default function CheckInKey() {
   const navigate = useNavigate();
-  const { view, openTags, selected, submitting, error, pickTag, backToSelect, handleConfirm } = useKeyCheckin();
+  const location = useLocation();
+  const { view, openTags, selected, submitting, error, pickTag, backToSelect, handleConfirm } = useKeyCheckin(location.state?.presetTagId);
 
   if (view === "done") {
     return (

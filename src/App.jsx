@@ -16,6 +16,7 @@ import CheckInKey from "./pages/CheckInKey.jsx";
 import FindKey from "./pages/FindKey.jsx";
 import RelocateKey from "./pages/RelocateKey.jsx";
 import ForceCheckInKey from "./pages/ForceCheckInKey.jsx";
+import HandoverKey from "./pages/HandoverKey.jsx";
 import KeysGate from "./components/KeysGate.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
@@ -187,6 +188,7 @@ function AppShell() {
         <Route path="/key-register/find" element={<KeysGate><FindKey /></KeysGate>} />
         <Route path="/key-register/relocate" element={<KeysGate><RelocateKey /></KeysGate>} />
         <Route path="/key-register/force-checkin" element={<KeysGate><ForceCheckInKey /></KeysGate>} />
+        <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/admin" element={<Admin />} />

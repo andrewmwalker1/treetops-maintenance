@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { supabase } from "../lib/supabaseClient.js";
 import { usePermissions } from "../lib/permissions.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
+import RfidScanListener from "../components/RfidScanListener.jsx";
 import StatDial from "../components/StatDial.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
@@ -24,10 +26,12 @@ const listButtonStyle = {
 };
 
 export default function KeysHome() {
+  const navigate = useNavigate();
   const { profile, activeSite } = useAuth();
   const permissions = usePermissions();
   const [openCheckouts, setOpenCheckouts] = useState(null); // null = loading
   const [detailGroup, setDetailGroup] = useState(null); // { label, rows } | null
+  const [scanError, setScanError] = useState(null);
 
   useEffect(() => {
     if (!activeSite) return;
@@ -42,6 +46,47 @@ export default function KeysHome() {
   function openDetail(label, rows) {
     if (rows.length === 0) return;
     setDetailGroup({ label, rows });
+  }
+
+  // Same scan-to-the-right-screen shortcut as KeyStationMenu.jsx's
+  // handleScan -- staff on their own phone (not necessarily stood at the
+  // cupboard, but a fob reader could still be attached) get the same
+  // "scan it, go straight to check-out/check-in" behaviour.
+  async function handleScan(uid) {
+    setScanError(null);
+    const { data: tag, error: err } = await supabase
+      .from("key_tags")
+      .select("id, status, pitch_id, special_location_id")
+      .eq("site_id", activeSite.id)
+      .eq("tag_uid", uid)
+      .maybeSingle();
+    if (err) {
+      setScanError(err.message);
+      return;
+    }
+    if (!tag) {
+      setScanError("That tag isn't registered here.");
+      return;
+    }
+    if (tag.status !== "active") {
+      setScanError(tag.status === "lost" ? "This tag is marked lost." : "This key has already been handed over to its owner.");
+      return;
+    }
+    if (!tag.pitch_id && !tag.special_location_id) {
+      setScanError("This tag isn't allocated to a pitch yet — see Admin ▸ Key Tags.");
+      return;
+    }
+    const { data: openCheckout, error: coErr } = await supabase
+      .from("key_checkouts")
+      .select("id")
+      .eq("key_tag_id", tag.id)
+      .is("checked_in_at", null)
+      .maybeSingle();
+    if (coErr) {
+      setScanError(coErr.message);
+      return;
+    }
+    navigate(openCheckout ? "/key-register/checkin" : "/key-register/checkout", { state: { presetTagId: tag.id } });
   }
 
   if (detailGroup) {
@@ -67,8 +112,12 @@ export default function KeysHome() {
 
   return (
     <div style={{ maxWidth: "560px" }}>
+      <RfidScanListener onScan={handleScan} />
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Keys</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "14px", marginTop: "-8px" }}>What do you need?</p>
+      <p style={{ color: colors.inkSoft, fontSize: "14px", marginTop: "-8px" }}>
+        Scan a key (if a reader's attached) to check it out or in, or pick what you need below.
+      </p>
+      {scanError && <p style={{ color: colors.immediate, fontSize: "14px" }}>{scanError}</p>}
 
       {openCheckouts !== null && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px", marginBottom: "18px" }}>
@@ -101,6 +150,9 @@ export default function KeysHome() {
             </Link>
             <Link to="/key-register/force-checkin" style={listButtonStyle}>
               Force check-in
+            </Link>
+            <Link to="/key-register/handover" style={listButtonStyle}>
+              Handover a key
             </Link>
           </>
         )}
