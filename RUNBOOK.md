@@ -125,6 +125,50 @@ npm install
 npm run dev
 ```
 
+## 9. Compute tier — and what to check if the app goes slow/unresponsive
+
+**As of 28 Aug 2026: Pro plan + Micro compute.** Originally ran on Free plan
++ Nano compute (Supabase's smallest, free-tier-only size). On the night of
+27–28 Aug, the whole app (jobs list, admin menu, even signing in) went
+intermittently unresponsive under perfectly ordinary single-admin usage —
+diagnosed over a long live session, not a guess. Confirmed it wasn't a query
+or RLS bug: `pg_stat_activity` was checked live, multiple times, including
+mid-hang, and never showed a single long-running or blocked query. The
+project's own usage graph for that hour showed a 95% success rate (~22
+failed requests out of 438) on Nano — real infrastructure strain, not
+something fixable in this app's code. Upgrading to Pro + Micro (**$25/mo
+total** — Micro is fully covered by the $10/mo credit Pro includes)
+resolved it immediately.
+
+If this happens again, check in this order before assuming it's a code bug:
+1. **Confirm the compute tier hasn't regressed to Nano** — Project Settings
+   → Compute and Disk.
+2. **Run this in the SQL Editor** — if it comes back clean (no rows besides
+   the query itself), the database engine isn't the bottleneck:
+   ```sql
+   select pid, now() - query_start as duration, state, wait_event_type, wait_event, query
+   from pg_stat_activity
+   where state != 'idle'
+   order by duration desc;
+   ```
+3. **Authentication → Rate Limits / Logs** — if sign-in specifically is
+   stuck on "Sending…", check whether the (Supabase-default) 30-emails/hour
+   Auth email limit has been hit. Fix: set up Resend as a custom SMTP
+   provider for Auth (Authentication → Settings → SMTP Settings — host
+   `smtp.resend.com`, username `resend`, password = Resend API key,
+   sender address on a Resend-verified domain) — **this was recommended the
+   night of 27–28 Aug but not yet confirmed done; check whether it actually
+   got set up before ruling this out.**
+4. If all three check out clean and it's still slow, it's likely a genuine
+   Supabase-side incident — check https://status.supabase.com, and if
+   nothing's listed there, open a support ticket via the dashboard rather
+   than continuing to debug from the app side.
+
+See also `SUPABASE-CONSOLIDATION-PLAN.md` — a live proposal to fold this
+app into the same Supabase project Hub and ParkMan2 already share, which
+would mean one Pro+Micro bill covering all three apps instead of paying for
+this app's upgrade in isolation.
+
 ## What's NOT done yet
 
 - Pitch CSV not supplied — `pitches` only has a `pitch_number_or_name`
