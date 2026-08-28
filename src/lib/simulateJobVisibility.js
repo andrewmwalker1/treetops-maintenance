@@ -64,6 +64,11 @@ export function useViewAsJobFilter() {
   const filterFn = useCallback(
     (job) =>
       permissions.has("can_see_all_jobs") ||
+      // Matches can_see_job()'s new created_by = auth.uid() clause
+      // (51-jobs-creator-always-visible.sql) -- only meaningful for a real
+      // target person, same as the assignee check just below, since "jobs
+      // this bare role created" isn't a thing any real session experiences.
+      (viewingAsTargetId != null && job.created_by === viewingAsTargetId) ||
       (viewingAsTargetId != null && job.assignee?.id === viewingAsTargetId) ||
       Boolean(job.assignee_group?.id && groupIds.has(job.assignee_group.id)) ||
       Boolean(job.assignee?.role?.id && visibleRoleIds.has(job.assignee.role.id)),

@@ -7,7 +7,7 @@
 import { supabase } from "./supabaseClient.js";
 
 const JOB_SELECT = `
-  id, description, priority, due_date, lead_in_date, created_at, closed_by, client_generated_id,
+  id, description, priority, due_date, lead_in_date, created_at, created_by, closed_by, client_generated_id,
   job_status:job_statuses(id, name, is_completed, sort_order),
   job_type:job_types(id, name, requires_completion_photo),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name, role:roles(id, name)),
