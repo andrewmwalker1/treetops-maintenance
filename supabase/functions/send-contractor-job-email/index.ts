@@ -1,16 +1,23 @@
 // Tree Tops Maintenance Platform -- send a job's details to its assigned
 // contractor by email (and log that it happened).
-// Called from src/pages/JobDetail.jsx via
-// supabase.functions.invoke("send-contractor-job-email", { body: { jobId } }).
+// Called from src/pages/JobDetail.jsx's contractor-email modal via
+// supabase.functions.invoke("send-contractor-job-email", { body: {
+//   jobId, subject, bodyText, cc, photoIds
+// } }) -- the modal builds a default subject/body from the job (see
+// buildDefaultContractorEmailBody in JobDetail.jsx) but the office user can
+// edit both freely before sending, add a CC, and pick which of the job's
+// photos (already-uploaded or freshly captured in the modal, both land in
+// job_photos the same way) go out as attachments.
 //
 // Uses the service role for the same reason as manage-users -- it needs
-// to read the job/checklist/creator regardless of the caller's own RLS
-// visibility path, and insert the resulting job_activity row as that
-// caller. Re-checks the caller's own can_manage_contractors permission
-// itself before doing anything, since bypassing RLS means nothing else
-// enforces that here. No dedicated "resend" action -- calling this again
-// for the same job just sends again and adds another activity entry, so
-// the caller always has the current job details and a full send history.
+// to read the job/contractor and download photos from the (private)
+// job-photos bucket regardless of the caller's own RLS visibility path,
+// and insert the resulting job_activity row as that caller. Re-checks the
+// caller's own can_manage_contractors permission itself before doing
+// anything, since bypassing RLS means nothing else enforces that here. No
+// dedicated "resend" action -- calling this again for the same job just
+// sends again (whatever subject/body/photos are passed this time) and
+// adds another activity entry, so there's always a full send history.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { Resend } from "npm:resend@3";
@@ -42,6 +49,29 @@ function escapeHtml(value: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// Uploads are named `${crypto.randomUUID()}-${file.name}` (see
+// handleAddPhoto/handleContractorEmailAddPhoto in JobDetail.jsx) -- a
+// standard UUID is always 36 characters, so stripping that plus the
+// separating dash recovers the original filename for the attachment
+// instead of emailing it as a meaningless UUID.
+function photoFilename(storagePath: string) {
+  const base = storagePath.split("/").pop() || "photo.jpg";
+  return base.length > 37 ? base.slice(37) : base;
+}
+
+// btoa(String.fromCharCode(...bytes)) blows the call stack on anything
+// more than a few KB (spread turns the whole array into call arguments) --
+// downscaled job photos are routinely a few hundred KB, so this chunks the
+// conversion instead.
+function uint8ToBase64(bytes: Uint8Array) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
 async function authorizeCaller(req: Request): Promise<{ ok: boolean; orgId?: string; actorProfileId?: string }> {
@@ -79,16 +109,15 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json();
-  const { jobId } = body;
+  const { jobId, subject, bodyText, cc, photoIds } = body;
   if (!jobId) return jsonResponse({ error: "jobId is required" }, 400);
+  if (!subject || !subject.trim()) return jsonResponse({ error: "Subject is required" }, 400);
+  if (!bodyText || !bodyText.trim()) return jsonResponse({ error: "Email body is required" }, 400);
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from("jobs")
     .select(`
-      id, description, priority, due_date, org_id,
-      pitch:pitches(pitch_number_or_name),
-      area:areas(name),
-      creator:profiles!jobs_created_by_fkey(display_name),
+      id, org_id,
       assignee_contractor:contractors(id, name, main_email)
     `)
     .eq("id", jobId)
@@ -100,34 +129,42 @@ Deno.serve(async (req) => {
   if (!contractor) return jsonResponse({ error: "This job isn't assigned to a contractor" }, 400);
   if (!contractor.main_email) return jsonResponse({ error: `${contractor.name} has no email address on file` }, 400);
 
-  const { data: subtasks } = await supabaseAdmin
-    .from("job_subtasks")
-    .select("label")
-    .eq("job_id", jobId)
-    .order("sort_order");
+  const ccList: string[] = Array.isArray(cc) ? cc.map((c: unknown) => String(c).trim()).filter(Boolean) : [];
 
-  const checklistHtml = (subtasks ?? []).length
-    ? `<ul>${(subtasks ?? []).map((s) => `<li>${escapeHtml(s.label)}</li>`).join("")}</ul>`
-    : "<p>No checklist items.</p>";
+  let attachments: { filename: string; content: string }[] = [];
+  if (Array.isArray(photoIds) && photoIds.length > 0) {
+    // Scoped to this job_id, not just `.in("id", photoIds)` -- photoIds
+    // comes straight from the browser, so this is what stops someone
+    // attaching another job's (possibly another org's) photo by id.
+    const { data: photoRows, error: photoError } = await supabaseAdmin
+      .from("job_photos")
+      .select("id, storage_path")
+      .eq("job_id", jobId)
+      .in("id", photoIds);
+    if (photoError) return jsonResponse({ error: photoError.message }, 500);
 
-  const location = (job.pitch as { pitch_number_or_name: string } | null)?.pitch_number_or_name
-    || (job.area as { name: string } | null)?.name
-    || "Not set";
-  const creatorName = (job.creator as { display_name: string } | null)?.display_name || "Tree Tops Maintenance";
+    try {
+      attachments = await Promise.all(
+        (photoRows ?? []).map(async (p) => {
+          const { data: fileData, error: downloadError } = await supabaseAdmin.storage.from("job-photos").download(p.storage_path);
+          if (downloadError || !fileData) throw new Error(`Failed to fetch photo: ${downloadError?.message || p.storage_path}`);
+          const bytes = new Uint8Array(await fileData.arrayBuffer());
+          return { filename: photoFilename(p.storage_path), content: uint8ToBase64(bytes) };
+        })
+      );
+    } catch (err) {
+      console.error("Failed to prepare photo attachments", err);
+      return jsonResponse({ error: err instanceof Error ? err.message : "Failed to attach photos" }, 500);
+    }
+  }
 
   const { error: sendError } = await resend.emails.send({
     from: "Tree Tops Maintenance <noreply@treetopscaravanpark.co.uk>",
     to: contractor.main_email,
-    subject: `Job instruction: ${job.description}`,
-    html: `
-      <h2 style="margin-bottom:4px">${escapeHtml(job.description)}</h2>
-      <p><strong>Priority:</strong> ${escapeHtml(job.priority)}</p>
-      <p><strong>Due date:</strong> ${job.due_date ? escapeHtml(job.due_date) : "Not set"}</p>
-      <p><strong>Location:</strong> ${escapeHtml(location)}</p>
-      <p><strong>Requested by:</strong> ${escapeHtml(creatorName)}</p>
-      <h3 style="margin-bottom:4px">Checklist</h3>
-      ${checklistHtml}
-    `,
+    cc: ccList.length > 0 ? ccList : undefined,
+    subject: subject.trim(),
+    html: `<div>${escapeHtml(bodyText).replace(/\n/g, "<br>")}</div>`,
+    attachments: attachments.length > 0 ? attachments : undefined,
   });
   if (sendError) {
     console.error("Resend send failed", sendError);
@@ -138,7 +175,14 @@ Deno.serve(async (req) => {
     job_id: jobId,
     event_type: "contractor_email",
     actor_profile_id: actorProfileId,
-    new_value: { contractor_id: contractor.id, contractor_name: contractor.name, sent_to: contractor.main_email },
+    new_value: {
+      contractor_id: contractor.id,
+      contractor_name: contractor.name,
+      sent_to: contractor.main_email,
+      subject: subject.trim(),
+      cc: ccList,
+      photo_count: attachments.length,
+    },
   });
   if (activityError) console.error("Failed to log contractor_email activity", activityError);
 

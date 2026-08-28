@@ -22,10 +22,34 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Starting point for the contractor-email modal's editable body -- same
+// facts the old fixed-template email used to send (see
+// send-contractor-job-email/index.ts's git history), just as plain text
+// the office user can freely rewrite before sending rather than a
+// template the Edge Function baked in unseen.
+function buildDefaultContractorEmailBody(job, subtasks) {
+  const location = job.pitch?.pitch_number_or_name || job.area?.name || "Not set";
+  const lines = [
+    `Hi ${job.assignee_contractor?.name || "there"},`,
+    "",
+    "Please find the details for this job below:",
+    "",
+    `Priority: ${job.priority}`,
+    `Due date: ${job.due_date || "Not set"}`,
+    `Location: ${location}`,
+    `Requested by: ${job.creator?.display_name || "Tree Tops Maintenance"}`,
+  ];
+  if (subtasks.length > 0) {
+    lines.push("", "Checklist:");
+    subtasks.forEach((s) => lines.push(`- ${s.label}`));
+  }
+  return lines.join("\n");
+}
+
 export default function JobDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { profile, org, activeSite, terminology } = useAuth();
+  const { profile, org, activeSite, terminology, session } = useAuth();
   const permissions = usePermissions();
   const isMobile = useIsMobile();
   // job_types insert/update is RLS-gated on can_manage_reference_data (see
@@ -75,6 +99,13 @@ export default function JobDetail() {
   // `uploading` above, which tracks the whole-job "Add photo" button.
   const [uploadingSubtaskId, setUploadingSubtaskId] = useState(null);
   const [sendingContractorEmail, setSendingContractorEmail] = useState(false);
+  const [showContractorEmailModal, setShowContractorEmailModal] = useState(false);
+  const [contractorEmailSubject, setContractorEmailSubject] = useState("");
+  const [contractorEmailBody, setContractorEmailBody] = useState("");
+  const [contractorEmailCc, setContractorEmailCc] = useState("");
+  const [contractorEmailPhotoIds, setContractorEmailPhotoIds] = useState(new Set());
+  const [contractorEmailUploading, setContractorEmailUploading] = useState(false);
+  const [contractorEmailError, setContractorEmailError] = useState(null);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [completeDate, setCompleteDate] = useState(today());
   const [completeComment, setCompleteComment] = useState("");
@@ -731,15 +762,70 @@ export default function JobDetail() {
     }
   }
 
+  function openContractorEmailModal() {
+    setContractorEmailSubject(`Job instruction: ${job.description}`);
+    setContractorEmailBody(buildDefaultContractorEmailBody(job, subtasks));
+    setContractorEmailCc(session?.user?.email || "");
+    setContractorEmailPhotoIds(new Set());
+    setContractorEmailError(null);
+    setShowContractorEmailModal(true);
+  }
+
+  function toggleContractorEmailPhoto(photoId) {
+    setContractorEmailPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(photoId)) next.delete(photoId);
+      else next.add(photoId);
+      return next;
+    });
+  }
+
+  // Same capture/upload/insert as handleAddPhoto -- a photo attached from
+  // this modal is a real job photo like any other (kept for the record,
+  // not a throwaway email-only attachment), just pre-selected for this
+  // send since that's obviously why it was just added.
+  async function handleContractorEmailAddPhoto() {
+    setContractorEmailUploading(true);
+    setContractorEmailError(null);
+    try {
+      const file = await capturePhoto();
+      const path = `${job.id}/${crypto.randomUUID()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, file);
+      if (uploadError) throw uploadError;
+      const { data: inserted, error: insertError } = await supabase
+        .from("job_photos")
+        .insert({ job_id: job.id, storage_path: path, uploaded_by: profile.id })
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+      setContractorEmailPhotoIds((prev) => new Set(prev).add(inserted.id));
+      loadAll();
+    } catch (err) {
+      if (err.message !== "Photo capture cancelled.") setContractorEmailError(err.message);
+    } finally {
+      setContractorEmailUploading(false);
+    }
+  }
+
   async function handleSendContractorEmail() {
     setSendingContractorEmail(true);
-    setError(null);
-    const { error: err } = await supabase.functions.invoke("send-contractor-job-email", { body: { jobId: job.id } });
+    setContractorEmailError(null);
+    const ccList = contractorEmailCc.split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+    const { error: err } = await supabase.functions.invoke("send-contractor-job-email", {
+      body: {
+        jobId: job.id,
+        subject: contractorEmailSubject.trim(),
+        bodyText: contractorEmailBody,
+        cc: ccList,
+        photoIds: Array.from(contractorEmailPhotoIds),
+      },
+    });
     setSendingContractorEmail(false);
     if (err) {
-      setError(err.message);
+      setContractorEmailError(err.message);
       return;
     }
+    setShowContractorEmailModal(false);
     loadAll();
   }
 
@@ -931,8 +1017,8 @@ export default function JobDetail() {
             <p style={{ fontSize: "14px", marginTop: "10px" }}>Assigned to {job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name}</p>
           )}
           {job.assignee_contractor && permissions.has("can_manage_contractors") && (
-            <button type="button" onClick={handleSendContractorEmail} disabled={sendingContractorEmail} style={{ ...buttonStyle.secondary, marginTop: "10px" }}>
-              {sendingContractorEmail ? "Sending…" : "Send email to contractor"}
+            <button type="button" onClick={openContractorEmailModal} style={{ ...buttonStyle.secondary, marginTop: "10px" }}>
+              Send email to contractor
             </button>
           )}
         </div>
@@ -1200,7 +1286,11 @@ export default function JobDetail() {
             </div>
             {a.event_type === "comment" && <div>{a.new_value?.text}</div>}
             {a.event_type === "contractor_email" && (
-              <div>Job details sent to {a.new_value?.contractor_name} ({a.new_value?.sent_to})</div>
+              <div>
+                Job details sent to {a.new_value?.contractor_name} ({a.new_value?.sent_to})
+                {a.new_value?.cc?.length > 0 && <> — cc: {a.new_value.cc.join(", ")}</>}
+                {a.new_value?.photo_count > 0 && <> — {a.new_value.photo_count} photo{a.new_value.photo_count === 1 ? "" : "s"} attached</>}
+              </div>
             )}
             {a.event_type === "progress_update" && <div>Progress: {a.new_value?.percent}%</div>}
           </div>
@@ -1348,6 +1438,67 @@ export default function JobDetail() {
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
             <button type="button" onClick={() => setShowCompleteModal(false)} style={buttonStyle.secondary}>Cancel</button>
             <button type="button" onClick={confirmComplete} disabled={outstandingPhotoItems.length > 0} style={buttonStyle.primary}>Mark complete</button>
+          </div>
+        </Modal>
+      )}
+
+      {showContractorEmailModal && (
+        <Modal title={`Email ${job.assignee_contractor?.name || "contractor"}`} onClose={() => setShowContractorEmailModal(false)} maxWidth="560px">
+          <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+            To: {job.assignee_contractor?.name}
+            {job.assignee_contractor?.main_email ? ` <${job.assignee_contractor.main_email}>` : " — no email address on file"}
+          </p>
+
+          <label style={modalLabelStyle}>Subject</label>
+          <input value={contractorEmailSubject} onChange={(e) => setContractorEmailSubject(e.target.value)} style={selectStyle} />
+
+          <label style={modalLabelStyle}>Message</label>
+          <textarea
+            value={contractorEmailBody}
+            onChange={(e) => setContractorEmailBody(e.target.value)}
+            rows={11}
+            style={{ ...selectStyle, resize: "vertical" }}
+          />
+
+          <label style={modalLabelStyle}>CC</label>
+          <input
+            value={contractorEmailCc}
+            onChange={(e) => setContractorEmailCc(e.target.value)}
+            placeholder="name@example.com"
+            style={selectStyle}
+          />
+
+          <label style={modalLabelStyle}>Photos</label>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "10px" }}>
+            {photos.map((p) => (
+              <div key={p.id} style={{ position: "relative", display: "inline-block" }}>
+                <PhotoThumb path={p.storage_path} size={64} />
+                <input
+                  type="checkbox"
+                  checked={contractorEmailPhotoIds.has(p.id)}
+                  onChange={() => toggleContractorEmailPhoto(p.id)}
+                  style={{ position: "absolute", top: "4px", right: "4px", width: "18px", height: "18px", cursor: "pointer" }}
+                />
+              </div>
+            ))}
+            {photos.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No photos on this job yet.</p>}
+          </div>
+          <button type="button" onClick={handleContractorEmailAddPhoto} disabled={contractorEmailUploading} style={{ ...buttonStyle.secondary, marginBottom: "16px" }}>
+            {contractorEmailUploading ? "Uploading…" : "Add photo"}
+          </button>
+
+          {contractorEmailError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{contractorEmailError}</p>}
+
+          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+            <button type="button" onClick={() => setShowContractorEmailModal(false)} style={buttonStyle.secondary}>Cancel</button>
+            <button
+              type="button"
+              onClick={handleSendContractorEmail}
+              disabled={sendingContractorEmail || !job.assignee_contractor?.main_email || !contractorEmailSubject.trim() || !contractorEmailBody.trim()}
+              style={buttonStyle.primary}
+            >
+              {sendingContractorEmail ? "Sending…" : "Send"}
+            </button>
           </div>
         </Modal>
       )}

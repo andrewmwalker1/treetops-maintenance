@@ -10,7 +10,7 @@ export const JOB_SELECT = `
   job_type:job_types(id, name, requires_completion_photo),
   assignee:profiles!jobs_assignee_profile_id_fkey(id, display_name),
   assignee_group:groups(id, name),
-  assignee_contractor:contractors(id, name),
+  assignee_contractor:contractors(id, name, main_email),
   pitch:pitches(id, pitch_number_or_name),
   area:areas(id, name),
   equipment:equipment(id, name, status),
