@@ -153,11 +153,20 @@ export default function EquipmentCheckoutLogTab() {
     else refresh();
   }
 
+  // Exports visibleEvents (this tab's own filtered/searched/sorted list),
+  // not a fresh query off `filters` alone -- otherwise a search term or
+  // column sort applied on screen wouldn't carry through to the file, and
+  // the export would silently include rows the table isn't even showing.
   async function handleExport() {
     setExporting(true);
     setError(null);
     try {
-      await exportEquipmentCheckoutsCsv({ orgId: org.id, profileId: profile.id, filters });
+      await exportEquipmentCheckoutsCsv({
+        orgId: org.id,
+        profileId: profile.id,
+        filters: { ...filters, search: search.trim() || undefined, sort },
+        events: visibleEvents,
+      });
     } catch (err) {
       setError(err.message);
     } finally {

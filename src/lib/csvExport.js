@@ -1,14 +1,11 @@
-// CSV export (Section 7) — reuses queryJobs/queryEquipmentHistory so this
-// can never drift from what the job list/dashboard or admin checkout log
-// show. Writes an export_logs row *before* returning data; if that insert
-// is rejected by RLS (no can_export_jobs / can_manage_equipment_status
-// permission — see export_logs_insert in 02-rls-policies.sql, widened by
-// 18-equipment-checkout-log-admin.sql), the export is aborted rather than
-// silently proceeding.
+// CSV export (Section 7). Writes an export_logs row *before* returning
+// data; if that insert is rejected by RLS (no can_export_jobs /
+// can_manage_equipment_status permission — see export_logs_insert in
+// 02-rls-policies.sql, widened by 18-equipment-checkout-log-admin.sql), the
+// export is aborted rather than silently proceeding.
 
 import { supabase } from "./supabaseClient.js";
 import { queryJobs } from "./jobsQuery.js";
-import { queryEquipmentHistory } from "./equipmentCheckoutsQuery.js";
 
 function toCsvValue(value) {
   if (value == null) return "";
@@ -53,7 +50,14 @@ export async function exportJobsCsv({ orgId, siteId, profileId, filters = {} }) 
   downloadCsv(columns, rows, "jobs-export");
 }
 
-export async function exportEquipmentCheckoutsCsv({ orgId, profileId, filters = {} }) {
+// `events` is the tab's own already-filtered-and-sorted visibleEvents, not
+// a fresh query off `filters` -- EquipmentCheckoutLogTab.jsx also applies a
+// free-text search box and a column sort client-side, on top of the
+// structured filters, so re-querying here would silently export more (or
+// differently ordered) rows than what's actually on screen. `filters` is
+// still passed through to log what was showing, search text included, for
+// the export_logs audit trail.
+export async function exportEquipmentCheckoutsCsv({ orgId, profileId, filters = {}, events }) {
   const { error: logError } = await supabase.from("export_logs").insert({
     exported_by: profileId,
     org_id: orgId,
@@ -62,8 +66,6 @@ export async function exportEquipmentCheckoutsCsv({ orgId, profileId, filters = 
   if (logError) {
     throw new Error(`Export not permitted: ${logError.message}`);
   }
-
-  const events = await queryEquipmentHistory(filters);
 
   const columns = ["equipment", "equipment_type", "event", "date", "time", "person", "details"];
   const eventLabel = { checkout: "Checkout", fault: "Fault", repair: "Repair" };

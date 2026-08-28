@@ -175,6 +175,7 @@ Reproduce these tokens exactly. Full working HTML/CSS reference prototypes exist
 
 ## 11. Open Questions to Resolve During or Before Build
 
-- Exact `role_visibility` mapping for every role at Tree Tops (only Head Gardener's has been explicitly specified so far — confirm the rest with Andy).
+- Exact `role_visibility` mapping for every role at Tree Tops (only Head Gardener's has been explicitly specified so far — confirm the rest with Andy). Now configurable from Admin → Role Visibility (2026-08-28) rather than only via the SQL editor; the actual mapping choices per role are still open.
 - Pitch data — need the actual CSV from Andy to seed `pitches` correctly.
 - Backup/DR tier on Supabase — Andy is reviewing this against Tree Tops' actual scale; not a blocker for initial build but confirm before go-live.
+- `equipment_type_repair_assignees`' fallback row (equipment_type_id is null — 49-equipment-repair-jobs.sql) is org-wide, not per-site: once Tree Tops has a second park, an equipment type with no type-specific assignee configured would route to the same fallback person/group regardless of which site reported the fault. Deliberately not built yet (single site today — see the "don't build multi-tenant UI Tree Tops doesn't need yet" rule in §0); revisit once a second site is actually being added.
