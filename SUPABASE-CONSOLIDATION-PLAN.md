@@ -742,19 +742,80 @@ scheduled quiet time (10pm) since it's the public-facing, actually-used app.
   either for the same reason — worth knowing before 10pm in case a genuine
   bulk-delete becomes necessary.
 
-## What's left — Hub cutover (scheduled ~22:00 UTC tonight) and Phase 5
+## Phase 4 — Hub cutover done (28 Aug 2026, ~19:22 UTC, same evening — moved
+up from the planned 22:00 slot since the actual downtime was short)
 
-Hub not started — same shape as ParkMan2's: freshness check, repoint
-`treetops-hub`'s `App.jsx` (add `db: { schema: "hub" }` to its Supabase
-client — unlike ParkMan2, Hub's client wasn't already schema-aware),
-update the `send-notice-push` call site to `hub-send-notice-push`, GitHub
-Actions secrets, trigger deploy, verify live bundle. Real downtime window
-here since Hub is actually used, unlike ParkMan2.
+- Freshness check: one new `usage_events` row since the Phase 1 dump
+  (1731→1732) — real, expected drift for an actually-used app, unlike
+  ParkMan2. Synced via the existing loader's `ON CONFLICT DO NOTHING`
+  rather than any delete/reload.
+- **Hub's client isn't schema-aware the way ParkMan2's is** — worse,
+  `App.jsx` makes **5 raw `fetch()` calls directly to PostgREST**
+  (`app_data` read, `usage_events` read/write, and the
+  `upsert_push_subscription`/`get_admin_stats` RPCs) that don't go through
+  the `supabase-js` client at all, so `db.schema` on the client doesn't
+  cover them. Each needed its own `Accept-Profile` (reads) or
+  `Content-Profile` (writes) header added by hand — the same fix pattern
+  `hub-send-notice-push` needed in Phase 3, just five more places. Grepped
+  for every `rest/v1` occurrence to make sure none were missed;
+  `supabase.storage`/`supabase.from()` calls didn't need touching (client
+  covers those; storage isn't schema-scoped anyway).
+- Also hardcodes `SUPABASE_URL`/`SUPABASE_ANON_KEY` as string literals in
+  `App.jsx` rather than Vite env vars — repointed directly, no GitHub
+  Actions secrets needed for Hub (unlike ParkMan2).
+- Local `npm run build` + grepped the output bundle for the new project
+  ref before pushing, to catch anything before it went live.
+- Bumped `APP_VERSION`/`BUILD_DATE` and `PROJECT-BRIEF.md`'s "Last
+  updated" line per this repo's own CLAUDE.md convention.
+- Pushed → deploy succeeded in ~30s (build 17s + deploy 11s).
 
-Phase 5 (both apps): smoke test as real users, confirm zero write activity
-on the old project for 48h, keep it alive one full week as rollback safety
-net, then decommission `qkbpsqlrzygcairtidye` (the only truly irreversible
-step left in this whole plan).
+### Bug found and fixed live, post-deploy
+
+Loading `usage_events`' historical rows in Phase 1 used
+`OVERRIDING SYSTEM VALUE` to preserve real historical IDs (needed since
+its `id` is `generated always as identity`) — but this **never advances
+the underlying identity sequence**, so the first real `app_open` event
+after cutover collided with an existing row and failed with
+`23505 duplicate key`. Caught it live in the browser console within
+seconds of the deploy finishing. Fixed with
+`alter table hub.usage_events alter column id restart with 1733`
+(one past the actual max id). Verified via direct `fetch()` from the
+browser console (clean `201`) rather than trusting the page's own
+console log, which — separately noted — accumulates across
+same-tab navigations in the browser tooling used this session and kept
+showing the pre-fix error on reload; a fresh tab confirmed zero errors.
+
+**Then proactively swept for the same class of bug**: queried
+`information_schema.columns` for every identity column across both
+migrated schemas. Found one more — `parkman2.invoice.invoice_number`
+(not the primary key, just a sequential numbering column) — same
+unadvanced-sequence problem, not yet triggered since no invoice had been
+created since cutover, but would have hit the identical error the first
+time someone tried. Fixed the same way before it could happen.
+
+**Lesson for `qkbpsqlrzygcairtidye`'s eventual decommission and any
+future schema port**: any `generated always as identity` or other
+sequence-backed column needs its sequence explicitly advanced after a
+bulk data load with `OVERRIDING SYSTEM VALUE` — this isn't automatic, and
+`information_schema.columns.is_identity` is the reliable way to find
+every instance of it in a schema, not just the ones that happen to be a
+primary key.
+
+Both Hub and ParkMan2 are now live on `ozhwgrzlpvfdemmogmav`, verified via
+their deployed bundles and (for Hub) direct functional testing. Maintenance
+itself untouched throughout.
+
+## What's left — Phase 5 (verify + decommission)
+
+Smoke test as real users over the next few days (Andy: try an actual
+magic-link sign-in on both apps when convenient — not yet verified
+end-to-end). Confirm zero new write activity on `qkbpsqlrzygcairtidye`
+for 48h (catches any stale PWA still pointed at the old URL — Hub's
+service worker in particular may serve a cached old build to returning
+visitors until it self-updates). Keep the old project alive, untouched,
+for at least one full week as the rollback safety net. After that:
+delete `qkbpsqlrzygcairtidye` (the only truly irreversible step left) and
+clean up the scratchpad credential files from this session.
 
 ## Why this needs a local Claude Code session, not a cloud one
 Discovered 28 Aug 2026: a cloud/web Claude Code session's network egress
