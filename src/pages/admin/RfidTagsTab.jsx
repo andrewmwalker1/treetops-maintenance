@@ -36,6 +36,13 @@ export default function RfidTagsTab() {
   useEffect(refresh, [org]);
 
   function handleScan(uid) {
+    const existing = tags.find((t) => t.tag_uid === uid);
+    if (existing) {
+      setError(`This fob is already registered to ${existing.profiles?.display_name || "someone else"}.`);
+      setScannedUid(null);
+      setAssignProfileId("");
+      return;
+    }
     setError(null);
     setScannedUid(uid);
     setAssignProfileId("");
