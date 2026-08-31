@@ -15,6 +15,23 @@ import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const SCANNER_ELEMENT_ID = "meter-qr-scanner";
 
+// html5-qrcode's stop() throws *synchronously* (not a rejected promise)
+// when called on a scanner that isn't currently running/paused -- exactly
+// the state a scanner is left in when start() never succeeds (camera
+// blocked, denied, or timed out). A bare `.catch()` only guards against a
+// rejected promise, so that throw was propagating straight up and
+// crashing the whole component with no way back to the manual code entry
+// -- reproduced with the browser's own camera access blocked.
+function safeStopScanner(scanner) {
+  if (!scanner) return;
+  try {
+    const result = scanner.stop();
+    if (result?.catch) result.catch(() => {});
+  } catch {
+    // Wasn't running/paused -- nothing to stop.
+  }
+}
+
 export default function ScanMeter() {
   const { profile, org, activeSite } = useAuth();
   const [step, setStep] = useState("scan"); // scan | working | confirm
@@ -57,9 +74,7 @@ export default function ScanMeter() {
   // brief's "no extra taps between meters" would otherwise be undone by
   // requiring a fresh permission-adjacent start() for every single meter.
   useEffect(() => {
-    return () => {
-      scannerRef.current?.stop().catch(() => {});
-    };
+    return () => safeStopScanner(scannerRef.current);
   }, []);
 
   async function startCameraScan() {
@@ -78,7 +93,11 @@ export default function ScanMeter() {
           { facingMode: "environment" },
           { fps: 10, qrbox: 250 },
           (decodedText) => {
-            scanner.pause(true);
+            try {
+              scanner.pause(true);
+            } catch (err) {
+              console.error("Failed to pause scanner after decode", err);
+            }
             handleScanned(decodedText);
           },
           () => {} // per-frame decode failure — expected constantly, not an error
@@ -88,8 +107,13 @@ export default function ScanMeter() {
       setCameraState("active");
     } catch (err) {
       setCameraState("error");
-      setScanError("Couldn't start the camera (" + err.message + ") — use the code entry below instead.");
-      scanner.stop().catch(() => {});
+      // html5-qrcode/getUserMedia rejections aren't always a plain Error
+      // (a DOMException's .message can be empty, or it rejects with a
+      // bare string) -- reproduced against a genuinely camera-blocked
+      // browser, where this came back with no .message at all.
+      const reason = err?.message || err?.name || String(err);
+      setScanError(`Couldn't start the camera (${reason}) — use the code entry below instead.`);
+      safeStopScanner(scanner);
     }
   }
 
@@ -227,7 +251,7 @@ export default function ScanMeter() {
     <div style={{ maxWidth: "480px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Read a meter</h1>
-        <Link to="/meters/progress" style={{ color: colors.moss, fontSize: "13px" }}>Progress</Link>
+        <Link to="/meter-reading/progress" style={{ color: colors.moss, fontSize: "13px" }}>Progress</Link>
       </div>
 
       {lastSavedNotice && (

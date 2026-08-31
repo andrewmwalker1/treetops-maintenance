@@ -25,14 +25,29 @@ import KioskSignIn from "./kiosk/KioskSignIn.jsx";
 import KioskApp from "./kiosk/KioskApp.jsx";
 import KeyStationSignIn from "./keys/KeyStationSignIn.jsx";
 import KeyStationApp from "./keys/KeyStationApp.jsx";
+import MeterReadingHome from "./pages/MeterReadingHome.jsx";
+import MeterReadingsGate from "./components/MeterReadingsGate.jsx";
 import { colors, pageStyle } from "./lib/theme.js";
 
-// Lazy-loaded: html5-qrcode + tesseract.js pull in a sizeable chunk (OCR's
-// WASM engine especially) that only the handful of people reading meters a
-// few times a year actually need -- eagerly importing it here would put
-// that weight on every page load for the whole team, every day.
+// Lazy-loaded: html5-qrcode + tesseract.js (scan) and qrcode/papaparse
+// (labels/upload) pull in a sizeable chunk -- OCR's WASM engine especially
+// -- that only the handful of people reading meters a few times a year
+// actually need. Eagerly importing any of these here would put that
+// weight on every page load for the whole team, every day.
 const ScanMeter = lazy(() => import("./pages/meters/ScanMeter.jsx"));
 const MeterProgress = lazy(() => import("./pages/meters/MeterProgress.jsx"));
+const UploadMeters = lazy(() => import("./pages/meters/UploadMeters.jsx"));
+const DownloadMeters = lazy(() => import("./pages/meters/DownloadMeters.jsx"));
+const MeterSettings = lazy(() => import("./pages/meters/MeterSettings.jsx"));
+const MeterLabels = lazy(() => import("./pages/meters/MeterLabels.jsx"));
+
+function LazyRoute({ Component }) {
+  return (
+    <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
+      <Component />
+    </Suspense>
+  );
+}
 
 function AppShell() {
   const { session, loading, deactivated, canAccessDesktop, signOut } = useAuth();
@@ -198,20 +213,39 @@ function AppShell() {
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/safety" element={<HealthAndSafety />} />
+        <Route path="/meter-reading" element={<MeterReadingHome />} />
+        <Route path="/meter-reading/scan" element={<LazyRoute Component={ScanMeter} />} />
+        <Route path="/meter-reading/progress" element={<LazyRoute Component={MeterProgress} />} />
         <Route
-          path="/meters/scan"
+          path="/meter-reading/upload"
           element={
-            <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
-              <ScanMeter />
-            </Suspense>
+            <MeterReadingsGate>
+              <LazyRoute Component={UploadMeters} />
+            </MeterReadingsGate>
           }
         />
         <Route
-          path="/meters/progress"
+          path="/meter-reading/download"
           element={
-            <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
-              <MeterProgress />
-            </Suspense>
+            <MeterReadingsGate>
+              <LazyRoute Component={DownloadMeters} />
+            </MeterReadingsGate>
+          }
+        />
+        <Route
+          path="/meter-reading/settings"
+          element={
+            <MeterReadingsGate>
+              <LazyRoute Component={MeterSettings} />
+            </MeterReadingsGate>
+          }
+        />
+        <Route
+          path="/meter-reading/labels"
+          element={
+            <MeterReadingsGate>
+              <LazyRoute Component={MeterLabels} />
+            </MeterReadingsGate>
           }
         />
         <Route path="/admin" element={<Admin />} />

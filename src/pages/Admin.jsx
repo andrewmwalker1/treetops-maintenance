@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect } from "react";
 import { usePermissions } from "../lib/permissions.js";
 import JobTemplatesTab from "./admin/JobTemplatesTab.jsx";
 import ActivityTypesTab from "./admin/ActivityTypesTab.jsx";
@@ -19,9 +19,6 @@ import RoleKeyReasonsTab from "./admin/RoleKeyReasonsTab.jsx";
 import EquipmentCheckoutLogTab from "./admin/EquipmentCheckoutLogTab.jsx";
 import ContractorsTab from "./admin/ContractorsTab.jsx";
 import GroupsTab from "./admin/GroupsTab.jsx";
-// Lazy: pulls in qrcode + papaparse, only needed by the one admin who
-// actually runs a meter import/export, not every Admin tab visit.
-const MeterReadingsTab = lazy(() => import("./admin/MeterReadingsTab.jsx"));
 import { colors, fonts } from "../lib/theme.js";
 
 const ALL_TABS = [
@@ -40,7 +37,6 @@ const ALL_TABS = [
   { key: "roleKeyReasons", label: "Key Reasons by Role", Component: RoleKeyReasonsTab, permission: "can_manage_keys" },
   { key: "contractors", label: "Contractors", Component: ContractorsTab, permission: "can_manage_contractors" },
   { key: "groups", label: "Groups", Component: GroupsTab, permission: "can_manage_users" },
-  { key: "meterReadings", label: "Meter Readings", Component: MeterReadingsTab, permission: "can_manage_meter_readings" },
   { key: "roles", label: "Roles & Permissions", Component: RolesPermissionsTab, permission: "can_manage_roles_and_permissions" },
   { key: "roleVisibility", label: "Role Visibility", Component: RoleVisibilityTab, permission: "can_manage_roles_and_permissions" },
   { key: "jobAssignment", label: "Job Assignment", Component: JobAssignmentTab, permission: "can_manage_roles_and_permissions" },
@@ -87,11 +83,7 @@ export default function Admin() {
           </button>
         ))}
       </div>
-      {ActiveComponent && (
-        <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
-          <ActiveComponent />
-        </Suspense>
-      )}
+      {ActiveComponent && <ActiveComponent />}
     </div>
   );
 }
