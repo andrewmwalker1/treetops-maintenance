@@ -4,20 +4,30 @@
 // No other file should touch IndexedDB directly for queued writes —
 // swapping this module's internals is how a future Capacitor build adds
 // true background sync without touching calling code.
+//
+// Generalized (v2) from a jobs-only queue to support any table with a
+// client_generated_id column — the meter-reading pilot needed a second
+// queue (readings) and duplicating this whole file per table would mean
+// two places to fix the next time this module's internals change.
+// job_queue's existing data survives the version bump untouched —
+// IndexedDB store creation in onupgradeneeded is additive, never
+// destructive to stores that already exist.
 
 import { supabase } from "../lib/supabaseClient.js";
 
 const DB_NAME = "treetops-maintenance";
-const DB_VERSION = 1;
-const STORE_NAME = "job_queue";
+const DB_VERSION = 2;
+const STORES = ["job_queue", "reading_queue"];
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: "client_generated_id" });
+      for (const storeName of STORES) {
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName, { keyPath: "client_generated_id" });
+        }
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -25,74 +35,102 @@ function openDB() {
   });
 }
 
-async function withStore(mode, callback) {
+async function withStore(storeName, mode, callback) {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, mode);
-    const store = tx.objectStore(STORE_NAME);
+    const tx = db.transaction(storeName, mode);
+    const store = tx.objectStore(storeName);
     const result = callback(store);
     tx.oncomplete = () => resolve(result);
     tx.onerror = () => reject(tx.error);
   });
 }
 
-export async function queueJob(jobData) {
-  const record = {
-    ...jobData,
-    client_generated_id: jobData.client_generated_id || crypto.randomUUID(),
+async function queueWrite(storeName, record) {
+  const withId = {
+    ...record,
+    client_generated_id: record.client_generated_id || crypto.randomUUID(),
     queued_at: new Date().toISOString(),
   };
-  await withStore("readwrite", (store) => store.put(record));
-  flushQueue();
-  return record;
+  await withStore(storeName, "readwrite", (store) => store.put(withId));
+  return withId;
 }
 
-export async function flushQueue() {
+async function flushStore(storeName, tableName) {
   if (!navigator.onLine) return { flushed: 0, remaining: 0 };
 
   const db = await openDB();
   const pending = await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const request = tx.objectStore(STORE_NAME).getAll();
+    const tx = db.transaction(storeName, "readonly");
+    const request = tx.objectStore(storeName).getAll();
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
 
   let flushed = 0;
-  for (const job of pending) {
-    const { client_generated_id, queued_at, ...jobFields } = job;
+  for (const record of pending) {
+    const { client_generated_id, queued_at, ...fields } = record;
     const { error } = await supabase
-      .from("jobs")
-      .insert({ ...jobFields, client_generated_id });
+      .from(tableName)
+      .insert({ ...fields, client_generated_id });
 
     // A unique violation on client_generated_id means a previous flush
-    // attempt already created this job server-side (e.g. the insert
+    // attempt already created this row server-side (e.g. the insert
     // succeeded but the response was lost) -- treat it as synced rather
     // than retrying forever. Any other error is a genuine failure, so
-    // leave the job queued. (Plain insert, not upsert: an upsert here
-    // requires satisfying the jobs_update RLS policy too, whose USING
+    // leave the row queued. (Plain insert, not upsert: an upsert here
+    // requires satisfying the table's *_update RLS policy too, whose USING
     // clause can never be true for a row that doesn't exist yet -- see
     // the "new row violates row-level security policy" bug this
     // replaced.)
     if (error && error.code !== "23505") {
-      console.error("Failed to flush queued job", client_generated_id, error);
+      console.error(`Failed to flush queued ${tableName} row`, client_generated_id, error);
       continue;
     }
 
-    await withStore("readwrite", (store) => store.delete(client_generated_id));
+    await withStore(storeName, "readwrite", (store) => store.delete(client_generated_id));
     flushed += 1;
   }
 
   return { flushed, remaining: pending.length - flushed };
 }
 
-export async function getQueueStatus() {
+async function storeCount(storeName) {
   const db = await openDB();
-  const count = await new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, "readonly");
-    const request = tx.objectStore(STORE_NAME).count();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const request = tx.objectStore(storeName).count();
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function queueJob(jobData) {
+  const record = await queueWrite("job_queue", jobData);
+  flushQueue();
+  return record;
+}
+
+export async function flushQueue() {
+  return flushStore("job_queue", "jobs");
+}
+
+export async function getQueueStatus() {
+  const count = await storeCount("job_queue");
+  return { pendingCount: count, online: navigator.onLine };
+}
+
+export async function queueReading(readingData) {
+  const record = await queueWrite("reading_queue", readingData);
+  flushReadingQueue();
+  return record;
+}
+
+export async function flushReadingQueue() {
+  return flushStore("reading_queue", "meter_readings");
+}
+
+export async function getReadingQueueStatus() {
+  const count = await storeCount("reading_queue");
   return { pendingCount: count, online: navigator.onLine };
 }

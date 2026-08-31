@@ -6,7 +6,9 @@ import { colors } from "../lib/theme.js";
 // print flow pre-fetches these before calling window.print(), so the
 // images are already in the DOM rather than racing print against this
 // component's own fetch) -- omit it for the normal fetch-on-mount behaviour.
-export default function PhotoThumb({ path, size = 80, url: providedUrl }) {
+// `bucket` defaults to "job-photos" for every existing caller; the
+// meter-reading pilot passes "meter-photos".
+export default function PhotoThumb({ path, size = 80, url: providedUrl, bucket = "job-photos" }) {
   const [fetchedUrl, setFetchedUrl] = useState(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -14,7 +16,7 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl }) {
     if (providedUrl) return;
     let cancelled = false;
     supabase.storage
-      .from("job-photos")
+      .from(bucket)
       .createSignedUrl(path, 3600)
       .then(({ data }) => {
         if (!cancelled && data) setFetchedUrl(data.signedUrl);
@@ -22,7 +24,7 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl }) {
     return () => {
       cancelled = true;
     };
-  }, [path, providedUrl]);
+  }, [path, providedUrl, bucket]);
 
   const url = providedUrl || fetchedUrl;
   if (!url) return <div style={{ width: size, height: size, background: colors.line, borderRadius: 8 }} />;
