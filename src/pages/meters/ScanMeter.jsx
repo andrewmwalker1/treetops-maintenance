@@ -10,6 +10,7 @@ import {
   findTodaysReadingForMeter,
   submitReading,
   refreshMetersCache,
+  getAllCachedMeters,
 } from "../../lib/meterReadingsQuery.js";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
@@ -37,7 +38,8 @@ export default function ScanMeter() {
   const [step, setStep] = useState("scan"); // scan | working | confirm
   const [cameraState, setCameraState] = useState("idle"); // idle | starting | active | error
   const [scanError, setScanError] = useState(null);
-  const [manualCode, setManualCode] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
   const [workingMessage, setWorkingMessage] = useState("");
   const [meter, setMeter] = useState(null);
   const [reReadNotice, setReReadNotice] = useState(null);
@@ -57,6 +59,33 @@ export default function ScanMeter() {
     refreshMetersCache(activeSite.id);
     window.addEventListener("online", () => refreshMetersCache(activeSite.id));
   }, [activeSite]);
+
+  // QR is the preferred way to find a pitch's meter, but a label can be
+  // missing or damaged -- search against the offline meter cache (so it
+  // works with no signal too) is the fallback, rather than requiring staff
+  // to know/type the exact code string.
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) {
+      setSearchResults([]);
+      return;
+    }
+    let cancelled = false;
+    getAllCachedMeters().then((meters) => {
+      if (cancelled) return;
+      const matches = meters
+        .filter((m) => {
+          const pitch = (m.pitches?.pitch_number_or_name || "").toLowerCase();
+          const customer = (m.customer_name || "").toLowerCase();
+          return pitch.includes(q) || customer.includes(q);
+        })
+        .slice(0, 8);
+      setSearchResults(matches);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [searchQuery]);
 
   // Camera only starts on explicit request (the button below), never on
   // page load — auto-starting used to mean the whole scan screen's fate
@@ -117,25 +146,7 @@ export default function ScanMeter() {
     }
   }
 
-  function handleManualSubmit(e) {
-    e.preventDefault();
-    const code = manualCode.trim().toUpperCase();
-    if (!code) return;
-    setManualCode("");
-    handleScanned(code);
-  }
-
-  async function handleScanned(qrCode) {
-    setStep("working");
-    setWorkingMessage("Looking up meter…");
-    setScanError(null);
-
-    const found = await resolveMeterByQrCode(qrCode);
-    if (!found) {
-      setScanError(`No active meter found for "${qrCode}". Check the label, or ask an admin to check the import.`);
-      resetToScan();
-      return;
-    }
+  async function proceedWithMeter(found) {
     setMeter(found);
 
     if (navigator.onLine) {
@@ -151,6 +162,29 @@ export default function ScanMeter() {
     }
 
     await captureAndProcess(found);
+  }
+
+  async function handleScanned(qrCode) {
+    setStep("working");
+    setWorkingMessage("Looking up meter…");
+    setScanError(null);
+
+    const found = await resolveMeterByQrCode(qrCode);
+    if (!found) {
+      setScanError(`No active meter found for "${qrCode}". Check the label, or ask an admin to check the import.`);
+      resetToScan();
+      return;
+    }
+    await proceedWithMeter(found);
+  }
+
+  function handleSearchResultSelected(found) {
+    setSearchQuery("");
+    setSearchResults([]);
+    setStep("working");
+    setWorkingMessage("Looking up meter…");
+    setScanError(null);
+    proceedWithMeter(found);
   }
 
   async function captureAndProcess(meterRow) {
@@ -283,16 +317,48 @@ export default function ScanMeter() {
       </div>
 
       {step === "scan" && (
-        <form onSubmit={handleManualSubmit} style={{ ...cardStyle, padding: "16px", marginTop: "12px", display: "flex", gap: "8px" }}>
+        <div style={{ ...cardStyle, padding: "16px", marginTop: "12px" }}>
+          <p style={{ color: colors.inkSoft, fontSize: "12px", margin: "0 0 8px" }}>
+            QR missing or damaged? Search by pitch or name instead.
+          </p>
           <input
             type="text"
-            placeholder="Or type the code, e.g. PN-C01-ELEC"
-            value={manualCode}
-            onChange={(e) => setManualCode(e.target.value)}
-            style={{ flex: 1, boxSizing: "border-box", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${colors.lineStrong}`, fontFamily: fonts.mono, fontSize: "14px" }}
+            placeholder="e.g. PN-C01, or a customer name"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${colors.lineStrong}`, fontSize: "14px" }}
           />
-          <button type="submit" style={buttonStyle.secondary}>Look up</button>
-        </form>
+          {searchResults.length > 0 && (
+            <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+              {searchResults.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => handleSearchResultSelected(m)}
+                  style={{
+                    textAlign: "left",
+                    background: "transparent",
+                    border: `1px solid ${colors.line}`,
+                    borderRadius: "8px",
+                    padding: "8px 10px",
+                    cursor: "pointer",
+                    fontFamily: fonts.body,
+                  }}
+                >
+                  <div style={{ fontSize: "14px", fontWeight: 600, color: colors.ink }}>
+                    {m.pitches?.pitch_number_or_name} · {m.meter_type === "electric" ? "Electric" : "Gas"}
+                  </div>
+                  {m.customer_name && (
+                    <div style={{ fontSize: "12px", color: colors.inkSoft }}>{m.customer_name}</div>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+          {searchQuery.trim() && searchResults.length === 0 && (
+            <p style={{ color: colors.inkSoft, fontSize: "12px", margin: "8px 0 0" }}>No matches.</p>
+          )}
+        </div>
       )}
 
       {step === "working" && (

@@ -312,33 +312,44 @@ begin
       nullif(v_row->>'last_reading', '')::numeric,
       nullif(v_row->>'cost_per_unit', '')::numeric,
       nullif(v_row->>'vat_rate', '')::numeric,
-      -- Marked false below for every meter in a duplicate group except the
-      -- auto-picked one; true for a pitch+type with no duplicates.
-      true,
+      -- Every row starts false -- promoted in a separate pass below, after
+      -- all rows exist. Promoting inline here hit the partial unique index
+      -- on qr_code the moment a second row for the same pitch+type was
+      -- inserted, since that index is checked per-statement, not deferred
+      -- to end of transaction.
+      false,
       v_batch_id
     );
     v_inserted := v_inserted + 1;
   end loop;
 
-  -- Duplicate detection: any pitch+type with more than one meter row from
-  -- THIS batch. Auto-pick the most recent last_read_date as is_current,
-  -- demote the rest, record the group for the importer to review.
+  -- One winner per (pitch_id, meter_type) touched by this batch: the row
+  -- with the most recent last_read_date. Also demotes any is_current row
+  -- from an EARLIER batch for the same pitch+type first, so re-importing
+  -- an updated CampManager export correctly supersedes the previous
+  -- "current" meter -- not just resolving duplicates within this one
+  -- batch. Demote-then-promote as two statements, never combined, so a
+  -- superseded row is never briefly true at the same time as its
+  -- replacement.
   for v_dup in
-    select pitch_id, meter_type, array_agg(external_meter_id order by last_read_date desc nulls last) as ids,
+    select pitch_id, meter_type, count(*) as row_count,
+           array_agg(external_meter_id order by last_read_date desc nulls last) as ids,
            (array_agg(id order by last_read_date desc nulls last))[1] as chosen_id,
            (array_agg(external_meter_id order by last_read_date desc nulls last))[1] as chosen_external_id
     from public.meters
     where import_batch_id = v_batch_id
     group by pitch_id, meter_type
-    having count(*) > 1
   loop
-    update public.meters set is_current = (id = v_dup.chosen_id)
-    where import_batch_id = v_batch_id and pitch_id = v_dup.pitch_id and meter_type = v_dup.meter_type;
+    update public.meters set is_current = false
+    where pitch_id = v_dup.pitch_id and meter_type = v_dup.meter_type and is_current;
 
-    insert into public.meter_import_duplicate_groups (import_batch_id, pitch_id, meter_type, candidate_meter_ids, chosen_meter_id)
-    values (v_batch_id, v_dup.pitch_id, v_dup.meter_type, v_dup.ids, v_dup.chosen_external_id);
+    update public.meters set is_current = true where id = v_dup.chosen_id;
 
-    v_dup_count := v_dup_count + 1;
+    if v_dup.row_count > 1 then
+      insert into public.meter_import_duplicate_groups (import_batch_id, pitch_id, meter_type, candidate_meter_ids, chosen_meter_id)
+      values (v_batch_id, v_dup.pitch_id, v_dup.meter_type, v_dup.ids, v_dup.chosen_external_id);
+      v_dup_count := v_dup_count + 1;
+    end if;
   end loop;
 
   return jsonb_build_object(
