@@ -21,6 +21,8 @@ import KeysGate from "./components/KeysGate.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
+import ScanMeter from "./pages/meters/ScanMeter.jsx";
+import MeterProgress from "./pages/meters/MeterProgress.jsx";
 import KioskSignIn from "./kiosk/KioskSignIn.jsx";
 import KioskApp from "./kiosk/KioskApp.jsx";
 import KeyStationSignIn from "./keys/KeyStationSignIn.jsx";
@@ -191,6 +193,8 @@ function AppShell() {
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/safety" element={<HealthAndSafety />} />
+        <Route path="/meters/scan" element={<ScanMeter />} />
+        <Route path="/meters/progress" element={<MeterProgress />} />
         <Route path="/admin" element={<Admin />} />
       </Routes>
     </Layout>

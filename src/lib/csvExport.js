@@ -7,13 +7,13 @@
 import { supabase } from "./supabaseClient.js";
 import { queryJobs } from "./jobsQuery.js";
 
-function toCsvValue(value) {
+export function toCsvValue(value) {
   if (value == null) return "";
   const str = String(value);
   return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
 }
 
-function downloadCsv(columns, rows, filenamePrefix) {
+export function downloadCsv(columns, rows, filenamePrefix) {
   const csv = [columns, ...rows].map((row) => row.map(toCsvValue).join(",")).join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);

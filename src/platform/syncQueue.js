@@ -120,14 +120,69 @@ export async function getQueueStatus() {
   return { pendingCount: count, online: navigator.onLine };
 }
 
-export async function queueReading(readingData) {
-  const record = await queueWrite("reading_queue", readingData);
+// Readings carry a photo Blob (`photo_file`), unlike jobs — job photos are
+// deliberately dropped when queued offline (NewJob.jsx: "the photo wasn't
+// queued — add it after it syncs"), but a meter photo is core evidence the
+// brief requires for every reading, and offline is this feature's normal
+// case, not an edge case. IndexedDB can store a Blob directly via
+// structured clone, so the file rides in the queue record and only gets
+// uploaded to Storage at flush time — this needs its own flush function
+// rather than the generic flushStore, which only knows how to insert a
+// plain row.
+export async function queueReading({ photo_file, ...readingData }) {
+  const record = await queueWrite("reading_queue", { ...readingData, photo_file: photo_file || null });
   flushReadingQueue();
   return record;
 }
 
 export async function flushReadingQueue() {
-  return flushStore("reading_queue", "meter_readings");
+  if (!navigator.onLine) return { flushed: 0, remaining: 0 };
+
+  const db = await openDB();
+  const pending = await new Promise((resolve, reject) => {
+    const tx = db.transaction("reading_queue", "readonly");
+    const request = tx.objectStore("reading_queue").getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+
+  let flushed = 0;
+  for (const record of pending) {
+    const { client_generated_id, queued_at, photo_file, meter_id, ...fields } = record;
+    let photo_storage_path = fields.photo_storage_path || null;
+
+    if (photo_file && !photo_storage_path) {
+      const path = `${meter_id}/${client_generated_id}-${photo_file.name}`;
+      const { error: uploadError } = await supabase.storage.from("meter-photos").upload(path, photo_file);
+      if (uploadError) {
+        console.error("Failed to upload queued meter photo, will retry", client_generated_id, uploadError);
+        continue;
+      }
+      photo_storage_path = path;
+    }
+
+    const { error } = await supabase
+      .from("meter_readings")
+      .insert({ ...fields, meter_id, photo_storage_path, client_generated_id });
+
+    // Same idempotent-retry handling as flushStore above.
+    if (error && error.code !== "23505") {
+      console.error("Failed to flush queued reading", client_generated_id, error);
+      // Photo already uploaded (or path already resolved) — persist that so
+      // a retry doesn't re-upload it.
+      if (photo_storage_path !== (fields.photo_storage_path || null)) {
+        await withStore("reading_queue", "readwrite", (store) =>
+          store.put({ ...record, photo_storage_path })
+        );
+      }
+      continue;
+    }
+
+    await withStore("reading_queue", "readwrite", (store) => store.delete(client_generated_id));
+    flushed += 1;
+  }
+
+  return { flushed, remaining: pending.length - flushed };
 }
 
 export async function getReadingQueueStatus() {
