@@ -272,14 +272,24 @@ function NavMenu({ items }) {
           <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 15 }} />
           <div
             style={{
-              position: "absolute",
-              left: 0,
-              top: "42px",
+              // `fixed` + explicit left/right (not `absolute` off the
+              // button) so the panel's width is always (viewport - 32px),
+              // independent of where the button itself lands -- the header
+              // wraps onto multiple lines on narrow screens (space-between
+              // + flexWrap), so the button's x-position shifts with org
+              // name length/font metrics. `absolute; left:0; minWidth:180px`
+              // could push past the right edge with no scrollbar to reveal
+              // it, silently clipping a label like "Meter Reading" mid-word
+              // -- reported on a real phone even though it doesn't
+              // reproduce at every viewport width tested here.
+              position: "fixed",
+              left: "16px",
+              right: "16px",
+              top: "56px",
               background: colors.paper,
               border: `1px solid ${colors.line}`,
               borderRadius: "12px",
               padding: "8px",
-              minWidth: "180px",
               boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
               zIndex: 20,
               display: "flex",
