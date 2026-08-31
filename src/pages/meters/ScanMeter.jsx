@@ -18,6 +18,7 @@ const SCANNER_ELEMENT_ID = "meter-qr-scanner";
 export default function ScanMeter() {
   const { profile, org, activeSite } = useAuth();
   const [step, setStep] = useState("scan"); // scan | working | confirm
+  const [cameraState, setCameraState] = useState("idle"); // idle | starting | active | error
   const [scanError, setScanError] = useState(null);
   const [manualCode, setManualCode] = useState("");
   const [workingMessage, setWorkingMessage] = useState("");
@@ -40,32 +41,57 @@ export default function ScanMeter() {
     window.addEventListener("online", () => refreshMetersCache(activeSite.id));
   }, [activeSite]);
 
+  // Camera only starts on explicit request (the button below), never on
+  // page load — auto-starting used to mean the whole scan screen's fate
+  // rode on whatever the browser/OS does with a getUserMedia call, which
+  // ranges from a normal permission prompt down to hanging indefinitely
+  // with no prompt at all when the OS blocks camera access outright. Manual
+  // code entry works unconditionally with zero camera involvement either
+  // way. The 8s timeout race below exists for that hang case specifically —
+  // a plain .catch() only handles a *rejected* start(), not one that never
+  // settles.
+  //
+  // Once started, the camera stays running for the rest of the session
+  // (paused/resumed between scans, never stopped/restarted) so saving a
+  // reading returns straight to a live scanner with no extra tap — the
+  // brief's "no extra taps between meters" would otherwise be undone by
+  // requiring a fresh permission-adjacent start() for every single meter.
   useEffect(() => {
-    if (step !== "scan" || !activeSite) return;
+    return () => {
+      scannerRef.current?.stop().catch(() => {});
+    };
+  }, []);
+
+  async function startCameraScan() {
+    setScanError(null);
+    setCameraState("starting");
     const scanner = new Html5Qrcode(SCANNER_ELEMENT_ID);
     scannerRef.current = scanner;
-    let stopped = false;
 
-    scanner
-      .start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: 250 },
-        (decodedText) => {
-          if (stopped) return;
-          stopped = true;
-          scanner.stop().catch(() => {});
-          handleScanned(decodedText);
-        },
-        () => {} // per-frame decode failure — expected constantly, not an error
-      )
-      .catch((err) => setScanError("Couldn't start the camera (" + err.message + ") — use the code entry below instead."));
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Camera didn't respond")), 8000)
+    );
 
-    return () => {
-      stopped = true;
+    try {
+      await Promise.race([
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: 250 },
+          (decodedText) => {
+            scanner.pause(true);
+            handleScanned(decodedText);
+          },
+          () => {} // per-frame decode failure — expected constantly, not an error
+        ),
+        timeout,
+      ]);
+      setCameraState("active");
+    } catch (err) {
+      setCameraState("error");
+      setScanError("Couldn't start the camera (" + err.message + ") — use the code entry below instead.");
       scanner.stop().catch(() => {});
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, activeSite]);
+    }
+  }
 
   function handleManualSubmit(e) {
     e.preventDefault();
@@ -83,7 +109,7 @@ export default function ScanMeter() {
     const found = await resolveMeterByQrCode(qrCode);
     if (!found) {
       setScanError(`No active meter found for "${qrCode}". Check the label, or ask an admin to check the import.`);
-      setStep("scan");
+      resetToScan();
       return;
     }
     setMeter(found);
@@ -110,7 +136,7 @@ export default function ScanMeter() {
       file = await capturePhoto();
     } catch (err) {
       if (err.message !== "Photo capture cancelled.") setScanError(err.message);
-      setStep("scan");
+      resetToScan();
       return;
     }
     const previewUrl = URL.createObjectURL(file);
@@ -143,6 +169,13 @@ export default function ScanMeter() {
     setOverrideNote("");
     setSaveError(null);
     setStep("scan");
+    if (cameraState === "active") {
+      try {
+        scannerRef.current?.resume();
+      } catch (err) {
+        console.error("Failed to resume camera", err);
+      }
+    }
   }
 
   const lastReading = meter?.last_reading != null ? Number(meter.last_reading) : null;
@@ -201,15 +234,29 @@ export default function ScanMeter() {
         <p style={{ color: colors.moss, fontSize: "14px" }}>{lastSavedNotice}</p>
       )}
 
-      {step === "scan" && (
-        <div style={{ ...cardStyle, padding: "16px" }}>
-          <div id={SCANNER_ELEMENT_ID} style={{ width: "100%", borderRadius: "12px", overflow: "hidden" }} />
+      {/* Always mounted (never conditionally rendered on `step`) so
+          html5-qrcode's DOM attachment survives switching to the
+          working/confirm screens -- CSS visibility only, so the running
+          camera is paused/resumed rather than torn down and restarted
+          between scans. */}
+      <div style={{ ...cardStyle, padding: "16px", display: step === "scan" ? "block" : "none" }}>
+        <div
+          id={SCANNER_ELEMENT_ID}
+          style={{ width: "100%", borderRadius: "12px", overflow: "hidden", display: cameraState === "starting" || cameraState === "active" ? "block" : "none" }}
+        />
+        {(cameraState === "idle" || cameraState === "error") && (
+          <button type="button" onClick={startCameraScan} style={{ ...buttonStyle.primary, width: "100%" }}>
+            Scan with camera
+          </button>
+        )}
+        {cameraState === "starting" && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>Starting camera…</p>}
+        {cameraState === "active" && (
           <p style={{ color: colors.inkSoft, fontSize: "13px", marginTop: "12px" }}>
             Point the camera at the QR code on the meter box.
           </p>
-          {scanError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{scanError}</p>}
-        </div>
-      )}
+        )}
+        {scanError && <p style={{ color: colors.immediate, fontSize: "13px", marginTop: "8px" }}>{scanError}</p>}
+      </div>
 
       {step === "scan" && (
         <form onSubmit={handleManualSubmit} style={{ ...cardStyle, padding: "16px", marginTop: "12px", display: "flex", gap: "8px" }}>
