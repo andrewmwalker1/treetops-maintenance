@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/AuthContext.jsx";
 import Layout from "./components/Layout.jsx";
@@ -21,13 +21,18 @@ import KeysGate from "./components/KeysGate.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
-import ScanMeter from "./pages/meters/ScanMeter.jsx";
-import MeterProgress from "./pages/meters/MeterProgress.jsx";
 import KioskSignIn from "./kiosk/KioskSignIn.jsx";
 import KioskApp from "./kiosk/KioskApp.jsx";
 import KeyStationSignIn from "./keys/KeyStationSignIn.jsx";
 import KeyStationApp from "./keys/KeyStationApp.jsx";
 import { colors, pageStyle } from "./lib/theme.js";
+
+// Lazy-loaded: html5-qrcode + tesseract.js pull in a sizeable chunk (OCR's
+// WASM engine especially) that only the handful of people reading meters a
+// few times a year actually need -- eagerly importing it here would put
+// that weight on every page load for the whole team, every day.
+const ScanMeter = lazy(() => import("./pages/meters/ScanMeter.jsx"));
+const MeterProgress = lazy(() => import("./pages/meters/MeterProgress.jsx"));
 
 function AppShell() {
   const { session, loading, deactivated, canAccessDesktop, signOut } = useAuth();
@@ -193,8 +198,22 @@ function AppShell() {
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/safety" element={<HealthAndSafety />} />
-        <Route path="/meters/scan" element={<ScanMeter />} />
-        <Route path="/meters/progress" element={<MeterProgress />} />
+        <Route
+          path="/meters/scan"
+          element={
+            <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
+              <ScanMeter />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/meters/progress"
+          element={
+            <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
+              <MeterProgress />
+            </Suspense>
+          }
+        />
         <Route path="/admin" element={<Admin />} />
       </Routes>
     </Layout>

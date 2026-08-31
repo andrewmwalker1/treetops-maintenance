@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { usePermissions } from "../lib/permissions.js";
 import JobTemplatesTab from "./admin/JobTemplatesTab.jsx";
 import ActivityTypesTab from "./admin/ActivityTypesTab.jsx";
@@ -19,7 +19,9 @@ import RoleKeyReasonsTab from "./admin/RoleKeyReasonsTab.jsx";
 import EquipmentCheckoutLogTab from "./admin/EquipmentCheckoutLogTab.jsx";
 import ContractorsTab from "./admin/ContractorsTab.jsx";
 import GroupsTab from "./admin/GroupsTab.jsx";
-import MeterReadingsTab from "./admin/MeterReadingsTab.jsx";
+// Lazy: pulls in qrcode + papaparse, only needed by the one admin who
+// actually runs a meter import/export, not every Admin tab visit.
+const MeterReadingsTab = lazy(() => import("./admin/MeterReadingsTab.jsx"));
 import { colors, fonts } from "../lib/theme.js";
 
 const ALL_TABS = [
@@ -85,7 +87,11 @@ export default function Admin() {
           </button>
         ))}
       </div>
-      {ActiveComponent && <ActiveComponent />}
+      {ActiveComponent && (
+        <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
+          <ActiveComponent />
+        </Suspense>
+      )}
     </div>
   );
 }
