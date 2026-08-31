@@ -19,6 +19,7 @@ export default function ScanMeter() {
   const { profile, org, activeSite } = useAuth();
   const [step, setStep] = useState("scan"); // scan | working | confirm
   const [scanError, setScanError] = useState(null);
+  const [manualCode, setManualCode] = useState("");
   const [workingMessage, setWorkingMessage] = useState("");
   const [meter, setMeter] = useState(null);
   const [reReadNotice, setReReadNotice] = useState(null);
@@ -57,7 +58,7 @@ export default function ScanMeter() {
         },
         () => {} // per-frame decode failure — expected constantly, not an error
       )
-      .catch((err) => setScanError("Couldn't start the camera: " + err.message));
+      .catch((err) => setScanError("Couldn't start the camera (" + err.message + ") — use the code entry below instead."));
 
     return () => {
       stopped = true;
@@ -65,6 +66,14 @@ export default function ScanMeter() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, activeSite]);
+
+  function handleManualSubmit(e) {
+    e.preventDefault();
+    const code = manualCode.trim().toUpperCase();
+    if (!code) return;
+    setManualCode("");
+    handleScanned(code);
+  }
 
   async function handleScanned(qrCode) {
     setStep("working");
@@ -200,6 +209,19 @@ export default function ScanMeter() {
           </p>
           {scanError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{scanError}</p>}
         </div>
+      )}
+
+      {step === "scan" && (
+        <form onSubmit={handleManualSubmit} style={{ ...cardStyle, padding: "16px", marginTop: "12px", display: "flex", gap: "8px" }}>
+          <input
+            type="text"
+            placeholder="Or type the code, e.g. PN-C01-ELEC"
+            value={manualCode}
+            onChange={(e) => setManualCode(e.target.value)}
+            style={{ flex: 1, boxSizing: "border-box", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${colors.lineStrong}`, fontFamily: fonts.mono, fontSize: "14px" }}
+          />
+          <button type="submit" style={buttonStyle.secondary}>Look up</button>
+        </form>
       )}
 
       {step === "working" && (
