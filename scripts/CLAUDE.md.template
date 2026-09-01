@@ -1,0 +1,73 @@
+# {{BUSINESS_NAME}} Maintenance Platform — Claude Code instructions
+
+This file is what Claude Code reads automatically at the start of every
+session in this folder — it's how it already knows the shape of this app
+without you re-explaining it each time. It was generated for you when you
+ran `npm run onboard`, based on the same file Tree Tops (the business this
+app was originally built for) uses for their own copy.
+
+Keep it up to date as you and Claude make changes together — when
+something significant gets built, add a line to "What's been built"
+below, the same way this file is doing right now. Future Claude Code
+sessions will thank you.
+
+## Before doing anything
+
+1. Run `git status` and `git log -1` — confirm a clean, up to date `main`
+   before editing anything.
+2. This app's Supabase project is your own, separate database — never
+   assume it's connected to anyone else's Supabase project or data.
+3. Deploys happen via `.github/workflows/deploy.yml` (GitHub Actions →
+   GitHub Pages) whenever you push to `main`, once you've added your
+   `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` as repository secrets
+   (Settings → Secrets and variables → Actions) and turned on GitHub
+   Pages (Settings → Pages). Until you've done both of those, pushing
+   won't produce a working live site yet.
+
+## Architecture
+
+- React + Vite, PWA-first (installable on a phone home screen, works
+  offline). Three platform-abstraction modules —
+  `src/platform/notifications.js`, `syncQueue.js`, `camera.js` — wrap the
+  underlying browser APIs; every other part of the app should call these
+  rather than the browser APIs directly, so offline/notification/camera
+  behaviour stays consistent everywhere.
+- Supabase backend: multi-tenant data model
+  (`organisations` → `sites` → `profiles`/`roles`/`groups` → `jobs`).
+  Your business is one `organisation` row, which can have more than one
+  `site` under it — useful if you run more than one location.
+- No table grants directly to the app's public (anon) key. Access control
+  is enforced by RLS policies and `security definer` Postgres functions —
+  follow this pattern for any new write path rather than granting the
+  anon key direct table privileges.
+- Offline support via IndexedDB + a foreground flush (not true background
+  sync — iOS Safari doesn't support the Background Sync API, so don't
+  rely on it; the queue flushes on app load/foreground and `online`
+  events instead).
+
+## Hard rules — do not violate these
+
+- Any Supabase SQL change: add a new numbered file in `supabase/` (never
+  edit an already-applied one) and actually run it against your live
+  project — every migration file here is written idempotently, safe to
+  re-run.
+- Never put the Supabase **service role key** in `.env` or any
+  `VITE_`-prefixed variable — it must never reach the browser. Only
+  `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and
+  `VITE_VAPID_PUBLIC_KEY` belong client-side.
+- Every dependency change → regenerate `package-lock.json` in the same
+  commit, or `npm ci` fails in the deploy workflow.
+
+## About the other .md files in this folder
+
+`BUILD-BRIEF.md`, `RUNBOOK.md`, and `SYSTEMSPEC.md` also came across from
+Tree Tops' own copy of this app. They're Tree Tops' own build notes and
+history — not yours, and nothing in this file depends on them. Safe to
+ignore, or delete them, or ask Claude Code to help you write your own
+equivalents once you've got a real feature history of your own.
+
+## What's been built
+
+Nothing yet beyond initial setup — this is a fresh copy. As you build
+things, add short notes here (what, and any non-obvious why) so future
+sessions have context instead of starting from nothing each time.

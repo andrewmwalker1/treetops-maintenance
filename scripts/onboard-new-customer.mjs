@@ -31,6 +31,13 @@
 //   5. If you gave it additional site names beyond the first, inserts
 //      those as plain rows once the org exists.
 //   6. If you gave it a pitches/units CSV, imports it.
+//   7. Rewrites CLAUDE.md from scripts/CLAUDE.md.template with your
+//      business name filled in, so Claude Code already understands this
+//      app's architecture and rules from your very first session with
+//      it -- no re-explaining needed. BUILD-BRIEF.md/RUNBOOK.md/
+//      SYSTEMSPEC.md are left as they are (they're Tree Tops' own build
+//      history, not yours -- the new CLAUDE.md says so and doesn't
+//      depend on them; delete them whenever you like).
 //
 // What it deliberately does NOT do (do these yourself afterward):
 //   - Create your first login. See scripts/seed-users.mjs -- it already
@@ -68,7 +75,7 @@
 // idempotently (on conflict do nothing / create if not exists), same as
 // they are for Tree Tops' own database.
 
-import { readFileSync, readdirSync } from "fs";
+import { readFileSync, readdirSync, writeFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { createInterface } from "readline/promises";
@@ -261,6 +268,13 @@ async function main() {
   await client.end();
   rl.close();
 
+  console.log("\nSetting up CLAUDE.md for your own copy:");
+  const templatePath = join(__dirname, "CLAUDE.md.template");
+  const claudeMdPath = join(__dirname, "..", "CLAUDE.md");
+  const claudeMdContent = readFileSync(templatePath, "utf8").split("{{BUSINESS_NAME}}").join(businessName);
+  writeFileSync(claudeMdPath, claudeMdContent);
+  console.log("  Written to CLAUDE.md -- Claude Code will read this automatically from now on.");
+
   console.log(`
 Done. "${businessName}" is set up with ${siteNames.length} site(s).
 
@@ -279,6 +293,10 @@ Still to do by hand:
      grant them to a role that didn't exist yet when they ran).
   4. Optional: your own VAPID keypair for push notifications, and your
      own branding in vite.config.js's PWA manifest block.
+
+BUILD-BRIEF.md, RUNBOOK.md and SYSTEMSPEC.md are Tree Tops' own build
+history and came across in your copy too -- ignore or delete them
+whenever you like, nothing here depends on them.
 `);
 }
 
