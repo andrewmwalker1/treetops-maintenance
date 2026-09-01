@@ -83,11 +83,23 @@ export default function KeySelector({ tags, onPick, notFoundMessage, resultStyle
               cursor: "pointer",
               border: `1px solid ${colors.line}`,
               width: "100%",
-              ...(t.isHistorical ? { opacity: 0.7, fontStyle: "italic" } : null),
+              ...(t.isHistorical ? { opacity: 0.7 } : null),
             }}
           >
-            {locationLabel(t)}
-            {t.isHistorical && <span style={{ fontStyle: "normal" }}> — handed over</span>}
+            <div>{locationLabel(t)}</div>
+            {/* A pitch can have more than one active tag (a spare/duplicate
+                key), and now also a handed-over history entry alongside
+                them -- all sharing the same pitch label. Andy hit this
+                directly: checked OP-E10, saw "handed over" and "still in
+                the cupboard" together and read it as one key contradicting
+                itself, when they're two different physical keys. This
+                subline makes that explicit on every row rather than only
+                when it happens to matter. */}
+            <div style={{ fontSize: "13px", fontWeight: 400, color: colors.inkSoft, marginTop: "2px" }}>
+              {t.isHistorical
+                ? `A different key for this pitch was handed over to ${t.handed_over_to || "—"} on ${new Date(t.created_at).toLocaleDateString("en-GB")} — it's gone, no tag on file for it anymore.`
+                : `Tag ${t.tag_uid}`}
+            </div>
           </button>
         ))}
         {filtered.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches.</p>}

@@ -28,7 +28,7 @@ export default function KeyStationLookup() {
               Handed over to {selectedTag.handed_over_to || "—"} on {new Date(selectedTag.created_at).toLocaleDateString("en-GB")}.
               {selectedTag.handed_over_notes && <> {selectedTag.handed_over_notes}</>}
               <br />
-              <span style={{ color: colors.inkSoft, fontSize: "14px" }}>No RFID tag is currently allocated to this pitch.</span>
+              <span style={{ color: colors.inkSoft, fontSize: "14px" }}>This key is gone — no tag on file for it anymore. Other keys for this pitch, if any, are separate results in the search list.</span>
             </p>
           ) : (
             <>
