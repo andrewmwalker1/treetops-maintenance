@@ -1,6 +1,7 @@
 // Tree Tops Maintenance Platform — user invite + seed script (Section 9 /
 // Section 10 step 3). Run manually, once, after 01-schema.sql,
-// 02-rls-policies.sql and 03-seed-treetops.sql have all been applied.
+// 02-rls-policies.sql and 03-seed-treetops.sql (or, for a new fork,
+// scripts/onboard-new-customer.mjs) have all been applied.
 //
 // Needs the Supabase *service role* key (not the anon key) — it calls
 // the Auth Admin API and writes profiles/group_members/site_scope
@@ -11,10 +12,17 @@
 //   SUPABASE_SERVICE_ROLE_KEY=... \
 //   node scripts/seed-users.mjs
 //
+// ORG_NAME/SITE_NAME below default to Tree Tops' own; a fork onboarded
+// via onboard-new-customer.mjs should either edit those two constants to
+// match the business/first-site name entered there, or pass
+// ORG_NAME=... SITE_NAME=... as extra env vars on the command above —
+// either way they must match exactly what that script created.
+//
 // Only Andy's email below is real. Hazel/Dave/Peter/Sam are placeholders
 // — replace with real addresses before running (Section 9 / Section 11
-// open item). Re-running is roughly idempotent: inviteUserByEmail on an
-// already-invited address errors, which this script logs and skips
+// open item). A new fork should replace this whole SEED_USERS list with
+// its own staff. Re-running is roughly idempotent: inviteUserByEmail on
+// an already-invited address errors, which this script logs and skips
 // rather than aborting the whole run.
 
 import { createClient } from "@supabase/supabase-js";
@@ -29,8 +37,8 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-const ORG_NAME = "Tree Tops Caravan Park Ltd";
-const SITE_NAME = "Tree Tops";
+const ORG_NAME = process.env.ORG_NAME || "Tree Tops Caravan Park Ltd";
+const SITE_NAME = process.env.SITE_NAME || "Tree Tops";
 
 // TODO: replace the placeholder.example.com addresses with real ones.
 const SEED_USERS = [
