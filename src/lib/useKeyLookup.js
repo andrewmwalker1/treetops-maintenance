@@ -16,6 +16,46 @@ export function summarizeKeyEvent(event) {
     : `Checked out ${when} by ${by || "—"} — still out.`;
 }
 
+// A pitch whose only key was handed over now has no key_tags row at all
+// (handover_key_tag frees the tag immediately -- see
+// 54-key-tag-handover-frees-tag.sql) -- searching "OP-E10" would otherwise
+// go from showing a handed-over key to showing nothing, which reads as
+// "this pitch never had a key" rather than "it was handed over". Reading
+// key_tag_events (event_type='handed_over') for the site's pitches instead
+// finds this history regardless of what's since happened to the physical
+// tag -- each event carries its own handed_over_to/notes copy
+// (55-key-tag-events-handover-detail.sql) specifically so a later reuse of
+// the same tag on a different pitch can't overwrite this pitch's record.
+// Keeps only the most recent handover per pitch.
+async function fetchHandoverHistory(siteId) {
+  const { data, error } = await supabase
+    .from("key_tag_events")
+    .select("id, created_at, handed_over_to, handed_over_notes, from_pitch_id, pitches:from_pitch_id(pitch_number_or_name)")
+    .eq("event_type", "handed_over")
+    .eq("pitches.site_id", siteId)
+    .not("from_pitch_id", "is", null)
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.error("Failed to load handover history", error);
+    return [];
+  }
+  const seenPitch = new Set();
+  const latestPerPitch = [];
+  for (const row of data || []) {
+    if (!row.pitches || seenPitch.has(row.from_pitch_id)) continue; // inner-join miss (wrong site) or an older handover for a pitch already covered
+    seenPitch.add(row.from_pitch_id);
+    latestPerPitch.push({
+      id: `handover-${row.id}`,
+      isHistorical: true,
+      pitches: row.pitches,
+      handed_over_to: row.handed_over_to,
+      handed_over_notes: row.handed_over_notes,
+      created_at: row.created_at,
+    });
+  }
+  return latestPerPitch;
+}
+
 export function useKeyLookup() {
   const { activeSite } = useAuth();
   const [keyTags, setKeyTags] = useState([]);
@@ -25,16 +65,31 @@ export function useKeyLookup() {
 
   useEffect(() => {
     if (!activeSite) return;
-    supabase
-      .from("key_tags")
-      .select("id, tag_uid, pitch_id, special_location_id, status, pitches(pitch_number_or_name), key_special_locations(label)")
-      .eq("site_id", activeSite.id)
-      .then(({ data }) => setKeyTags((data || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status === "active")));
+    // Both fetched together and combined once -- setting each independently
+    // (even with a functional update) would race: whichever resolved second
+    // would only ever have "the other list as of when THIS one started",
+    // silently dropping results if the two responses arrived out of order.
+    // Handover history is appended after the active tags (not merged/sorted
+    // in) so a search's ordinary results always come first, matching
+    // Andy's "show it as the last result", and stays visually distinct in
+    // KeySelector rather than mixed in with keys you can actually act on.
+    Promise.all([
+      supabase
+        .from("key_tags")
+        .select("id, tag_uid, pitch_id, special_location_id, status, pitches(pitch_number_or_name), key_special_locations(label)")
+        .eq("site_id", activeSite.id)
+        .then(({ data }) => (data || []).filter((t) => (t.pitch_id || t.special_location_id) && t.status === "active")),
+      fetchHandoverHistory(activeSite.id),
+    ]).then(([active, history]) => setKeyTags([...active, ...history]));
   }, [activeSite]);
 
   function pickTag(tag) {
     setError(null);
     setSelectedTag(tag);
+    if (tag.isHistorical) {
+      setLastEvent(null);
+      return;
+    }
     setLastEvent(undefined);
     supabase
       .from("key_checkouts")

@@ -75,9 +75,19 @@ export default function KeySelector({ tags, onPick, notFoundMessage, resultStyle
           <button
             key={t.id}
             onClick={() => onPick(t)}
-            style={{ ...(resultStyle || kioskCardStyle), textAlign: "left", fontSize: "17px", fontFamily: fonts.body, cursor: "pointer", border: `1px solid ${colors.line}`, width: "100%" }}
+            style={{
+              ...(resultStyle || kioskCardStyle),
+              textAlign: "left",
+              fontSize: "17px",
+              fontFamily: fonts.body,
+              cursor: "pointer",
+              border: `1px solid ${colors.line}`,
+              width: "100%",
+              ...(t.isHistorical ? { opacity: 0.7, fontStyle: "italic" } : null),
+            }}
           >
             {locationLabel(t)}
+            {t.isHistorical && <span style={{ fontStyle: "normal" }}> — handed over</span>}
           </button>
         ))}
         {filtered.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches.</p>}

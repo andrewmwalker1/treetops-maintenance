@@ -23,8 +23,19 @@ export default function KeyStationLookup() {
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
         <div style={kioskCardStyle}>
           {error && <p style={{ color: colors.immediate }}>{error}</p>}
-          {lastEvent === undefined && !error && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-          {lastEvent !== undefined && <p style={{ fontSize: "17px", margin: 0 }}>{summarizeKeyEvent(lastEvent)}</p>}
+          {selectedTag.isHistorical ? (
+            <p style={{ fontSize: "17px", margin: 0 }}>
+              Handed over to {selectedTag.handed_over_to || "—"} on {new Date(selectedTag.created_at).toLocaleDateString("en-GB")}.
+              {selectedTag.handed_over_notes && <> {selectedTag.handed_over_notes}</>}
+              <br />
+              <span style={{ color: colors.inkSoft, fontSize: "14px" }}>No RFID tag is currently allocated to this pitch.</span>
+            </p>
+          ) : (
+            <>
+              {lastEvent === undefined && !error && <p style={{ color: colors.inkSoft }}>Loading…</p>}
+              {lastEvent !== undefined && <p style={{ fontSize: "17px", margin: 0 }}>{summarizeKeyEvent(lastEvent)}</p>}
+            </>
+          )}
         </div>
       </div>
     );
