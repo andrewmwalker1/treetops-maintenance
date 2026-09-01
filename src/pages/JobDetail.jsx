@@ -1297,7 +1297,7 @@ export default function JobDetail() {
           <div key={a.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
             <div style={{ fontSize: "13px", color: colors.inkSoft }}>
               <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> ·{" "}
-              {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type === "progress_update" ? "progress update" : a.event_type} ·{" "}
+              {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type === "progress_update" ? "progress update" : a.event_type === "status_change" ? "status change" : a.event_type} ·{" "}
               {new Date(a.created_at).toLocaleString()}
             </div>
             {a.event_type === "comment" && <div>{a.new_value?.text}</div>}
@@ -1309,6 +1309,13 @@ export default function JobDetail() {
               </div>
             )}
             {a.event_type === "progress_update" && <div>Progress: {a.new_value?.percent}%</div>}
+            {a.event_type === "status_change" && (
+              <div>
+                {statuses.find((s) => s.id === a.previous_value?.status_id)?.name || "—"}
+                {" → "}
+                {statuses.find((s) => s.id === a.new_value?.status_id)?.name || "—"}
+              </div>
+            )}
           </div>
         ))}
         {/* Not a job_activity row -- read straight off jobs.created_by/

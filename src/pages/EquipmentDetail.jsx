@@ -344,7 +344,7 @@ export default function EquipmentDetail() {
 
         {pendingMonitorNote !== null && (
           <form onSubmit={handleConfirmMonitor} style={{ background: colors.bg, borderRadius: "10px", padding: "12px", marginTop: "-2px" }}>
-            <label style={modalLabelStyle}>What should the team watch for?</label>
+            <label style={labelStyle}>What should the team watch for?</label>
             <textarea
               value={pendingMonitorNote}
               onChange={(e) => setPendingMonitorNote(e.target.value)}
@@ -525,6 +525,14 @@ const selectStyle = {
   border: `1px solid ${colors.lineStrong}`,
   fontFamily: fonts.body,
   marginBottom: "10px",
+};
+
+const labelStyle = {
+  display: "block",
+  fontSize: "13px",
+  fontWeight: 600,
+  color: colors.inkSoft,
+  marginBottom: "6px",
 };
 
 const thStyle = {
