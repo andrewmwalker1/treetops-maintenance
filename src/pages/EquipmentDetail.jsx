@@ -7,17 +7,20 @@ import { capturePhoto } from "../platform/camera.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 
-const statusLabels = { in_service: "In service", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
+const statusLabels = { in_service: "In service", monitor: "Monitor", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
 
 // One shared vocabulary for every row in the combined history table below,
-// whichever of the three source tables (equipment_checks/fault_reports/
-// repair_records) it came from -- each gets its own colour so the table
-// reads at a glance without needing a legend.
+// whichever of the four source tables (equipment_checks/fault_reports/
+// repair_records/equipment_monitor_events) it came from -- each gets its
+// own colour so the table reads at a glance without needing a legend.
+// monitor_events gets its own status (not folded into "repair") because a
+// monitor flag isn't a repair -- nothing was fixed.
 const HISTORY_STATUS = {
   pass: { label: "Pass", color: colors.mossDark },
   fail: { label: "Fail", color: colors.immediate },
   fault: { label: "Fault", color: colors.clay },
   repair: { label: "Repair", color: colors.moss },
+  monitor: { label: "Monitoring", color: colors.gold },
 };
 
 const HISTORY_STATUS_CHIPS = [
@@ -26,6 +29,7 @@ const HISTORY_STATUS_CHIPS = [
   { key: "fail", label: "Fail" },
   { key: "fault", label: "Fault" },
   { key: "repair", label: "Repair" },
+  { key: "monitor", label: "Monitoring" },
 ];
 
 function formatDateTime(iso) {
@@ -51,10 +55,13 @@ export default function EquipmentDetail() {
   const [checks, setChecks] = useState([]);
   const [faultReports, setFaultReports] = useState([]);
   const [repairs, setRepairs] = useState([]);
+  const [monitorEvents, setMonitorEvents] = useState([]);
   const [faultDescription, setFaultDescription] = useState("");
   const [repairNote, setRepairNote] = useState("");
   const [repairCost, setRepairCost] = useState("");
   const [repairVendor, setRepairVendor] = useState("");
+  const [monitorNoteDraft, setMonitorNoteDraft] = useState("");
+  const [pendingMonitorNote, setPendingMonitorNote] = useState(null); // non-null while prompting for a note after picking "Monitor" in the status dropdown
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("checks");
   const [historyStatusFilter, setHistoryStatusFilter] = useState("all");
@@ -66,16 +73,19 @@ export default function EquipmentDetail() {
   const [historyTo, setHistoryTo] = useState("");
 
   const loadAll = useCallback(async () => {
-    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }] = await Promise.all([
-      supabase.from("equipment").select("id, name, make, model, status, check_frequency_days, equipment_type:equipment_types(name)").eq("id", id).single(),
+    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }, { data: monitorRows }] = await Promise.all([
+      supabase.from("equipment").select("id, name, make, model, status, monitor_note, check_frequency_days, equipment_type:equipment_types(name)").eq("id", id).single(),
       supabase.from("equipment_checks").select("id, checked_at, passed, checked_by:profiles(display_name)").eq("equipment_id", id).order("checked_at", { ascending: false }),
       supabase.from("fault_reports").select("id, description, created_at, reported_by:profiles!fault_reports_reported_by_fkey(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
       supabase.from("repair_records").select("id, note, cost, vendor, repaired_at, repaired_by:profiles(display_name)").eq("equipment_id", id).order("repaired_at", { ascending: false }),
+      supabase.from("equipment_monitor_events").select("id, note, event_type, created_at, created_by:profiles(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
     ]);
     setEquipment(eq || null);
+    setMonitorNoteDraft(eq?.monitor_note || "");
     setChecks(checkRows || []);
     setFaultReports(faultRows || []);
     setRepairs(repairRows || []);
+    setMonitorEvents(monitorRows || []);
   }, [id]);
 
   useEffect(() => {
@@ -110,9 +120,16 @@ export default function EquipmentDetail() {
         person: r.repaired_by?.display_name,
         date: r.repaired_at,
       })),
+      ...monitorEvents.map((m) => ({
+        id: `monitor-${m.id}`,
+        status: "monitor",
+        details: m.event_type === "cleared" ? `Cleared — ${m.note}` : m.event_type === "updated" ? `Updated — ${m.note}` : m.note,
+        person: m.created_by?.display_name,
+        date: m.created_at,
+      })),
     ];
     return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [checks, faultReports, repairs]);
+  }, [checks, faultReports, repairs, monitorEvents]);
 
   const filteredSortedHistory = useMemo(() => {
     let result = combinedHistory;
@@ -172,10 +189,69 @@ export default function EquipmentDetail() {
     else loadAll();
   }
 
+  // Picking "Monitor" from the free status dropdown needs a note -- there'd
+  // be nothing for the checkout badge to show otherwise -- so it opens an
+  // inline prompt instead of writing immediately. Picking anything else
+  // away from an existing "Monitor" logs a "cleared" event, so the history
+  // table shows when/why watching a machine stopped, not just silence.
   async function handleStatusChange(status) {
+    if (status === "monitor") {
+      setPendingMonitorNote("");
+      return;
+    }
+    const wasMonitoring = equipment.status === "monitor";
     const { error: err } = await supabase.from("equipment").update({ status }).eq("id", id);
-    if (err) setError(err.message);
-    else loadAll();
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    if (wasMonitoring) {
+      await supabase.from("equipment_monitor_events").insert({
+        equipment_id: id,
+        note: equipment.monitor_note || "Cleared",
+        event_type: "cleared",
+        created_by: profile.id,
+      });
+    }
+    loadAll();
+  }
+
+  async function handleConfirmMonitor(e) {
+    e.preventDefault();
+    if (!pendingMonitorNote.trim()) return;
+    const { error: err } = await supabase
+      .from("equipment")
+      .update({ status: "monitor", monitor_note: pendingMonitorNote.trim() })
+      .eq("id", id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await supabase.from("equipment_monitor_events").insert({
+      equipment_id: id,
+      note: pendingMonitorNote.trim(),
+      event_type: "flagged",
+      created_by: profile.id,
+    });
+    setPendingMonitorNote(null);
+    loadAll();
+  }
+
+  async function handleUpdateMonitorNote(e) {
+    e.preventDefault();
+    if (!monitorNoteDraft.trim()) return;
+    const { error: err } = await supabase.from("equipment").update({ monitor_note: monitorNoteDraft.trim() }).eq("id", id);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    await supabase.from("equipment_monitor_events").insert({
+      equipment_id: id,
+      note: monitorNoteDraft.trim(),
+      event_type: "updated",
+      created_by: profile.id,
+    });
+    loadAll();
   }
 
   async function handleReportFault(e) {
@@ -264,6 +340,45 @@ export default function EquipmentDetail() {
           </select>
         ) : (
           <p>{statusLabels[equipment.status]}</p>
+        )}
+
+        {pendingMonitorNote !== null && (
+          <form onSubmit={handleConfirmMonitor} style={{ background: colors.bg, borderRadius: "10px", padding: "12px", marginTop: "-2px" }}>
+            <label style={modalLabelStyle}>What should the team watch for?</label>
+            <textarea
+              value={pendingMonitorNote}
+              onChange={(e) => setPendingMonitorNote(e.target.value)}
+              rows={2}
+              autoFocus
+              placeholder="e.g. Rear tyres worn — check tread before longer jobs"
+              style={{ ...selectStyle, resize: "vertical" }}
+            />
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="button" onClick={() => setPendingMonitorNote(null)} style={buttonStyle.secondary}>Cancel</button>
+              <button type="submit" disabled={!pendingMonitorNote.trim()} style={buttonStyle.primary}>Set to Monitor</button>
+            </div>
+          </form>
+        )}
+
+        {equipment.status === "monitor" && pendingMonitorNote === null && (
+          <div style={{ background: "#FBF3E3", border: `1px solid ${colors.gold}`, borderRadius: "10px", padding: "12px" }}>
+            <p style={{ color: colors.gold, fontWeight: 600, fontSize: "13px", margin: "0 0 6px" }}>Being monitored</p>
+            {canManage ? (
+              <form onSubmit={handleUpdateMonitorNote}>
+                <textarea
+                  value={monitorNoteDraft}
+                  onChange={(e) => setMonitorNoteDraft(e.target.value)}
+                  rows={2}
+                  style={{ ...selectStyle, resize: "vertical", marginBottom: "8px" }}
+                />
+                <button type="submit" disabled={!monitorNoteDraft.trim() || monitorNoteDraft.trim() === equipment.monitor_note} style={buttonStyle.secondary}>
+                  Update note
+                </button>
+              </form>
+            ) : (
+              <p style={{ fontSize: "14px", margin: 0 }}>{equipment.monitor_note}</p>
+            )}
+          </div>
         )}
       </div>
 

@@ -6,6 +6,16 @@ import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "./kioskTheme.js";
 
+const monitorBadgeStyle = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: colors.gold,
+  border: `1px solid ${colors.gold}`,
+  borderRadius: "999px",
+  padding: "2px 10px",
+  flexShrink: 0,
+};
+
 export default function KioskCheckOut() {
   const navigate = useNavigate();
   const {
@@ -76,6 +86,20 @@ export default function KioskCheckOut() {
           <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Before you take it</h2>
             <ChecklistBuilder items={selectedType.preUseChecklist} onChange={() => {}} readOnly />
+          </div>
+        )}
+
+        {selected.some((u) => u.status === "monitor") && (
+          <div style={{ ...kioskCardStyle, marginBottom: "20px", background: "#FBF3E3", border: `2px solid ${colors.gold}` }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.gold, marginTop: 0 }}>Being monitored</h2>
+            {selected
+              .filter((u) => u.status === "monitor")
+              .map((u) => (
+                <p key={u.id} style={{ fontSize: "16px", margin: "0 0 8px" }}>
+                  {selected.length > 1 && <strong>{u.name}: </strong>}
+                  {u.monitor_note}
+                </p>
+              ))}
           </div>
         )}
 
@@ -181,9 +205,13 @@ export default function KioskCheckOut() {
                   style={{ width: "26px", height: "26px", flexShrink: 0 }}
                 />
                 {u.name}
+                {u.status === "monitor" && <span style={monitorBadgeStyle}>Monitor</span>}
               </label>
             ) : (
-              <button key={u.id} style={kioskButtonStyle} onClick={() => selectUnit(u)}>{u.name}</button>
+              <button key={u.id} style={{ ...kioskButtonStyle, display: "flex", alignItems: "center", gap: "12px" }} onClick={() => selectUnit(u)}>
+                {u.name}
+                {u.status === "monitor" && <span style={monitorBadgeStyle}>Monitor</span>}
+              </button>
             )
           )}
         </div>

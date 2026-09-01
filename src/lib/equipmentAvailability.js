@@ -24,7 +24,10 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     if (!e.equipment_type_id) continue;
     const bucket = (counts[e.equipment_type_id] ||= { available: 0, total: 0 });
     bucket.total += 1;
-    if (e.status === "in_service" && !checkedOutIds.has(e.id)) bucket.available += 1;
+    // "monitor" is checkout-eligible too -- the whole point of that status
+    // is the machine goes back into use, just flagged, unlike faulty/
+    // in_repair/scrapped/decommissioned which all genuinely block it.
+    if ((e.status === "in_service" || e.status === "monitor") && !checkedOutIds.has(e.id)) bucket.available += 1;
   }
 
   const documentsByType = {};
@@ -50,9 +53,9 @@ export async function getAvailableUnits(equipmentTypeId) {
   const [{ data: equipment }, { data: openCheckouts }] = await Promise.all([
     supabase
       .from("equipment")
-      .select("id, name")
+      .select("id, name, status, monitor_note")
       .eq("equipment_type_id", equipmentTypeId)
-      .eq("status", "in_service")
+      .in("status", ["in_service", "monitor"])
       .order("name"),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
   ]);

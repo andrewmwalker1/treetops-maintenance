@@ -9,15 +9,16 @@ import { supabase } from "./supabaseClient.js";
 
 // equipmentResolution (optional): only meaningful when the job carries an
 // equipment_id (see 49-equipment-repair-jobs.sql). Shape:
-//   { equipmentId, outcome: "available" | "decommission",
+//   { equipmentId, outcome: "available" | "monitor" | "decommission",
 //     note, cost, vendor,                        // outcome === "available"
+//     monitorNote,                                // outcome === "monitor"
 //     decommissionReason, decommissionNotes }     // outcome === "decommission"
 // Kept a genuinely separate, best-effort step after the job itself is
 // completed -- a failure here shouldn't undo or block the completion that
 // already succeeded, just get surfaced to the caller as equipmentError so
 // they know to fix the machine's status by hand.
 async function resolveLinkedEquipment({ jobId, actorProfileId, completedDate, equipmentResolution }) {
-  const { equipmentId, outcome, note, cost, vendor, decommissionReason, decommissionNotes } = equipmentResolution;
+  const { equipmentId, outcome, note, cost, vendor, monitorNote, decommissionReason, decommissionNotes } = equipmentResolution;
   try {
     if (outcome === "available") {
       const { data: fault } = await supabase
@@ -39,6 +40,25 @@ async function resolveLinkedEquipment({ jobId, actorProfileId, completedDate, eq
         repaired_by: actorProfileId,
       });
       if (repairErr) throw repairErr;
+    } else if (outcome === "monitor") {
+      // Not a repair -- nothing was fixed, so this deliberately doesn't
+      // touch repair_records. Equipment goes back into service (available
+      // for checkout, same as in_service) but carries a visible note for
+      // whoever checks it out next; equipment_monitor_events is its own
+      // history-log source so it shows as "Monitoring", not "Repair".
+      const trimmed = monitorNote?.trim();
+      const { error: statusErr } = await supabase
+        .from("equipment")
+        .update({ status: "monitor", monitor_note: trimmed || null })
+        .eq("id", equipmentId);
+      if (statusErr) throw statusErr;
+      const { error: eventErr } = await supabase.from("equipment_monitor_events").insert({
+        equipment_id: equipmentId,
+        note: trimmed || "Monitoring",
+        event_type: "flagged",
+        created_by: actorProfileId,
+      });
+      if (eventErr) throw eventErr;
     } else if (outcome === "decommission") {
       const { error: decommissionErr } = await supabase
         .from("equipment")

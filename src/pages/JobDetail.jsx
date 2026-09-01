@@ -116,10 +116,11 @@ export default function JobDetail() {
   // Only relevant when job.equipment_id is set (see
   // 49-equipment-repair-jobs.sql) -- what completing this repair job should
   // do to the machine it's linked to.
-  const [equipmentOutcome, setEquipmentOutcome] = useState("available"); // available | decommission
+  const [equipmentOutcome, setEquipmentOutcome] = useState("available"); // available | monitor | decommission
   const [equipmentRepairNote, setEquipmentRepairNote] = useState("");
   const [equipmentRepairCost, setEquipmentRepairCost] = useState("");
   const [equipmentRepairVendor, setEquipmentRepairVendor] = useState("");
+  const [equipmentMonitorNote, setEquipmentMonitorNote] = useState("");
   const [equipmentDecommissionReason, setEquipmentDecommissionReason] = useState("scrapped");
   const [equipmentDecommissionNotes, setEquipmentDecommissionNotes] = useState("");
   const [reopenTargetStatusId, setReopenTargetStatusId] = useState(null);
@@ -353,6 +354,7 @@ export default function JobDetail() {
     setEquipmentRepairNote("");
     setEquipmentRepairCost("");
     setEquipmentRepairVendor("");
+    setEquipmentMonitorNote("");
     setEquipmentDecommissionReason("scrapped");
     setEquipmentDecommissionNotes("");
     setShowCompleteModal(true);
@@ -459,6 +461,12 @@ export default function JobDetail() {
               outcome: "decommission",
               decommissionReason: equipmentDecommissionReason,
               decommissionNotes: equipmentDecommissionNotes,
+            }
+          : equipmentOutcome === "monitor"
+          ? {
+              equipmentId: job.equipment_id,
+              outcome: "monitor",
+              monitorNote: equipmentMonitorNote,
             }
           : {
               equipmentId: job.equipment_id,
@@ -1380,14 +1388,33 @@ export default function JobDetail() {
               <label style={modalLabelStyle}>
                 This job is linked to <strong>{job.equipment?.name || "a machine"}</strong> — what's the outcome?
               </label>
-              <div style={{ display: "flex", gap: "16px", marginBottom: "10px" }}>
+              <div style={{ display: "flex", gap: "16px", marginBottom: "10px", flexWrap: "wrap" }}>
                 <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
                   <input type="radio" checked={equipmentOutcome === "available"} onChange={() => setEquipmentOutcome("available")} /> Mark available again
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
+                  <input type="radio" checked={equipmentOutcome === "monitor"} onChange={() => setEquipmentOutcome("monitor")} /> Monitor
                 </label>
                 <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
                   <input type="radio" checked={equipmentOutcome === "decommission"} onChange={() => setEquipmentOutcome("decommission")} /> Decommission
                 </label>
               </div>
+
+              {equipmentOutcome === "monitor" && (
+                <>
+                  <p style={{ color: colors.inkSoft, fontSize: "13px", marginTop: 0 }}>
+                    Goes back into service, but flagged for whoever checks it out next — not marked as fixed.
+                  </p>
+                  <label style={modalLabelStyle}>What should the team watch for?</label>
+                  <textarea
+                    value={equipmentMonitorNote}
+                    onChange={(e) => setEquipmentMonitorNote(e.target.value)}
+                    rows={2}
+                    placeholder="e.g. Rear tyres worn — check tread before longer jobs"
+                    style={{ ...selectStyle, resize: "vertical" }}
+                  />
+                </>
+              )}
 
               {equipmentOutcome === "available" ? (
                 <>
@@ -1419,7 +1446,7 @@ export default function JobDetail() {
                     </div>
                   </div>
                 </>
-              ) : (
+              ) : equipmentOutcome === "decommission" ? (
                 <>
                   <label style={modalLabelStyle}>Reason</label>
                   <select
@@ -1439,13 +1466,20 @@ export default function JobDetail() {
                     style={{ ...selectStyle, resize: "vertical" }}
                   />
                 </>
-              )}
+              ) : null}
             </div>
           )}
 
           <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
             <button type="button" onClick={() => setShowCompleteModal(false)} style={buttonStyle.secondary}>Cancel</button>
-            <button type="button" onClick={confirmComplete} disabled={outstandingPhotoItems.length > 0} style={buttonStyle.primary}>Mark complete</button>
+            <button
+              type="button"
+              onClick={confirmComplete}
+              disabled={outstandingPhotoItems.length > 0 || (job.equipment_id && equipmentOutcome === "monitor" && !equipmentMonitorNote.trim())}
+              style={buttonStyle.primary}
+            >
+              Mark complete
+            </button>
           </div>
         </Modal>
       )}

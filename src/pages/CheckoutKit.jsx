@@ -23,6 +23,16 @@ const listButtonStyle = {
   alignItems: "center",
 };
 
+const monitorBadgeStyle = {
+  fontSize: "11px",
+  fontWeight: 700,
+  color: colors.gold,
+  border: `1px solid ${colors.gold}`,
+  borderRadius: "999px",
+  padding: "1px 8px",
+  flexShrink: 0,
+};
+
 export default function CheckoutKit() {
   const navigate = useNavigate();
   const {
@@ -90,6 +100,23 @@ export default function CheckoutKit() {
           <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginTop: 0 }}>Before you take it</h2>
             <ChecklistBuilder items={selectedType.preUseChecklist} onChange={() => {}} readOnly />
+          </div>
+        )}
+
+        {/* Separate from the pre-use checklist above rather than merged into
+            it -- the checklist is fixed per equipment type, this is a note
+            specific to this one unit right now. Same review step, own card. */}
+        {selected.some((u) => u.status === "monitor") && (
+          <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px", background: "#FBF3E3", border: `1px solid ${colors.gold}` }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.gold, marginTop: 0 }}>Being monitored</h2>
+            {selected
+              .filter((u) => u.status === "monitor")
+              .map((u) => (
+                <p key={u.id} style={{ fontSize: "14px", margin: "0 0 8px" }}>
+                  {selected.length > 1 && <strong>{u.name}: </strong>}
+                  {u.monitor_note}
+                </p>
+              ))}
           </div>
         )}
 
@@ -193,11 +220,15 @@ export default function CheckoutKit() {
                     style={{ width: "20px", height: "20px", flexShrink: 0 }}
                   />
                   {u.name}
+                  {u.status === "monitor" && <span style={monitorBadgeStyle}>Monitor</span>}
                 </span>
               </label>
             ) : (
               <button key={u.id} style={listButtonStyle} onClick={() => selectUnit(u)}>
-                {u.name}
+                <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {u.name}
+                  {u.status === "monitor" && <span style={monitorBadgeStyle}>Monitor</span>}
+                </span>
               </button>
             )
           )}
