@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
+import AssigneePicker, { assigneeKindAndIdFromRow, assigneeLabel } from "../../components/AssigneePicker.jsx";
 import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
 
 const fieldStyle = {
@@ -37,55 +38,6 @@ const blank = {
   assigneeKind: "none",
   assigneeId: "",
 };
-
-// One row's assignee is stored as whichever of the three columns is
-// non-null (see equipment_type_repair_assignees, 49-equipment-repair-jobs.sql)
-// -- these two helpers convert between that shape and the kind/id pair the
-// radio+select UI below actually edits.
-function assigneeKindAndIdFromRow(row) {
-  if (!row) return { assigneeKind: "none", assigneeId: "" };
-  if (row.assignee_profile_id) return { assigneeKind: "person", assigneeId: row.assignee_profile_id };
-  if (row.assignee_group_id) return { assigneeKind: "group", assigneeId: row.assignee_group_id };
-  if (row.assignee_contractor_id) return { assigneeKind: "contractor", assigneeId: row.assignee_contractor_id };
-  return { assigneeKind: "none", assigneeId: "" };
-}
-
-function assigneeLabel(row, { people, groups, contractors }) {
-  const { assigneeKind, assigneeId } = assigneeKindAndIdFromRow(row);
-  if (assigneeKind === "person") return people.find((p) => p.id === assigneeId)?.display_name;
-  if (assigneeKind === "group") return groups.find((g) => g.id === assigneeId)?.name;
-  if (assigneeKind === "contractor") return contractors.find((c) => c.id === assigneeId)?.name;
-  return null;
-}
-
-// Shared by the per-type picker (inside the edit-type modal) and the
-// org-wide default picker (its own always-visible card) -- same
-// person/group/contractor/none shape as a job's own assignee, minus the
-// "unassigned" job concept (here "none" means "fall through", not "nobody").
-function AssigneePicker({ kind, id, onChange, people, groups, contractors }) {
-  const options = kind === "person" ? people : kind === "group" ? groups : kind === "contractor" ? contractors : [];
-  const labelKey = kind === "person" ? "display_name" : "name";
-  return (
-    <div>
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "8px" }}>
-        {["none", "person", "group", "contractor"].map((k) => (
-          <label key={k} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
-            <input type="radio" checked={kind === k} onChange={() => onChange(k, "")} />
-            {k === "none" ? "None (use default)" : k.charAt(0).toUpperCase() + k.slice(1)}
-          </label>
-        ))}
-      </div>
-      {kind !== "none" && (
-        <select value={id} onChange={(e) => onChange(kind, e.target.value)} style={{ ...fieldStyle, marginBottom: 0 }}>
-          <option value="">Choose…</option>
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>{o[labelKey]}</option>
-          ))}
-        </select>
-      )}
-    </div>
-  );
-}
 
 export default function EquipmentTypesTab() {
   const { org } = useAuth();

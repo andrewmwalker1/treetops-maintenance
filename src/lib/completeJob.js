@@ -9,17 +9,56 @@ import { supabase } from "./supabaseClient.js";
 
 // equipmentResolution (optional): only meaningful when the job carries an
 // equipment_id (see 49-equipment-repair-jobs.sql). Shape:
-//   { equipmentId, outcome: "available" | "monitor" | "decommission",
+//   { equipmentId, outcome: "available" | "monitor" | "decommission" | "service",
 //     note, cost, vendor,                        // outcome === "available"
 //     monitorNote,                                // outcome === "monitor"
-//     decommissionReason, decommissionNotes }     // outcome === "decommission"
+//     decommissionReason, decommissionNotes,      // outcome === "decommission"
+//     tierUpdates }             // outcome === "service" -- [{tierId, nextDueHours, nextDueDate}]
 // Kept a genuinely separate, best-effort step after the job itself is
 // completed -- a failure here shouldn't undo or block the completion that
 // already succeeded, just get surfaced to the caller as equipmentError so
 // they know to fix the machine's status by hand.
 async function resolveLinkedEquipment({ jobId, actorProfileId, completedDate, equipmentResolution }) {
-  const { equipmentId, outcome, note, cost, vendor, monitorNote, decommissionReason, decommissionNotes } = equipmentResolution;
+  const { equipmentId, outcome, note, cost, vendor, monitorNote, decommissionReason, decommissionNotes, tierUpdates } = equipmentResolution;
   try {
+    if (outcome === "service") {
+      const { data: equipment, error: hoursErr } = await supabase
+        .from("equipment")
+        .select("last_hours_reading")
+        .eq("id", equipmentId)
+        .single();
+      if (hoursErr) throw hoursErr;
+
+      for (const t of tierUpdates) {
+        const { error: tierErr } = await supabase
+          .from("equipment_service_tier_state")
+          .update({
+            last_completed_at: new Date().toISOString(),
+            last_completed_hours: equipment?.last_hours_reading ?? null,
+            last_completed_by: actorProfileId,
+            next_due_hours: t.nextDueHours ?? null,
+            next_due_date: t.nextDueDate || null,
+          })
+          .eq("equipment_id", equipmentId)
+          .eq("tier_id", t.tierId);
+        if (tierErr) throw tierErr;
+      }
+
+      // Same "back into service, note cleared" shape as the "available"
+      // outcome below -- a service visit isn't a fault repair (no
+      // repair_records row), but it does the same job of taking the
+      // machine off Monitor.
+      const { error: statusErr } = await supabase.from("equipment").update({ status: "in_service", monitor_note: null }).eq("id", equipmentId);
+      if (statusErr) throw statusErr;
+      const { error: eventErr } = await supabase.from("equipment_monitor_events").insert({
+        equipment_id: equipmentId,
+        note: "Service completed",
+        event_type: "cleared",
+        created_by: actorProfileId,
+      });
+      if (eventErr) throw eventErr;
+      return null;
+    }
     if (outcome === "available") {
       const { data: fault } = await supabase
         .from("fault_reports")

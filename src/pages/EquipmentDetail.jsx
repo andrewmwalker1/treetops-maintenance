@@ -59,6 +59,11 @@ export default function EquipmentDetail() {
   const [repairs, setRepairs] = useState([]);
   const [monitorEvents, setMonitorEvents] = useState([]);
   const [hoursReadings, setHoursReadings] = useState([]);
+  const [serviceTemplates, setServiceTemplates] = useState([]);
+  const [appliedTemplateIds, setAppliedTemplateIds] = useState([]);
+  const [tierStates, setTierStates] = useState([]);
+  const [templateToApply, setTemplateToApply] = useState("");
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [faultDescription, setFaultDescription] = useState("");
   const [repairNote, setRepairNote] = useState("");
   const [repairCost, setRepairCost] = useState("");
@@ -76,11 +81,11 @@ export default function EquipmentDetail() {
   const [historyTo, setHistoryTo] = useState("");
 
   const loadAll = useCallback(async () => {
-    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }, { data: monitorRows }, { data: hoursRows }] = await Promise.all([
+    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }, { data: monitorRows }, { data: hoursRows }, { data: appliedRows }, { data: stateRows }] = await Promise.all([
       supabase
         .from("equipment")
         .select(
-          "id, name, make, model, status, monitor_note, check_frequency_days, tracks_hours, hours_required, last_hours_reading, last_hours_reading_at, equipment_type:equipment_types(name, tracks_hours_default, hours_required_default)"
+          "id, org_id, name, make, model, status, monitor_note, check_frequency_days, tracks_hours, hours_required, last_hours_reading, last_hours_reading_at, equipment_type:equipment_types(name, tracks_hours_default, hours_required_default)"
         )
         .eq("id", id)
         .single(),
@@ -89,7 +94,17 @@ export default function EquipmentDetail() {
       supabase.from("repair_records").select("id, note, cost, vendor, repaired_at, repaired_by:profiles(display_name)").eq("equipment_id", id).order("repaired_at", { ascending: false }),
       supabase.from("equipment_monitor_events").select("id, note, event_type, created_at, created_by:profiles(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
       supabase.from("equipment_hours_readings").select("id, hours_value, recorded_at, recorded_by:profiles(display_name)").eq("equipment_id", id).order("recorded_at", { ascending: false }),
+      supabase.from("equipment_service_schedules").select("service_template_id, service_templates(name)").eq("equipment_id", id),
+      supabase
+        .from("equipment_service_tier_state")
+        .select("id, next_due_hours, next_due_date, last_completed_at, tier:service_template_tiers(id, name, trigger_type, is_recurring, template:service_templates(name))")
+        .eq("equipment_id", id),
     ]);
+    setAppliedTemplateIds((appliedRows || []).map((r) => r.service_template_id));
+    setTierStates(stateRows || []);
+    if (eq?.org_id) {
+      supabase.from("service_templates").select("id, name").eq("org_id", eq.org_id).order("name").then(({ data }) => setServiceTemplates(data || []));
+    }
     setEquipment(eq || null);
     setMonitorNoteDraft(eq?.monitor_note || "");
     setChecks(checkRows || []);
@@ -199,6 +214,19 @@ export default function EquipmentDetail() {
   function historySortIndicator(field) {
     if (historySort.field !== field) return "";
     return historySort.direction === "asc" ? " ↑" : " ↓";
+  }
+
+  async function applyTemplate() {
+    if (!templateToApply) return;
+    setApplyingTemplate(true);
+    const { error: err } = await supabase.rpc("apply_service_template", { p_equipment_id: id, p_template_id: templateToApply });
+    setApplyingTemplate(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setTemplateToApply("");
+    loadAll();
   }
 
   async function logCheck(passed) {
@@ -406,6 +434,44 @@ export default function EquipmentDetail() {
           </div>
         )}
       </div>
+
+      {(tierStates.length > 0 || (canManage && serviceTemplates.length > 0)) && (
+        <Section title="Service schedule">
+          {tierStates.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: canManage ? "14px" : 0 }}>
+              {tierStates.map((s) => (
+                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "4px 0", borderBottom: `1px solid ${colors.line}` }}>
+                  <span>
+                    {s.tier?.template?.name ? `${s.tier.template.name} — ` : ""}
+                    {s.tier?.name}
+                    {s.tier?.is_recurring === false && s.last_completed_at && <span style={{ color: colors.inkSoft }}> (done)</span>}
+                  </span>
+                  <span style={{ color: colors.inkSoft }}>
+                    {s.tier?.trigger_type === "hours"
+                      ? s.next_due_hours != null ? `Due at ${s.next_due_hours} hrs` : "—"
+                      : s.next_due_date ? `Due ${s.next_due_date}` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {canManage && (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+              <select value={templateToApply} onChange={(e) => setTemplateToApply(e.target.value)} style={{ ...selectStyle, flex: 1, minWidth: "160px" }}>
+                <option value="">Apply a service template…</option>
+                {serviceTemplates
+                  .filter((t) => !appliedTemplateIds.includes(t.id))
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+              </select>
+              <button onClick={applyTemplate} disabled={!templateToApply || applyingTemplate} style={buttonStyle.secondary}>
+                {applyingTemplate ? "Applying…" : "Apply"}
+              </button>
+            </div>
+          )}
+        </Section>
+      )}
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
         <TabButton active={activeTab === "checks"} onClick={() => setActiveTab("checks")} label="Log a check" />

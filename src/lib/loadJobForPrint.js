@@ -13,7 +13,7 @@ export const JOB_SELECT = `
   assignee_contractor:contractors(id, name, main_email),
   pitch:pitches(id, pitch_number_or_name),
   area:areas(id, name),
-  equipment:equipment(id, name, status),
+  equipment:equipment(id, name, status, last_hours_reading),
   creator:profiles!jobs_created_by_fkey(id, display_name)
 `;
 

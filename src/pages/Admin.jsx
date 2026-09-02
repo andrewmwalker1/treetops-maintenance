@@ -10,6 +10,7 @@ import UsersTab from "./admin/UsersTab.jsx";
 import SchedulesTab from "./admin/SchedulesTab.jsx";
 import EquipmentTypesTab from "./admin/EquipmentTypesTab.jsx";
 import EquipmentTab from "./admin/EquipmentTab.jsx";
+import ServiceTemplatesTab from "./admin/ServiceTemplatesTab.jsx";
 import CommonFaultDescriptionsTab from "./admin/CommonFaultDescriptionsTab.jsx";
 import RfidTagsTab from "./admin/RfidTagsTab.jsx";
 import KeyTagsTab from "./admin/KeyTagsTab.jsx";
@@ -28,6 +29,7 @@ const ALL_TABS = [
   { key: "schedules", label: "Recurring Jobs", Component: SchedulesTab, permission: "can_manage_reference_data" },
   { key: "equipment", label: "Equipment", Component: EquipmentTab, permission: "can_manage_equipment_status" },
   { key: "equipmentTypes", label: "Equipment Types", Component: EquipmentTypesTab, permission: "can_manage_equipment_status" },
+  { key: "serviceTemplates", label: "Service Templates", Component: ServiceTemplatesTab, permission: "can_manage_equipment_status" },
   { key: "faultDescriptions", label: "Common Faults", Component: CommonFaultDescriptionsTab, permission: "can_manage_equipment_status" },
   { key: "checkoutLog", label: "Checkout Log", Component: EquipmentCheckoutLogTab, permission: "can_manage_equipment_status" },
   { key: "rfid", label: "RFID Fobs", Component: RfidTagsTab, permission: "can_manage_users" },
