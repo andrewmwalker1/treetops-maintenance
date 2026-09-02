@@ -71,7 +71,16 @@ export default function EquipmentTab() {
         )
         .eq("org_id", org?.id),
       supabase.from("equipment_types").select("id, name, tracks_hours_default, hours_required_default").eq("org_id", org?.id).order("name"),
-      supabase.from("equipment_checkouts").select("id, equipment_id, profiles(display_name)").is("checked_in_at", null),
+      // profiles!equipment_checkouts_profile_id_fkey, not the bare
+      // "profiles(...)" this had before -- equipment_checkouts has two FKs
+      // to profiles (profile_id and checked_in_by), so the embed was
+      // ambiguous and PostgREST rejected the whole query (PGRST201),
+      // silently emptying openCheckouts below -- every "Checked out to"
+      // line and Force check-in button on this screen has been dead.
+      supabase
+        .from("equipment_checkouts")
+        .select("id, equipment_id, profiles!equipment_checkouts_profile_id_fkey(display_name)")
+        .is("checked_in_at", null),
     ]).then(([{ data: eq, error: err }, { data: types }, { data: checkouts }]) => {
       if (err) setError(err.message);
       else setEquipment(eq || []);
