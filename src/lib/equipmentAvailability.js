@@ -53,12 +53,24 @@ export async function getAvailableUnits(equipmentTypeId) {
   const [{ data: equipment }, { data: openCheckouts }] = await Promise.all([
     supabase
       .from("equipment")
-      .select("id, name, status, monitor_note")
+      .select(
+        `id, name, status, monitor_note, tracks_hours, hours_required, last_hours_reading, last_hours_reading_at,
+         equipment_type:equipment_types(tracks_hours_default, hours_required_default)`
+      )
       .eq("equipment_type_id", equipmentTypeId)
       .in("status", ["in_service", "monitor"])
       .order("name"),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
   ]);
   const checkedOutIds = new Set((openCheckouts || []).map((c) => c.equipment_id));
-  return (equipment || []).filter((e) => !checkedOutIds.has(e.id));
+  return (equipment || [])
+    .filter((e) => !checkedOutIds.has(e.id))
+    .map((e) => ({
+      ...e,
+      // null on the item itself means "use the type's default" -- same
+      // fall-through convention as the repair-assignee default/override
+      // chain (equipment_type_repair_assignees).
+      tracksHours: e.tracks_hours ?? e.equipment_type?.tracks_hours_default ?? false,
+      hoursRequired: e.hours_required ?? e.equipment_type?.hours_required_default ?? false,
+    }));
 }

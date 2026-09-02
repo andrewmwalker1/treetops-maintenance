@@ -23,6 +23,16 @@ const listButtonStyle = {
   alignItems: "center",
 };
 
+const hoursFieldStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "10px 12px",
+  borderRadius: "8px",
+  border: `1px solid ${colors.lineStrong}`,
+  fontFamily: fonts.body,
+  fontSize: "16px", // 16px+ keeps iOS Safari from auto-zooming into the field
+};
+
 const monitorBadgeStyle = {
   fontSize: "11px",
   fontWeight: 700,
@@ -42,6 +52,8 @@ export default function CheckoutKit() {
     selectedType,
     units,
     selectedIds,
+    hoursByUnitId,
+    setUnitHours,
     reportingIssueFor,
     setReportingIssueFor,
     checkoutOutcome,
@@ -88,6 +100,18 @@ export default function CheckoutKit() {
   if (view === "confirm") {
     const selected = units.filter((u) => selectedIds.has(u.id));
     const reportingUnit = reportingIssueFor ? selected.find((u) => u.id === reportingIssueFor) : null;
+    const hoursUnits = selected.filter((u) => u.tracksHours);
+    // Blocks the button client-side for the common case; record_equipment_hours
+    // re-checks both rules server-side regardless (someone else could
+    // check the same machine out with a higher reading in the gap
+    // between loading this screen and submitting).
+    const hoursOk = hoursUnits.every((u) => {
+      const raw = hoursByUnitId[u.id];
+      if (raw === undefined || raw === "") return !u.hoursRequired;
+      const value = Number(raw);
+      if (Number.isNaN(value)) return false;
+      return u.last_hours_reading == null || value >= u.last_hours_reading;
+    });
 
     return (
       <div style={{ maxWidth: "560px" }}>
@@ -117,6 +141,40 @@ export default function CheckoutKit() {
                   {u.monitor_note}
                 </p>
               ))}
+          </div>
+        )}
+
+        {hoursUnits.length > 0 && (
+          <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginTop: 0 }}>Hours reading</h2>
+            {hoursUnits.map((u) => {
+              const raw = hoursByUnitId[u.id] ?? "";
+              const value = raw === "" ? null : Number(raw);
+              const tooLow = value !== null && u.last_hours_reading != null && value < u.last_hours_reading;
+              return (
+                <div key={u.id} style={{ marginBottom: "12px" }}>
+                  {hoursUnits.length > 1 && <p style={{ fontWeight: 600, fontSize: "14px", margin: "0 0 4px" }}>{u.name}</p>}
+                  <p style={{ fontSize: "13px", color: colors.inkSoft, margin: "0 0 6px" }}>
+                    {u.last_hours_reading != null
+                      ? `Last reading: ${u.last_hours_reading} hrs (${new Date(u.last_hours_reading_at).toLocaleDateString("en-GB")})`
+                      : "No previous reading on file"}
+                  </p>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={raw}
+                    onChange={(e) => setUnitHours(u.id, e.target.value)}
+                    placeholder={u.hoursRequired ? "Hours (required)" : "Hours (optional)"}
+                    style={hoursFieldStyle}
+                  />
+                  {tooLow && (
+                    <p style={{ color: colors.immediate, fontSize: "12px", margin: "4px 0 0" }}>
+                      Can't be less than the last reading ({u.last_hours_reading} hrs)
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -166,7 +224,11 @@ export default function CheckoutKit() {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              <button style={buttonStyle.primary} onClick={() => handleCheckOut(() => navigate("/"))} disabled={busy}>
+              <button
+                style={{ ...buttonStyle.primary, opacity: hoursOk ? 1 : 0.5 }}
+                onClick={() => handleCheckOut(() => navigate("/"))}
+                disabled={busy || !hoursOk}
+              >
                 {busy ? "Checking out…" : selected.length > 1 ? `Check out selected (${selected.length})` : "Check out"}
               </button>
               {selected.length === 1 && (

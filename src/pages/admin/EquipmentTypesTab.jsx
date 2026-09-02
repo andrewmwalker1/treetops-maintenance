@@ -26,7 +26,17 @@ const iconButtonStyle = {
   fontSize: "13px",
 };
 
-const blank = { id: null, name: "", pre_use_checklist: [], allow_multi_checkout: false, documentIds: [], assigneeKind: "none", assigneeId: "" };
+const blank = {
+  id: null,
+  name: "",
+  pre_use_checklist: [],
+  allow_multi_checkout: false,
+  tracks_hours_default: false,
+  hours_required_default: false,
+  documentIds: [],
+  assigneeKind: "none",
+  assigneeId: "",
+};
 
 // One row's assignee is stored as whichever of the three columns is
 // non-null (see equipment_type_repair_assignees, 49-equipment-repair-jobs.sql)
@@ -96,7 +106,11 @@ export default function EquipmentTypesTab() {
 
   function refresh() {
     Promise.all([
-      supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout, sort_order").eq("org_id", org.id).order("sort_order"),
+      supabase
+        .from("equipment_types")
+        .select("id, name, pre_use_checklist, allow_multi_checkout, tracks_hours_default, hours_required_default, sort_order")
+        .eq("org_id", org.id)
+        .order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
       supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id).order("title"),
       supabase.from("equipment_type_documents").select("equipment_type_id, document_id"),
@@ -192,6 +206,8 @@ export default function EquipmentTypesTab() {
       name: t.name,
       pre_use_checklist: t.pre_use_checklist || [],
       allow_multi_checkout: t.allow_multi_checkout || false,
+      tracks_hours_default: t.tracks_hours_default || false,
+      hours_required_default: t.hours_required_default || false,
       documentIds: linksByType[t.id] || [],
       ...assigneeKindAndIdFromRow(assigneesByType[t.id]),
     });
@@ -215,7 +231,14 @@ export default function EquipmentTypesTab() {
   async function handleSave(e) {
     e.preventDefault();
     setError(null);
-    const payload = { org_id: org.id, name: form.name, pre_use_checklist: form.pre_use_checklist, allow_multi_checkout: form.allow_multi_checkout };
+    const payload = {
+      org_id: org.id,
+      name: form.name,
+      pre_use_checklist: form.pre_use_checklist,
+      allow_multi_checkout: form.allow_multi_checkout,
+      tracks_hours_default: form.tracks_hours_default,
+      hours_required_default: form.hours_required_default,
+    };
     if (!form.id) {
       payload.sort_order = types.length > 0 ? Math.max(...types.map((t) => t.sort_order)) + 1 : 0;
     }
@@ -314,7 +337,9 @@ export default function EquipmentTypesTab() {
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
-              {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""} · {(linksByType[t.id] || []).length} RA/MS document(s) linked
+              {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""}
+              {t.tracks_hours_default ? ` · tracks hours${t.hours_required_default ? " (required)" : ""}` : ""}
+              {" · "}{(linksByType[t.id] || []).length} RA/MS document(s) linked
               {" · Repairs: "}{assigneeLabel(assigneesByType[t.id], { people, groups, contractors }) || "default"}
             </div>
           </div>
@@ -400,6 +425,29 @@ export default function EquipmentTypesTab() {
                 For kit like batteries that the team takes out and swaps in a group. On the kiosk, staff will tick as
                 many units as they need before continuing, instead of picking one at a time.
               </p>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: colors.ink, marginTop: "14px" }}>
+                <input
+                  type="checkbox"
+                  checked={form.tracks_hours_default}
+                  onChange={(e) => setForm({ ...form, tracks_hours_default: e.target.checked, hours_required_default: e.target.checked ? form.hours_required_default : false })}
+                />
+                Prompt for an hours reading at checkout
+              </label>
+              <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "4px", marginBottom: 0 }}>
+                The default for every item of this type — override it on an individual machine if one's clock is
+                broken, or a type is mixed.
+              </p>
+              {form.tracks_hours_default && (
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", color: colors.ink, marginTop: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={form.hours_required_default}
+                    onChange={(e) => setForm({ ...form, hours_required_default: e.target.checked })}
+                  />
+                  Require it (can't check out without entering one)
+                </label>
+              )}
 
               <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, margin: "14px 0 6px" }}>
                 Linked RA/MS documents

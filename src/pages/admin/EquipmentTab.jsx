@@ -32,10 +32,22 @@ const blank = {
   serial_number: "",
   other_id_number: "",
   date_added: "",
+  // "" = inherit the equipment type's default, "true"/"false" = override.
+  // Kept as strings here so a plain <select> can represent all three
+  // states -- converted to null/true/false in handleSave.
+  tracks_hours: "",
+  hours_required: "",
 };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function resolveTracksHours(eq) {
+  return eq.tracks_hours ?? eq.equipment_type?.tracks_hours_default ?? false;
+}
+function resolveHoursRequired(eq) {
+  return eq.hours_required ?? eq.equipment_type?.hours_required_default ?? false;
 }
 
 export default function EquipmentTab() {
@@ -52,9 +64,13 @@ export default function EquipmentTab() {
     Promise.all([
       supabase
         .from("equipment")
-        .select("id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, decommissioned_at, decommission_reason, decommission_notes, equipment_type:equipment_types(name)")
+        .select(
+          `id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, decommissioned_at, decommission_reason, decommission_notes,
+           tracks_hours, hours_required, last_hours_reading, last_hours_reading_at,
+           equipment_type:equipment_types(name, tracks_hours_default, hours_required_default)`
+        )
         .eq("org_id", org?.id),
-      supabase.from("equipment_types").select("id, name").eq("org_id", org?.id).order("name"),
+      supabase.from("equipment_types").select("id, name, tracks_hours_default, hours_required_default").eq("org_id", org?.id).order("name"),
       supabase.from("equipment_checkouts").select("id, equipment_id, profiles(display_name)").is("checked_in_at", null),
     ]).then(([{ data: eq, error: err }, { data: types }, { data: checkouts }]) => {
       if (err) setError(err.message);
@@ -86,6 +102,8 @@ export default function EquipmentTab() {
       serial_number: eq.serial_number || "",
       other_id_number: eq.other_id_number || "",
       date_added: eq.date_added || "",
+      tracks_hours: eq.tracks_hours === null || eq.tracks_hours === undefined ? "" : String(eq.tracks_hours),
+      hours_required: eq.hours_required === null || eq.hours_required === undefined ? "" : String(eq.hours_required),
     });
   }
 
@@ -100,6 +118,8 @@ export default function EquipmentTab() {
       serial_number: form.serial_number || null,
       other_id_number: form.other_id_number || null,
       date_added: form.date_added || null,
+      tracks_hours: form.tracks_hours === "" ? null : form.tracks_hours === "true",
+      hours_required: form.hours_required === "" ? null : form.hours_required === "true",
     };
     let err;
     if (form.id) {
@@ -168,6 +188,13 @@ export default function EquipmentTab() {
             <div style={{ fontWeight: 600 }}>{eq.name}{eq.equipment_type && <span style={{ fontWeight: 400, color: colors.inkSoft }}> · {eq.equipment_type.name}</span>}</div>
             <div style={{ fontSize: "12px", color: colors.inkSoft }}>
               {[eq.make, eq.model].filter(Boolean).join(" ") || "No make/model set"} · {statusLabels[eq.status]}
+              {resolveTracksHours(eq) && (
+                <>
+                  {" · "}
+                  {eq.last_hours_reading != null ? `${eq.last_hours_reading} hrs` : "tracks hours"}
+                  {resolveHoursRequired(eq) ? " (required)" : ""}
+                </>
+              )}
             </div>
             {openCheckouts[eq.id] && (
               <div style={{ fontSize: "12px", color: colors.clay, marginTop: "4px" }}>
@@ -237,6 +264,27 @@ export default function EquipmentTab() {
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </select>
+
+              <label style={labelStyle}>Hours tracking</label>
+              <select value={form.tracks_hours} onChange={(e) => setForm({ ...form, tracks_hours: e.target.value })} style={fieldStyle}>
+                <option value="">
+                  Inherit from type ({(equipmentTypes.find((t) => t.id === form.equipment_type_id)?.tracks_hours_default) ? "on" : "off"})
+                </option>
+                <option value="true">On for this machine</option>
+                <option value="false">Off for this machine</option>
+              </select>
+
+              <label style={labelStyle}>Require an hours reading at checkout</label>
+              <select value={form.hours_required} onChange={(e) => setForm({ ...form, hours_required: e.target.value })} style={fieldStyle}>
+                <option value="">
+                  Inherit from type ({(equipmentTypes.find((t) => t.id === form.equipment_type_id)?.hours_required_default) ? "required" : "optional"})
+                </option>
+                <option value="true">Required for this machine</option>
+                <option value="false">Optional for this machine</option>
+              </select>
+              <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "-4px", marginBottom: "10px" }}>
+                Only matters if hours tracking above ends up on for this machine.
+              </p>
 
               <label style={labelStyle}>Make</label>
               <input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="e.g. Stihl" style={fieldStyle} />

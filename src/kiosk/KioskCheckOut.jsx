@@ -6,6 +6,16 @@ import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "./kioskTheme.js";
 
+const hoursFieldStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "14px 16px",
+  borderRadius: "10px",
+  border: `2px solid ${colors.lineStrong}`,
+  fontFamily: fonts.body,
+  fontSize: "18px",
+};
+
 const monitorBadgeStyle = {
   fontSize: "13px",
   fontWeight: 700,
@@ -25,6 +35,8 @@ export default function KioskCheckOut() {
     selectedType,
     units,
     selectedIds,
+    hoursByUnitId,
+    setUnitHours,
     reportingIssueFor,
     setReportingIssueFor,
     checkoutOutcome,
@@ -71,6 +83,14 @@ export default function KioskCheckOut() {
   if (view === "confirm") {
     const selected = units.filter((u) => selectedIds.has(u.id));
     const reportingUnit = reportingIssueFor ? selected.find((u) => u.id === reportingIssueFor) : null;
+    const hoursUnits = selected.filter((u) => u.tracksHours);
+    const hoursOk = hoursUnits.every((u) => {
+      const raw = hoursByUnitId[u.id];
+      if (raw === undefined || raw === "") return !u.hoursRequired;
+      const value = Number(raw);
+      if (Number.isNaN(value)) return false;
+      return u.last_hours_reading == null || value >= u.last_hours_reading;
+    });
 
     return (
       <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
@@ -100,6 +120,40 @@ export default function KioskCheckOut() {
                   {u.monitor_note}
                 </p>
               ))}
+          </div>
+        )}
+
+        {hoursUnits.length > 0 && (
+          <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
+            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Hours reading</h2>
+            {hoursUnits.map((u) => {
+              const raw = hoursByUnitId[u.id] ?? "";
+              const value = raw === "" ? null : Number(raw);
+              const tooLow = value !== null && u.last_hours_reading != null && value < u.last_hours_reading;
+              return (
+                <div key={u.id} style={{ marginBottom: "16px" }}>
+                  {hoursUnits.length > 1 && <p style={{ fontWeight: 600, fontSize: "16px", margin: "0 0 6px" }}>{u.name}</p>}
+                  <p style={{ fontSize: "15px", color: colors.inkSoft, margin: "0 0 8px" }}>
+                    {u.last_hours_reading != null
+                      ? `Last reading: ${u.last_hours_reading} hrs (${new Date(u.last_hours_reading_at).toLocaleDateString("en-GB")})`
+                      : "No previous reading on file"}
+                  </p>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={raw}
+                    onChange={(e) => setUnitHours(u.id, e.target.value)}
+                    placeholder={u.hoursRequired ? "Hours (required)" : "Hours (optional)"}
+                    style={hoursFieldStyle}
+                  />
+                  {tooLow && (
+                    <p style={{ color: colors.immediate, fontSize: "14px", margin: "6px 0 0" }}>
+                      Can't be less than the last reading ({u.last_hours_reading} hrs)
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -149,7 +203,11 @@ export default function KioskCheckOut() {
             )}
 
             <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <button style={kioskButtonStyle} onClick={() => handleCheckOut(() => navigate("/kiosk"))} disabled={busy}>
+              <button
+                style={{ ...kioskButtonStyle, opacity: hoursOk ? 1 : 0.5 }}
+                onClick={() => handleCheckOut(() => navigate("/kiosk"))}
+                disabled={busy || !hoursOk}
+              >
                 {busy ? "Checking out…" : selected.length > 1 ? `Check Out Selected (${selected.length})` : "Check Out"}
               </button>
               {selected.length === 1 && (

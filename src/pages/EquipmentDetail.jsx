@@ -21,6 +21,7 @@ const HISTORY_STATUS = {
   fault: { label: "Fault", color: colors.clay },
   repair: { label: "Repair", color: colors.moss },
   monitor: { label: "Monitoring", color: colors.gold },
+  hours: { label: "Hours reading", color: colors.inkSoft },
 };
 
 const HISTORY_STATUS_CHIPS = [
@@ -30,6 +31,7 @@ const HISTORY_STATUS_CHIPS = [
   { key: "fault", label: "Fault" },
   { key: "repair", label: "Repair" },
   { key: "monitor", label: "Monitoring" },
+  { key: "hours", label: "Hours reading" },
 ];
 
 function formatDateTime(iso) {
@@ -56,6 +58,7 @@ export default function EquipmentDetail() {
   const [faultReports, setFaultReports] = useState([]);
   const [repairs, setRepairs] = useState([]);
   const [monitorEvents, setMonitorEvents] = useState([]);
+  const [hoursReadings, setHoursReadings] = useState([]);
   const [faultDescription, setFaultDescription] = useState("");
   const [repairNote, setRepairNote] = useState("");
   const [repairCost, setRepairCost] = useState("");
@@ -73,12 +76,19 @@ export default function EquipmentDetail() {
   const [historyTo, setHistoryTo] = useState("");
 
   const loadAll = useCallback(async () => {
-    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }, { data: monitorRows }] = await Promise.all([
-      supabase.from("equipment").select("id, name, make, model, status, monitor_note, check_frequency_days, equipment_type:equipment_types(name)").eq("id", id).single(),
+    const [{ data: eq }, { data: checkRows }, { data: faultRows }, { data: repairRows }, { data: monitorRows }, { data: hoursRows }] = await Promise.all([
+      supabase
+        .from("equipment")
+        .select(
+          "id, name, make, model, status, monitor_note, check_frequency_days, tracks_hours, hours_required, last_hours_reading, last_hours_reading_at, equipment_type:equipment_types(name, tracks_hours_default, hours_required_default)"
+        )
+        .eq("id", id)
+        .single(),
       supabase.from("equipment_checks").select("id, checked_at, passed, checked_by:profiles(display_name)").eq("equipment_id", id).order("checked_at", { ascending: false }),
       supabase.from("fault_reports").select("id, description, created_at, reported_by:profiles!fault_reports_reported_by_fkey(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
       supabase.from("repair_records").select("id, note, cost, vendor, repaired_at, repaired_by:profiles(display_name)").eq("equipment_id", id).order("repaired_at", { ascending: false }),
       supabase.from("equipment_monitor_events").select("id, note, event_type, created_at, created_by:profiles(display_name)").eq("equipment_id", id).order("created_at", { ascending: false }),
+      supabase.from("equipment_hours_readings").select("id, hours_value, recorded_at, recorded_by:profiles(display_name)").eq("equipment_id", id).order("recorded_at", { ascending: false }),
     ]);
     setEquipment(eq || null);
     setMonitorNoteDraft(eq?.monitor_note || "");
@@ -86,6 +96,7 @@ export default function EquipmentDetail() {
     setFaultReports(faultRows || []);
     setRepairs(repairRows || []);
     setMonitorEvents(monitorRows || []);
+    setHoursReadings(hoursRows || []);
   }, [id]);
 
   useEffect(() => {
@@ -127,9 +138,16 @@ export default function EquipmentDetail() {
         person: m.created_by?.display_name,
         date: m.created_at,
       })),
+      ...hoursReadings.map((h) => ({
+        id: `hours-${h.id}`,
+        status: "hours",
+        details: `${h.hours_value} hrs`,
+        person: h.recorded_by?.display_name,
+        date: h.recorded_at,
+      })),
     ];
     return rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [checks, faultReports, repairs, monitorEvents]);
+  }, [checks, faultReports, repairs, monitorEvents, hoursReadings]);
 
   const filteredSortedHistory = useMemo(() => {
     let result = combinedHistory;
@@ -334,6 +352,13 @@ export default function EquipmentDetail() {
         <p style={{ color: colors.inkSoft, marginTop: 0, marginBottom: "14px" }}>
           {[equipment.equipment_type?.name, equipment.make, equipment.model].filter(Boolean).join(" · ") || "No details set"}
         </p>
+        {(equipment.tracks_hours ?? equipment.equipment_type?.tracks_hours_default) && (
+          <p style={{ color: colors.inkSoft, marginTop: 0, marginBottom: "14px", fontSize: "13px" }}>
+            {equipment.last_hours_reading != null
+              ? `Last hours reading: ${equipment.last_hours_reading} hrs (${formatDateTime(equipment.last_hours_reading_at)})`
+              : "No hours reading on file yet"}
+          </p>
+        )}
         {canManage ? (
           <select value={equipment.status} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
             {Object.entries(statusLabels).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
