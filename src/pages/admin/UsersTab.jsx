@@ -13,7 +13,7 @@ const fieldStyle = {
   marginBottom: "10px",
 };
 
-const blankInvite = { email: "", displayName: "", roleId: "", isContractor: false, siteIds: [] };
+const blankInvite = { email: "", displayName: "", roleId: "", isContractor: false, contractorId: "", siteIds: [] };
 
 export default function UsersTab() {
   const { org } = useAuth();
@@ -61,6 +61,7 @@ export default function UsersTab() {
         displayName: invite.displayName,
         roleId: invite.roleId,
         isContractor: invite.isContractor,
+        contractorId: invite.isContractor ? invite.contractorId || null : null,
         siteIds: invite.siteIds,
         redirectTo: window.location.origin,
       },
@@ -281,9 +282,25 @@ export default function UsersTab() {
             ))}
           </select>
           <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "10px" }}>
-            <input type="checkbox" checked={invite.isContractor} onChange={(e) => setInvite({ ...invite, isContractor: e.target.checked })} />
+            <input
+              type="checkbox"
+              checked={invite.isContractor}
+              onChange={(e) => setInvite({ ...invite, isContractor: e.target.checked, contractorId: e.target.checked ? invite.contractorId : "" })}
+            />
             Contractor
           </label>
+          {invite.isContractor && (
+            <select
+              value={invite.contractorId}
+              onChange={(e) => setInvite({ ...invite, contractorId: e.target.value })}
+              style={fieldStyle}
+            >
+              <option value="">No company linked yet</option>
+              {contractors.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
 
           <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Site access</label>
           {sites.map((s) => (

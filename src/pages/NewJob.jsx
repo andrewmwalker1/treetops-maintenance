@@ -258,7 +258,7 @@ export default function NewJob() {
 
       // Best-effort follow-up writes — the job itself is already
       // created, so a failure here shouldn't block navigation.
-      if (jobData.assignee_profile_id || jobData.assignee_group_id) {
+      if (jobData.assignee_profile_id || jobData.assignee_group_id || jobData.assignee_contractor_id) {
         notifyJobAssigned({ job: jobData, actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err) =>
           console.error("Failed to send job-assignment notification", err)
         );

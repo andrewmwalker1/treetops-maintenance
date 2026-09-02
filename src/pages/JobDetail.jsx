@@ -614,7 +614,7 @@ export default function JobDetail() {
       previous_value: { assignee_profile_id: job.assignee_profile_id, assignee_group_id: job.assignee_group_id, assignee_contractor_id: job.assignee_contractor_id },
       new_value: update,
     });
-    if (update.assignee_profile_id || update.assignee_group_id) {
+    if (update.assignee_profile_id || update.assignee_group_id || update.assignee_contractor_id) {
       notifyJobAssigned({ job: { ...job, ...update }, actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err) =>
         console.error("Failed to send job-assignment notification", err)
       );

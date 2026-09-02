@@ -100,7 +100,7 @@ Deno.serve(async (req) => {
   const { action } = body;
 
   if (action === "invite") {
-    const { displayName, roleId, isContractor, siteIds, redirectTo } = body;
+    const { displayName, roleId, isContractor, contractorId, siteIds, redirectTo } = body;
     // Trimmed here, not just in UsersTab.jsx -- this is the actual
     // trust boundary, and an untrimmed email creates an account nobody
     // can ever sign into with the address they type (see the fix for
@@ -149,6 +149,11 @@ Deno.serve(async (req) => {
       role_id: roleId,
       display_name: displayName,
       is_contractor: !!isContractor,
+      // Same rule as the edit form's save (UsersTab.jsx) and enforced
+      // server-side anyway by profiles_contractor_id_requires_flag
+      // (43-contractor-linked-profiles.sql) -- only keep the link if the
+      // Contractor checkbox is actually ticked.
+      contractor_id: isContractor ? contractorId || null : null,
     });
     if (profileError) return jsonResponse({ error: profileError.message }, 500);
 

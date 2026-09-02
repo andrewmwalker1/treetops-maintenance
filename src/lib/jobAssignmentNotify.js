@@ -3,9 +3,12 @@
 // platform notification boundary, not part of it -- doesn't belong in
 // platform/notifications.js itself, which knows nothing about jobs.
 //
-// Contractors are deliberately excluded here: they aren't profiles and
-// can't hold a push subscription. They're notified separately via the
-// "Send email to contractor" button (send-contractor-job-email).
+// A contractor COMPANY isn't a profile and can't hold a push subscription
+// -- that's still notified separately via the "Send email to contractor"
+// button (send-contractor-job-email). But the contractor's own logged-in
+// staff (profiles.contractor_id, 43-contractor-linked-profiles.sql -- e.g.
+// Kev/Ben Parry) are real profiles with real subscriptions, same as any
+// other user, so they're notified the same way a group's members are.
 
 import { supabase } from "./supabaseClient.js";
 import { sendNotification } from "../platform/notifications.js";
@@ -19,7 +22,16 @@ async function resolveGroupMemberIds(groupId) {
   return (data || []).map((row) => row.profile_id);
 }
 
-// job: needs assignee_profile_id, assignee_group_id, id, description.
+async function resolveContractorEmployeeIds(contractorId) {
+  const { data, error } = await supabase.from("profiles").select("id").eq("contractor_id", contractorId);
+  if (error) {
+    console.error("Failed to resolve contractor employees for job-assignment notification", error);
+    return [];
+  }
+  return (data || []).map((row) => row.id);
+}
+
+// job: needs assignee_profile_id, assignee_group_id, assignee_contractor_id, id, description.
 // actorProfileId: whoever made the change -- excluded from recipients so
 // nobody gets pushed a notification about their own action.
 export async function notifyJobAssigned({ job, actorProfileId, actorDisplayName }) {
@@ -28,6 +40,8 @@ export async function notifyJobAssigned({ job, actorProfileId, actorDisplayName 
     recipientIds = [job.assignee_profile_id];
   } else if (job.assignee_group_id) {
     recipientIds = await resolveGroupMemberIds(job.assignee_group_id);
+  } else if (job.assignee_contractor_id) {
+    recipientIds = await resolveContractorEmployeeIds(job.assignee_contractor_id);
   } else {
     return;
   }
