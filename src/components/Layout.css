@@ -1,0 +1,258 @@
+/* App chrome: the header, the desktop nav, the mobile tab bar.
+   See UI-REDESIGN-PLAN.md phase 3.
+
+   The header used to be a single flex row with `flexWrap` holding eight
+   unrelated things -- org name, site name, seven nav links, up to two sync
+   pills, the View-As picker, a raw "Do not disturb" checkbox, an "Enable
+   notifications" button, the user's name and Sign out. It reflowed
+   differently depending on how long the org name was and how many sync
+   pills happened to be showing. It is now three fixed zones. */
+
+.tt-appbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  background: var(--c-paper);
+  border-bottom: 1px solid var(--c-line);
+}
+/* On a phone there is no centre zone -- navigation lives in the tab bar at
+   the bottom of the screen -- so identity and account take the full width. */
+.tt-appbar--mobile {
+  grid-template-columns: 1fr auto;
+}
+
+.tt-appbar__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.tt-appbar__mark {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--c-moss-dark);
+  color: var(--c-on-dark);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+.tt-appbar__org {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: var(--text-base);
+  color: var(--c-moss-dark);
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tt-appbar__site {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--c-ink-soft);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tt-appbar__nav {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tt-appbar__nav::-webkit-scrollbar {
+  display: none;
+}
+.tt-navlink {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--c-ink-soft);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.tt-navlink:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-moss-dark);
+}
+.tt-navlink:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-navlink--active {
+  background: var(--c-moss-dark);
+  color: var(--c-on-dark);
+  font-weight: 600;
+}
+.tt-navlink--active:hover {
+  background: var(--c-moss);
+  color: var(--c-on-dark);
+}
+.tt-navlink svg {
+  flex: none;
+}
+
+.tt-appbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: end;
+}
+
+.tt-avatar {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  padding: 0;
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-full);
+  background: var(--c-surface-hover);
+  color: var(--c-moss-dark);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.tt-avatar:hover {
+  border-color: var(--c-moss);
+  background: var(--c-info-surface);
+}
+.tt-avatar:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* One chip for sync and offline state, replacing up to two competing pills
+   that pushed the rest of the header around as they appeared. */
+.tt-statuschip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 30px;
+  padding: 0 var(--space-3);
+  border: 1px solid;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: filter var(--dur-fast) var(--ease);
+}
+.tt-statuschip:hover {
+  filter: brightness(0.97);
+}
+.tt-statuschip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-statuschip--syncing {
+  background: var(--c-warn-surface);
+  border-color: var(--c-warn-border);
+  color: var(--c-warn-ink);
+}
+.tt-statuschip--offline {
+  background: var(--c-surface-sunken);
+  border-color: var(--c-line-strong);
+  color: var(--c-ink-soft);
+}
+.tt-statuschip__label {
+  display: none;
+}
+@media (min-width: 560px) {
+  .tt-statuschip__label {
+    display: inline;
+  }
+}
+
+/* ===================== Main + footer ===================== */
+.tt-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--page-pad);
+}
+/* Horizontal padding only shrinks on a phone -- vertical stays --page-pad
+   either way, because JobsList's sticky filter header offsets itself by
+   exactly that token (see its comment). A narrow phone cannot spare 20px
+   each side purely for margin: the job checklist's item text needs that
+   width more than the page needs symmetrical padding. */
+.tt-main--mobile {
+  padding: var(--page-pad) var(--page-pad-mobile);
+}
+
+.tt-appfoot {
+  flex-shrink: 0;
+  padding: var(--space-2) var(--space-4);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--c-ink-soft);
+}
+
+/* ===================== Mobile tab bar ===================== */
+/* Replaces the ☰ dropdown, which covered the list you had opened the app
+   to read. Thumb-reachable, and it empties the header, which is where
+   space is tightest on a phone. */
+.tt-tabbar {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  flex-shrink: 0;
+  background: var(--c-paper);
+  border-top: 1px solid var(--c-line);
+  padding: var(--space-1) var(--space-1) 0;
+  padding-bottom: calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
+}
+.tt-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: var(--space-1) 2px;
+  border-radius: var(--radius-sm);
+  color: var(--c-ink-soft);
+  font-size: 10.5px;
+  font-weight: 500;
+  text-decoration: none;
+  text-align: center;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+.tt-tab:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-tab--active {
+  color: var(--c-moss-dark);
+  font-weight: 700;
+}
+.tt-tab--active svg {
+  stroke-width: 2.3;
+}
+.tt-tab__label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

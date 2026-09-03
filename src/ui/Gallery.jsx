@@ -33,6 +33,8 @@ import {
 } from "./primitives.jsx";
 import Modal from "./Modal.jsx";
 import Menu, { MenuHeader, MenuItem, MenuSeparator } from "./Menu.jsx";
+import "../components/Layout.css";
+import "../pages/Admin.css";
 import {
   IconAlert,
   IconClose,
@@ -331,6 +333,93 @@ export default function Gallery() {
             </div>
           </Modal>
         )}
+
+        {/* Static replicas of the real chrome classes from Layout.css and
+            Admin.css. The live components need an authenticated session, so
+            this is the one place the header, the tab bar and the admin nav
+            can be checked side by side. */}
+        <Row title="App chrome — desktop header" note="Three fixed zones. It used to be one flexWrap row holding eight unrelated things.">
+          <div style={{ width: "100%", border: "1px solid var(--c-line-strong)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+            <header className="tt-appbar">
+              <div className="tt-appbar__identity">
+                <span className="tt-appbar__mark">TT</span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="tt-appbar__org">Tree Tops Caravan Park</div>
+                  <div className="tt-appbar__site">Main Site</div>
+                </div>
+              </div>
+              <nav className="tt-appbar__nav">
+                <a href="#gallery" className="tt-navlink tt-navlink--active">
+                  <IconJobs size={15} /> Jobs
+                </a>
+                <a href="#gallery" className="tt-navlink">
+                  <IconMeters size={15} /> Dashboard
+                </a>
+                <a href="#gallery" className="tt-navlink">
+                  <IconEquipment size={15} /> Equipment
+                </a>
+                <a href="#gallery" className="tt-navlink">
+                  <IconKeys size={15} /> Keys
+                </a>
+                <a href="#gallery" className="tt-navlink">
+                  <IconMeters size={15} /> Meters
+                </a>
+                <a href="#gallery" className="tt-navlink">
+                  <IconSafety size={15} /> Safety
+                </a>
+              </nav>
+              <div className="tt-appbar__right">
+                <span className="tt-statuschip tt-statuschip--syncing">
+                  <IconMeters size={13} />
+                  <span className="tt-statuschip__label">Syncing 2</span>
+                </span>
+                <span className="tt-avatar">AW</span>
+              </div>
+            </header>
+          </div>
+        </Row>
+
+        <Row title="App chrome — phone tab bar" note="Replaces the ☰ dropdown, which covered the list you opened the app to read.">
+          <div style={{ width: "270px", border: "1px solid var(--c-line-strong)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+            <nav className="tt-tabbar">
+              <a href="#gallery" className="tt-tab tt-tab--active">
+                <IconJobs size={19} />
+                <span className="tt-tab__label">Jobs</span>
+              </a>
+              <a href="#gallery" className="tt-tab">
+                <IconEquipment size={19} />
+                <span className="tt-tab__label">Kit</span>
+              </a>
+              <a href="#gallery" className="tt-tab">
+                <IconKeys size={19} />
+                <span className="tt-tab__label">Keys</span>
+              </a>
+              <a href="#gallery" className="tt-tab">
+                <IconMeters size={19} />
+                <span className="tt-tab__label">Meters</span>
+              </a>
+              <a href="#gallery" className="tt-tab">
+                <IconSafety size={19} />
+                <span className="tt-tab__label">Safety</span>
+              </a>
+            </nav>
+          </div>
+          <div style={{ width: "230px" }}>
+            <p className="tt-admin__grouplabel">Equipment</p>
+            <a href="#gallery" className="tt-admin__link tt-admin__link--active">
+              Equipment
+            </a>
+            <a href="#gallery" className="tt-admin__link">
+              Equipment types
+            </a>
+            <a href="#gallery" className="tt-admin__link">
+              Service templates
+            </a>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--c-ink-soft)", marginTop: "var(--space-2)" }}>
+              Admin nav — each of these is now its own URL.
+            </p>
+          </div>
+        </Row>
 
         <Toolbar>
           <SectionLabel style={{ margin: 0 }}>End of gallery</SectionLabel>

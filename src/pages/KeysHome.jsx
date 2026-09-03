@@ -6,7 +6,9 @@ import { usePermissions } from "../lib/permissions.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
 import RfidScanListener from "../components/RfidScanListener.jsx";
 import StatDial from "../components/StatDial.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import { Action, ActionList, Alert, Button, Card, PageHeader } from "../ui/primitives.jsx";
+import { IconAlert, IconArrowLeft, IconKeys, IconSearch } from "../ui/icons.jsx";
 
 // The in-app landing for the "Keys" nav link -- lives at /key-register
 // rather than /keys because App.jsx's isKeyStation check treats any
@@ -17,14 +19,6 @@ import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 // breakdown, tap to drill in), and Relocate/Force check-in alongside
 // check-out/check-in/find, gated the same way -- can_manage_keys, not just
 // can_use_key_system (already enforced one level up by KeysGate).
-const listButtonStyle = {
-  ...buttonStyle.secondary,
-  width: "100%",
-  textAlign: "left",
-  padding: "14px 16px",
-  fontSize: "15px",
-};
-
 export default function KeysHome() {
   const navigate = useNavigate();
   const { profile, activeSite } = useAuth();
@@ -92,19 +86,21 @@ export default function KeysHome() {
   if (detailGroup) {
     return (
       <div style={{ maxWidth: "560px" }}>
-        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={() => setDetailGroup(null)}>
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{detailGroup.label}</h1>
+        <Button variant="secondary" icon={<IconArrowLeft size={15} />} onClick={() => setDetailGroup(null)} style={{ marginBottom: "var(--space-4)" }}>
+          Back
+        </Button>
+        <PageHeader title={detailGroup.label} subtitle={`${detailGroup.rows.length} out`} />
         {detailGroup.rows.map((c) => (
-          <div key={c.id} style={{ ...cardStyle, padding: "14px 16px", marginBottom: "10px" }}>
-            <p style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
-            <p style={{ margin: "0 0 4px", fontSize: "14px" }}>Out to {keyIssuedToLabel(c)}</p>
-            {c.reason && <p style={{ margin: "0 0 4px", fontSize: "14px", color: colors.inkSoft }}>Reason: {c.reason}</p>}
-            <p style={{ margin: 0, fontSize: "12px", color: colors.inkSoft }}>
+          <Card key={c.id} style={{ marginBottom: "var(--space-2)" }}>
+            <p style={{ margin: "0 0 4px", fontSize: "var(--text-base)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
+            <p style={{ margin: "0 0 4px", fontSize: "var(--text-sm)" }}>Out to {keyIssuedToLabel(c)}</p>
+            {c.reason && (
+              <p style={{ margin: "0 0 4px", fontSize: "var(--text-sm)", color: colors.inkSoft }}>Reason: {c.reason}</p>
+            )}
+            <p style={{ margin: 0, fontSize: "var(--text-xs)", color: colors.inkSoft }}>
               Checked out by {c.checked_out_by_profile?.display_name || "—"}, {timeAgo(c.checked_out_at)}
             </p>
-          </div>
+          </Card>
         ))}
       </div>
     );
@@ -113,14 +109,22 @@ export default function KeysHome() {
   return (
     <div style={{ maxWidth: "560px" }}>
       <RfidScanListener onScan={handleScan} />
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Keys</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "14px", marginTop: "-8px" }}>
-        Scan a key (if a reader's attached) to check it out or in, or pick what you need below.
-      </p>
-      {scanError && <p style={{ color: colors.immediate, fontSize: "14px" }}>{scanError}</p>}
+      <PageHeader title="Keys" subtitle="Scan a key to check it out or in, or pick what you need below." />
+      {scanError && (
+        <Alert tone="danger" style={{ marginBottom: "var(--space-4)" }}>
+          {scanError}
+        </Alert>
+      )}
 
       {openCheckouts !== null && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: "10px", marginBottom: "18px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-5)",
+          }}
+        >
           <StatDial label="Yours" value={myCheckouts.length} onClick={() => openDetail("Yours", myCheckouts)} />
           {profile?.contractor_id ? (
             <StatDial label="Your company" value={myCompanyCheckouts.length} onClick={() => openDetail("Your company", myCompanyCheckouts)} />
@@ -133,30 +137,30 @@ export default function KeysHome() {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        <Link to="/key-register/checkout" style={{ ...buttonStyle.primary, textDecoration: "none", textAlign: "center" }}>
+      <ActionList>
+        <Action as={Link} to="/key-register/checkout" variant="primary" icon={<IconKeys size={18} />}>
           Check out a key
-        </Link>
-        <Link to="/key-register/checkin" style={{ ...buttonStyle.primary, textDecoration: "none", textAlign: "center" }}>
+        </Action>
+        <Action as={Link} to="/key-register/checkin" variant="primary" icon={<IconKeys size={18} />}>
           Check in a key
-        </Link>
-        <Link to="/key-register/find" style={listButtonStyle}>
+        </Action>
+        <Action as={Link} to="/key-register/find" icon={<IconSearch size={18} />}>
           Find a key
-        </Link>
+        </Action>
         {permissions.has("can_manage_keys") && (
           <>
-            <Link to="/key-register/relocate" style={listButtonStyle}>
+            <Action as={Link} to="/key-register/relocate">
               Relocate a key
-            </Link>
-            <Link to="/key-register/force-checkin" style={listButtonStyle}>
+            </Action>
+            <Action as={Link} to="/key-register/force-checkin" variant="danger" icon={<IconAlert size={18} />}>
               Force check-in
-            </Link>
-            <Link to="/key-register/handover" style={listButtonStyle}>
+            </Action>
+            <Action as={Link} to="/key-register/handover">
               Handover a key
-            </Link>
+            </Action>
           </>
         )}
-      </div>
+      </ActionList>
     </div>
   );
 }

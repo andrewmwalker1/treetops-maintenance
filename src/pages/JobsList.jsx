@@ -301,9 +301,22 @@ export default function JobsList() {
           ordinary scrollable space non-sticky content (job cards) keeps
           sliding through. Pulling the sticky box up by main's padding
           amount and re-adding that space as its own padding covers that
-          strip with this element's own background instead. If main's
-          padding ever changes, this -20px/-20px/20px trio needs to match. */}
-      <div style={{ position: "sticky", top: "-20px", marginTop: "-20px", paddingTop: "20px", paddingBottom: "4px", background: colors.bg, zIndex: 5 }}>
+          strip with this element's own background instead.
+          All three read --page-pad, the same token <main> uses for its
+          vertical padding (src/components/Layout.css), so the two can no
+          longer drift apart -- they were a pair of hand-matched 20px
+          literals in two different files before. */}
+      <div
+        style={{
+          position: "sticky",
+          top: "calc(-1 * var(--page-pad))",
+          marginTop: "calc(-1 * var(--page-pad))",
+          paddingTop: "var(--page-pad)",
+          paddingBottom: "4px",
+          background: colors.bg,
+          zIndex: 5,
+        }}
+      >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
         <div style={{ display: "flex", gap: "10px" }}>

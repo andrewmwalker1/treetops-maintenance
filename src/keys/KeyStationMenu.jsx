@@ -7,9 +7,10 @@ import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY
 import RfidScanListener from "../components/RfidScanListener.jsx";
 import StatDial from "../components/StatDial.jsx";
 import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
+import { kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
+import { Action, ActionList, Button } from "../ui/primitives.jsx";
+import { IconKeys } from "../ui/icons.jsx";
 
-const smallButtonStyle = { ...kioskSecondaryButtonStyle, flex: 1, padding: "14px 8px", fontSize: "14px" };
 
 export default function KeyStationMenu() {
   const navigate = useNavigate();
@@ -147,21 +148,39 @@ export default function KeyStationMenu() {
         </div>
       )}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "20px", flex: 1 }}>
-        <button style={kioskButtonStyle} onClick={() => navigate("/keys/checkout")}>Check out a key</button>
-        <button style={kioskButtonStyle} onClick={() => navigate("/keys/checkin")}>Check in a key</button>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button style={smallButtonStyle} onClick={() => navigate("/keys/find")}>Find a key</button>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", flex: 1 }}>
+        <ActionList size="kiosk">
+          <Action variant="primary" icon={<IconKeys size={24} />} onClick={() => navigate("/keys/checkout")}>
+            Check out a key
+          </Action>
+          <Action variant="primary" icon={<IconKeys size={24} />} onClick={() => navigate("/keys/checkin")}>
+            Check in a key
+          </Action>
+        </ActionList>
+        {/* The secondary row stays compact -- these are the occasional
+            actions, not what someone walks up to the cupboard to do. */}
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          <Button variant="secondary" size="lg" block onClick={() => navigate("/keys/find")}>
+            Find a key
+          </Button>
           {permissions.has("can_manage_keys") && (
             <>
-              <button style={smallButtonStyle} onClick={() => navigate("/keys/relocate")}>Relocate</button>
-              <button style={smallButtonStyle} onClick={() => navigate("/keys/force-checkin")}>Force check-in</button>
-              <button style={smallButtonStyle} onClick={() => navigate("/keys/handover")}>Handover</button>
+              <Button variant="secondary" size="lg" block onClick={() => navigate("/keys/relocate")}>
+                Relocate
+              </Button>
+              <Button variant="secondary" size="lg" block onClick={() => navigate("/keys/force-checkin")}>
+                Force check-in
+              </Button>
+              <Button variant="secondary" size="lg" block onClick={() => navigate("/keys/handover")}>
+                Handover
+              </Button>
             </>
           )}
         </div>
       </div>
-      <button style={{ ...kioskDangerButtonStyle, marginTop: "20px" }} onClick={() => signOut()}>Sign out</button>
+      <Button variant="danger" size="lg" block onClick={() => signOut()} style={{ marginTop: "var(--space-5)" }}>
+        Sign out
+      </Button>
     </div>
   );
 }

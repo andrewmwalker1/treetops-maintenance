@@ -260,7 +260,13 @@ function AppShell() {
             </MeterReadingsGate>
           }
         />
+        {/* Each admin section is its own URL (/admin/equipment,
+            /admin/users, …) so it can be linked, bookmarked and refreshed,
+            and so Back moves between sections instead of leaving Admin.
+            Bare /admin redirects to the first section this person can see
+            -- Admin itself does that, since only it knows the permissions. */}
         <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/:tab" element={<Admin />} />
       </Routes>
     </Layout>
   );

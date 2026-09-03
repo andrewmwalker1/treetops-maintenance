@@ -1,0 +1,122 @@
+/* Admin's own navigation. See UI-REDESIGN-PLAN.md phase 3.
+
+   The 20 tabs used to be React state, so every one of them lived at the
+   same /admin URL: nothing could be bookmarked or linked, a refresh threw
+   you back to the first tab, and browser Back left Admin entirely rather
+   than returning to the previous tab. They are routes now, and this is the
+   nav that goes with them. */
+
+.tt-admin {
+  display: flex;
+  gap: var(--space-6);
+  align-items: flex-start;
+}
+
+.tt-admin__nav {
+  width: 190px;
+  flex: none;
+}
+
+.tt-admin__group + .tt-admin__group {
+  margin-top: var(--space-4);
+}
+
+.tt-admin__grouplabel {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+  margin: 0 0 var(--space-1);
+  padding: 0 var(--space-2);
+}
+
+.tt-admin__link {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--c-ink);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.tt-admin__link + .tt-admin__link {
+  margin-top: 1px;
+}
+.tt-admin__link:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-moss-dark);
+}
+.tt-admin__link:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-admin__link--active {
+  background: var(--c-moss-dark);
+  color: var(--c-on-dark);
+  font-weight: 600;
+}
+.tt-admin__link--active:hover {
+  background: var(--c-moss);
+  color: var(--c-on-dark);
+}
+
+.tt-admin__body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Mobile ---- */
+/* A 20-item list above every admin screen is most of a phone viewport, so
+   the groups collapse. The one holding the current tab starts open. */
+.tt-admin__mobilenav {
+  margin-bottom: var(--space-4);
+}
+
+.tt-admin__disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-sm);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.tt-admin__disclosure + .tt-admin__disclosure,
+.tt-admin__panel + .tt-admin__disclosure {
+  margin-top: var(--space-2);
+}
+.tt-admin__disclosure:hover {
+  background: var(--c-surface-hover);
+}
+.tt-admin__disclosure:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-admin__disclosure svg {
+  flex: none;
+  transition: transform var(--dur) var(--ease);
+}
+.tt-admin__disclosure[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+.tt-admin__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 400;
+  color: var(--c-ink-soft);
+}
+.tt-admin__panel {
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}

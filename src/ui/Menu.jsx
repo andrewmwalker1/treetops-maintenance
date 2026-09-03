@@ -88,7 +88,10 @@ export default function Menu({ trigger, align = "right", children, menuProps = {
 export function MenuItem({ as: As = "button", danger = false, meta, onClick, onSelect, children, className, ...rest }) {
   return (
     <As
-      data-menu-item=""
+      // Only tag rows the arrow keys can actually land on. A row rendered
+      // as a plain <div> (the Do-not-disturb switch, say) isn't focusable,
+      // and including it would strand the arrow-key walk on it.
+      data-menu-item={As === "div" ? undefined : ""}
       className={["tt-menu__item", danger && "tt-menu__item--danger", className].filter(Boolean).join(" ")}
       {...(As === "button" ? { type: "button" } : {})}
       onClick={(e) => {

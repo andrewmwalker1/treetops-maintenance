@@ -1,26 +1,46 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskDangerButtonStyle } from "./kioskTheme.js";
+import { Action, ActionList, Button, PageHeader } from "../ui/primitives.jsx";
+import { IconEquipment, IconJobs, IconSafety } from "../ui/icons.jsx";
 
+// The workshop touchscreen's home. Renders through the same
+// <ActionList>/<Action> as KeysHome and MeterReadingHome, at size="kiosk"
+// -- a walk-up screen needs much bigger targets, but it should not be a
+// separate design language, which is what kioskTheme.js had made it.
 export default function KioskMenu() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
 
   return (
-    <div style={{ padding: "32px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "28px", marginBottom: "4px" }}>
-        Hi {profile?.display_name || "there"}
-      </h1>
-      <p style={{ color: colors.inkSoft, fontSize: "16px", marginTop: 0, marginBottom: "32px" }}>What do you need?</p>
+    <div
+      style={{
+        padding: "var(--space-7)",
+        display: "flex",
+        flexDirection: "column",
+        minHeight: "100vh",
+        boxSizing: "border-box",
+      }}
+    >
+      <PageHeader title={`Hi ${profile?.display_name || "there"}`} subtitle="What do you need?" />
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", flex: 1, alignContent: "start" }}>
-        <button style={kioskButtonStyle} onClick={() => navigate("/kiosk/jobs")}>View Jobs</button>
-        <button style={kioskButtonStyle} onClick={() => navigate("/kiosk/checkout")}>Check-out Kit</button>
-        <button style={kioskButtonStyle} onClick={() => navigate("/kiosk/checkin")}>Check-in Kit</button>
-        <button style={kioskButtonStyle} onClick={() => navigate("/kiosk/safety")}>Health &amp; Safety</button>
-      </div>
-      <button style={{ ...kioskDangerButtonStyle, marginTop: "20px" }} onClick={() => signOut()}>Sign out</button>
+      <ActionList layout="grid" size="kiosk" style={{ flex: 1, alignContent: "start" }}>
+        <Action variant="primary" icon={<IconJobs size={24} />} onClick={() => navigate("/kiosk/jobs")}>
+          View jobs
+        </Action>
+        <Action variant="primary" icon={<IconEquipment size={24} />} onClick={() => navigate("/kiosk/checkout")}>
+          Check out kit
+        </Action>
+        <Action variant="primary" icon={<IconEquipment size={24} />} onClick={() => navigate("/kiosk/checkin")}>
+          Check in kit
+        </Action>
+        <Action icon={<IconSafety size={24} />} onClick={() => navigate("/kiosk/safety")}>
+          Health &amp; safety
+        </Action>
+      </ActionList>
+
+      <Button variant="danger" size="lg" block onClick={() => signOut()} style={{ marginTop: "var(--space-5)" }}>
+        Sign out
+      </Button>
     </div>
   );
 }

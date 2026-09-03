@@ -2,30 +2,32 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
-import { colors, fonts, shadow, pageStyle } from "../lib/theme.js";
+import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
 import { flushQueue, getQueueStatus, flushReadingQueue, getReadingQueueStatus } from "../platform/syncQueue.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
+import Menu, { MenuHeader, MenuItem, MenuSeparator } from "../ui/Menu.jsx";
+import { Switch } from "../ui/primitives.jsx";
+import {
+  IconEquipment,
+  IconJobs,
+  IconKeys,
+  IconMeters,
+  IconOffline,
+  IconOverview,
+  IconSafety,
+  IconSync,
+} from "../ui/icons.jsx";
+import "./Layout.css";
 
-const navLinkStyle = ({ isActive }) => ({
-  color: isActive ? colors.mossDark : colors.inkSoft,
-  fontWeight: isActive ? 700 : 500,
-  textDecoration: "none",
-  fontFamily: fonts.body,
-  padding: "8px 4px",
-  borderBottom: isActive ? `2px solid ${colors.mossDark}` : "2px solid transparent",
-});
-
-const mobileNavLinkStyle = ({ isActive }) => ({
-  display: "block",
-  color: isActive ? colors.mossDark : colors.ink,
-  fontWeight: isActive ? 700 : 500,
-  textDecoration: "none",
-  fontFamily: fonts.body,
-  fontSize: "15px",
-  padding: "10px 4px",
-});
+// Initials for the avatar and the app mark. Two words gives "AW"; one
+// gives "A".
+function initials(name) {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "?";
+}
 
 export default function Layout({ children }) {
   const { profile, viewingAs, org, activeSite, signOut } = useAuth();
@@ -41,7 +43,7 @@ export default function Layout({ children }) {
   // queueJob() itself right after queuing -- a job created offline that
   // never triggers another offline save would sit queued forever. Layout
   // mounts for the whole authenticated app, so this is the one place to
-  // drive both the flush and the "N jobs/readings queued" indicators below.
+  // drive both the flush and the queued-work indicator below.
   useEffect(() => {
     let cancelled = false;
     function refreshStatus() {
@@ -70,8 +72,7 @@ export default function Layout({ children }) {
     };
   }, []);
 
-  async function handleDndToggle() {
-    const next = !dnd;
+  async function handleDndToggle(next) {
     setDnd(next);
     try {
       await setDNDEnabled(next);
@@ -91,307 +92,262 @@ export default function Layout({ children }) {
     }
   }
 
-  // One list drives both the desktop nav row and the mobile dropdown
-  // (NavMenu below), so the permission gating on Keys/Admin only needs to
-  // be written once.
+  // One list drives the desktop nav row, the mobile tab bar and the
+  // overflow in the account menu, so the permission gating is written once.
+  //
+  // `tabBar` marks the destinations that earn a slot on a phone's bottom
+  // bar. Dashboard is deliberately not one: it is a manager's summary
+  // rather than somewhere anyone works, and five tabs is the most a phone
+  // can carry before the labels stop being readable. It stays one tap away
+  // in the account menu, and keeps its place in the desktop nav.
   const navItems = [
-    { to: "/", label: "Jobs", end: true },
-    { to: "/equipment", label: "Equipment" },
-    { to: "/dashboard", label: "Dashboard" },
-    { to: "/safety", label: "Safety" },
-    { to: "/meter-reading", label: "Meter Reading" },
-    ...(permissions.has("can_use_key_system") ? [{ to: "/key-register", label: "Keys" }] : []),
-    ...(permissions.has("can_manage_reference_data") || permissions.has("can_manage_roles_and_permissions")
-      ? [{ to: "/admin", label: "Admin" }]
+    { to: "/", label: "Jobs", end: true, Icon: IconJobs, tabBar: true },
+    { to: "/dashboard", label: "Dashboard", Icon: IconOverview, tabBar: false },
+    { to: "/equipment", label: "Equipment", shortLabel: "Kit", Icon: IconEquipment, tabBar: true },
+    ...(permissions.has("can_use_key_system")
+      ? [{ to: "/key-register", label: "Keys", Icon: IconKeys, tabBar: true }]
       : []),
+    { to: "/meter-reading", label: "Meters", Icon: IconMeters, tabBar: true },
+    { to: "/safety", label: "Safety", Icon: IconSafety, tabBar: true },
   ];
+
+  const canSeeAdmin =
+    permissions.has("can_manage_reference_data") || permissions.has("can_manage_roles_and_permissions");
+
+  const tabBarItems = isMobile ? navItems.filter((i) => i.tabBar).slice(0, 5) : [];
+  const inTabBar = new Set(tabBarItems.map((i) => i.to));
+  // Anything the current surface can't show gets a row in the account menu,
+  // so no destination is ever unreachable however the nav is arranged.
+  const overflowItems = isMobile ? navItems.filter((i) => !inTabBar.has(i.to)) : [];
 
   return (
     <div style={{ ...pageStyle, height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ flexShrink: 0 }}>
         <ViewAsBanner />
       </div>
-      <header
-        style={{
-          background: colors.paper,
-          borderBottom: `1px solid ${colors.line}`,
-          padding: "12px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          flexWrap: "wrap",
-          gap: "12px",
-          flexShrink: 0,
-        }}
-      >
-        <div>
-          <div style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.mossDark, fontSize: "18px" }}>
-            {org?.name || "Tree Tops Maintenance"}
+
+      <header className={`tt-appbar${isMobile ? " tt-appbar--mobile" : ""}`}>
+        <div className="tt-appbar__identity">
+          <span className="tt-appbar__mark" aria-hidden="true">
+            {initials(org?.name || "Tree Tops")}
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div className="tt-appbar__org">{org?.name || "Tree Tops Maintenance"}</div>
+            {activeSite && <div className="tt-appbar__site">{activeSite.name}</div>}
           </div>
-          {activeSite && (
-            <div style={{ fontFamily: fonts.mono, fontSize: "12px", color: colors.inkSoft }}>{activeSite.name}</div>
-          )}
         </div>
-        {isMobile ? (
-          <NavMenu items={navItems} />
-        ) : (
-          <nav style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+
+        {!isMobile && (
+          <nav className="tt-appbar__nav" aria-label="Main">
             {navItems.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end} style={navLinkStyle}>{item.label}</NavLink>
-            ))}
-          </nav>
-        )}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          {queueStatus.pendingCount > 0 && (
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: colors.onDark,
-                background: queueStatus.online ? colors.gold : colors.clay,
-                borderRadius: "999px",
-                padding: "5px 12px",
-              }}
-            >
-              {queueStatus.online
-                ? `Syncing ${queueStatus.pendingCount} job${queueStatus.pendingCount === 1 ? "" : "s"}…`
-                : `${queueStatus.pendingCount} job${queueStatus.pendingCount === 1 ? "" : "s"} queued — offline`}
-            </span>
-          )}
-          {readingQueueStatus.pendingCount > 0 && (
-            <span
-              style={{
-                fontSize: "12px",
-                fontWeight: 600,
-                color: colors.onDark,
-                background: readingQueueStatus.online ? colors.gold : colors.clay,
-                borderRadius: "999px",
-                padding: "5px 12px",
-              }}
-            >
-              {readingQueueStatus.online
-                ? `Syncing ${readingQueueStatus.pendingCount} reading${readingQueueStatus.pendingCount === 1 ? "" : "s"}…`
-                : `${readingQueueStatus.pendingCount} reading${readingQueueStatus.pendingCount === 1 ? "" : "s"} queued — offline`}
-            </span>
-          )}
-          <ViewAsPicker />
-          {isMobile ? (
-            <AccountMenu
-              displayName={profile?.display_name}
-              showControls={!viewingAs}
-              dnd={dnd}
-              onToggleDnd={handleDndToggle}
-              pushStatus={pushStatus}
-              onEnablePush={handleEnablePush}
-              onSignOut={signOut}
-            />
-          ) : (
-            <>
-              {!viewingAs && (
-                <>
-                  <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
-                    <input type="checkbox" checked={dnd} onChange={handleDndToggle} /> Do not disturb
-                  </label>
-                  {pushStatus !== "on" && (
-                    <button
-                      onClick={handleEnablePush}
-                      disabled={pushStatus === "subscribing"}
-                      style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px" }}
-                    >
-                      {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
-                    </button>
-                  )}
-                </>
-              )}
-              <span style={{ fontSize: "14px", color: colors.ink }}>{profile?.display_name}</span>
-              <button
-                onClick={signOut}
-                style={{
-                  background: "transparent",
-                  border: `1px solid ${colors.lineStrong}`,
-                  borderRadius: "999px",
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  fontFamily: fonts.body,
-                  color: colors.inkSoft,
-                }}
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => `tt-navlink${isActive ? " tt-navlink--active" : ""}`}
               >
-                Sign out
-              </button>
-            </>
-          )}
-        </div>
-      </header>
-      {/* Horizontal padding only shrinks on mobile -- vertical stays 20px
-          either way since JobsList's sticky filter header does its own
-          -20px/-20px/20px offset math keyed to that exact value (see its
-          own comment). A narrow phone can't spare 20px on each side just
-          for margin -- e.g. the job checklist's item-description text
-          needs that width more than the page needs symmetrical padding. */}
-      <main style={{ flex: 1, overflowY: "auto", padding: isMobile ? "20px 8px" : "20px" }}>{children}</main>
-      <footer style={{ flexShrink: 0, padding: "10px 20px", textAlign: "center" }}>
-        <span style={{ fontFamily: fonts.mono, fontSize: "11px", color: colors.inkSoft }}>
-          v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
-        </span>
-      </footer>
-    </div>
-  );
-}
-
-// Collapses the Jobs/Equipment/Dashboard/Safety/Keys/Admin row into a
-// single "Menu" button on narrow screens -- same reasoning as AccountMenu
-// below (that inline row wrapping onto its own line ate a full extra row
-// of a mobile viewport), and the same open/backdrop/dropdown shape, just
-// listing nav links instead of account controls.
-function NavMenu({ items }) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <div style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Menu"
-        style={{
-          border: `1px solid ${colors.lineStrong}`,
-          borderRadius: "999px",
-          background: "transparent",
-          padding: "8px 14px",
-          cursor: "pointer",
-          fontFamily: fonts.body,
-          fontSize: "14px",
-          color: colors.mossDark,
-          display: "flex",
-          alignItems: "center",
-          gap: "6px",
-        }}
-      >
-        <span aria-hidden="true">☰</span> Menu
-      </button>
-      {open && (
-        <>
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 15 }} />
-          <div
-            style={{
-              // `fixed` + explicit left/right (not `absolute` off the
-              // button) so the panel's width is always (viewport - 32px),
-              // independent of where the button itself lands -- the header
-              // wraps onto multiple lines on narrow screens (space-between
-              // + flexWrap), so the button's x-position shifts with org
-              // name length/font metrics. `absolute; left:0; minWidth:180px`
-              // could push past the right edge with no scrollbar to reveal
-              // it, silently clipping a label like "Meter Reading" mid-word
-              // -- reported on a real phone even though it doesn't
-              // reproduce at every viewport width tested here.
-              position: "fixed",
-              left: "16px",
-              right: "16px",
-              top: "56px",
-              background: colors.paper,
-              border: `1px solid ${colors.line}`,
-              borderRadius: "12px",
-              padding: "8px",
-              boxShadow: shadow.overlay,
-              zIndex: 20,
-              display: "flex",
-              flexDirection: "column",
-            }}
-          >
-            {items.map((item) => (
-              <NavLink key={item.to} to={item.to} end={item.end} style={mobileNavLinkStyle} onClick={() => setOpen(false)}>
+                <item.Icon size={15} />
                 {item.label}
               </NavLink>
             ))}
-          </div>
-        </>
+          </nav>
+        )}
+
+        <div className="tt-appbar__right">
+          <SyncStatus jobs={queueStatus} readings={readingQueueStatus} />
+          <ViewAsPicker />
+          <AccountMenu
+            displayName={profile?.display_name}
+            roleName={profile?.roles?.name}
+            showControls={!viewingAs}
+            dnd={dnd}
+            onToggleDnd={handleDndToggle}
+            pushStatus={pushStatus}
+            onEnablePush={handleEnablePush}
+            onSignOut={signOut}
+            canSeeAdmin={canSeeAdmin}
+            overflowItems={overflowItems}
+            showVersion={isMobile}
+          />
+        </div>
+      </header>
+
+      <main className={`tt-main${isMobile ? " tt-main--mobile" : ""}`}>{children}</main>
+
+      {isMobile && (
+        <nav className="tt-tabbar" aria-label="Main">
+          {tabBarItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.end}
+              className={({ isActive }) => `tt-tab${isActive ? " tt-tab--active" : ""}`}
+            >
+              <item.Icon size={19} />
+              <span className="tt-tab__label">{item.shortLabel || item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+      )}
+
+      {!isMobile && (
+        <footer className="tt-appfoot">
+          v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
+        </footer>
       )}
     </div>
   );
 }
 
-// Collapses the DND toggle / push-notification button / display name /
-// sign-out row into a single avatar button on narrow screens -- that
-// row wrapping onto its own line was eating a full extra row of a
-// mobile viewport above the actual job list.
-function AccountMenu({ displayName, showControls, dnd, onToggleDnd, pushStatus, onEnablePush, onSignOut }) {
-  const [open, setOpen] = useState(false);
+// One chip for both queues, replacing the two separate pills that each
+// appeared and disappeared independently and shoved the rest of the header
+// sideways as they did. Click it for the breakdown.
+function SyncStatus({ jobs, readings }) {
+  const pending = jobs.pendingCount + readings.pendingCount;
+  const online = jobs.online && readings.online;
+  if (pending === 0 && online) return null;
+
+  const offline = !online;
+  const label = offline ? (pending > 0 ? `${pending} queued` : "Offline") : `Syncing ${pending}`;
 
   return (
-    <div style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Account menu"
-        style={{
-          width: "34px",
-          height: "34px",
-          borderRadius: "999px",
-          border: `1px solid ${colors.lineStrong}`,
-          background: "transparent",
-          cursor: "pointer",
-          fontFamily: fonts.body,
-          fontWeight: 700,
-          color: colors.mossDark,
-          flexShrink: 0,
-        }}
-      >
-        {displayName?.charAt(0)?.toUpperCase() || "?"}
-      </button>
-      {open && (
+    <Menu
+      align="right"
+      trigger={(p) => (
+        <button type="button" className={`tt-statuschip tt-statuschip--${offline ? "offline" : "syncing"}`} {...p}>
+          {offline ? <IconOffline size={13} /> : <IconSync size={13} />}
+          <span className="tt-statuschip__label">{label}</span>
+        </button>
+      )}
+    >
+      <MenuHeader>
+        <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{offline ? "You're offline" : "Syncing"}</div>
+        <div className="tt-menu__meta">
+          {offline
+            ? "Work is saved on this device and sends when you're back on signal."
+            : "Sending queued work to the server."}
+        </div>
+      </MenuHeader>
+      <div className="tt-menu__item" style={{ cursor: "default" }}>
+        <span>Jobs</span>
+        <span className="tt-menu__meta">{jobs.pendingCount === 0 ? "Up to date" : `${jobs.pendingCount} queued`}</span>
+      </div>
+      <div className="tt-menu__item" style={{ cursor: "default" }}>
+        <span>Meter readings</span>
+        <span className="tt-menu__meta">
+          {readings.pendingCount === 0 ? "Up to date" : `${readings.pendingCount} queued`}
+        </span>
+      </div>
+    </Menu>
+  );
+}
+
+// Holds everything that is about *you* rather than about the work: your
+// name, Do not disturb, notifications, admin, sign out -- and on a phone,
+// the destinations the bottom tab bar has no room for.
+//
+// On desktop these controls used to sit loose in the header row, including
+// a raw <input type="checkbox"> next to pill buttons. They were already in
+// a menu on mobile; this makes desktop match, rather than the reverse.
+function AccountMenu({
+  displayName,
+  roleName,
+  showControls,
+  dnd,
+  onToggleDnd,
+  pushStatus,
+  onEnablePush,
+  onSignOut,
+  canSeeAdmin,
+  overflowItems,
+  showVersion,
+}) {
+  return (
+    <Menu
+      align="right"
+      trigger={(p) => (
+        <button type="button" className="tt-avatar" aria-label="Account and settings" {...p}>
+          {initials(displayName)}
+        </button>
+      )}
+    >
+      {({ close }) => (
         <>
-          {/* Full-screen invisible backdrop, not a blur/tint -- just
-              somewhere to click that closes the menu. */}
-          <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 15 }} />
-          <div
-            style={{
-              position: "absolute",
-              right: 0,
-              top: "42px",
-              background: colors.paper,
-              border: `1px solid ${colors.line}`,
-              borderRadius: "12px",
-              padding: "12px",
-              minWidth: "220px",
-              boxShadow: shadow.overlay,
-              zIndex: 20,
-              display: "flex",
-              flexDirection: "column",
-              gap: "10px",
-            }}
-          >
-            <span style={{ fontSize: "14px", fontWeight: 600, color: colors.ink }}>{displayName}</span>
-            {showControls && (
-              <>
-                <label style={{ fontSize: "13px", color: colors.inkSoft, display: "flex", alignItems: "center", gap: "6px" }}>
-                  <input type="checkbox" checked={dnd} onChange={onToggleDnd} /> Do not disturb
-                </label>
-                {pushStatus !== "on" && (
-                  <button
-                    onClick={onEnablePush}
-                    disabled={pushStatus === "subscribing"}
-                    style={{ background: "transparent", border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "6px 14px", cursor: "pointer", fontFamily: fonts.body, color: colors.inkSoft, fontSize: "13px", textAlign: "left" }}
-                  >
-                    {pushStatus === "subscribing" ? "Enabling…" : "Enable notifications"}
-                  </button>
-                )}
-              </>
+          <MenuHeader>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{displayName || "Signed in"}</div>
+            {roleName && (
+              <div className="tt-menu__meta" style={{ fontFamily: "var(--font-mono)", textTransform: "uppercase" }}>
+                {roleName}
+              </div>
             )}
-            <button
-              onClick={onSignOut}
+          </MenuHeader>
+
+          {overflowItems.length > 0 && (
+            <>
+              {overflowItems.map((item) => (
+                <MenuItem key={item.to} as={NavLink} to={item.to} end={item.end} onSelect={close}>
+                  {item.label}
+                </MenuItem>
+              ))}
+              <MenuSeparator />
+            </>
+          )}
+
+          {showControls && (
+            <>
+              <MenuItem
+                as="div"
+                meta={<Switch checked={dnd} onChange={onToggleDnd} label="Do not disturb" />}
+                style={{ cursor: "default" }}
+              >
+                Do not disturb
+              </MenuItem>
+              <MenuItem
+                onSelect={pushStatus === "on" ? undefined : onEnablePush}
+                disabled={pushStatus === "subscribing" || pushStatus === "on"}
+                meta={
+                  pushStatus === "on"
+                    ? "On"
+                    : pushStatus === "subscribing"
+                    ? "Turning on…"
+                    : pushStatus === "error"
+                    ? "Failed"
+                    : "Off"
+                }
+              >
+                Notifications
+              </MenuItem>
+            </>
+          )}
+
+          {canSeeAdmin && (
+            <>
+              <MenuSeparator />
+              <MenuItem as={NavLink} to="/admin" onSelect={close}>
+                Settings &amp; admin
+              </MenuItem>
+            </>
+          )}
+
+          <MenuSeparator />
+          <MenuItem danger onSelect={onSignOut}>
+            Sign out
+          </MenuItem>
+
+          {showVersion && (
+            <div
               style={{
-                background: "transparent",
-                border: `1px solid ${colors.lineStrong}`,
-                borderRadius: "999px",
-                padding: "6px 14px",
-                cursor: "pointer",
-                fontFamily: fonts.body,
+                padding: "var(--space-2) var(--space-3) var(--space-1)",
+                fontFamily: fonts.mono,
+                fontSize: "var(--text-xs)",
                 color: colors.inkSoft,
-                textAlign: "left",
               }}
             >
-              Sign out
-            </button>
-          </div>
+              v{__APP_VERSION__} · {__GIT_SHA__}
+            </div>
+          )}
         </>
       )}
-    </div>
+    </Menu>
   );
 }

@@ -1,55 +1,50 @@
 import { Link } from "react-router-dom";
 import { usePermissions } from "../lib/permissions.js";
-import { colors, fonts, buttonStyle } from "../lib/theme.js";
+import { Action, ActionList, PageHeader, SectionLabel } from "../ui/primitives.jsx";
+import { IconMeters, IconPrint, IconSettings } from "../ui/icons.jsx";
 
-// Landing page for the "Meter Reading" nav item -- mirrors KeysHome.jsx's
-// shape (primary actions up top, admin-only actions below a permission
-// check) rather than burying upload/download inside the generic Admin tab
-// list, per Andy's ask to group everything meter-reading under its own
-// menu instead of splitting it between top nav and Admin.
-const listButtonStyle = {
-  ...buttonStyle.secondary,
-  width: "100%",
-  textAlign: "left",
-  padding: "14px 16px",
-  fontSize: "15px",
-};
-
+// Landing page for the "Meters" nav item -- everything meter-reading lives
+// under its own menu rather than being split between the top nav and the
+// generic Admin tab list (Andy's ask).
+//
+// Shares its shape with KeysHome and the two touchscreen menus: all four
+// now render through <ActionList>/<Action> rather than each stacking its
+// own hand-styled buttons at its own type size.
 export default function MeterReadingHome() {
   const permissions = usePermissions();
 
   return (
-    <div style={{ maxWidth: "480px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Meter Reading</h1>
+    <div style={{ maxWidth: "520px" }}>
+      <PageHeader title="Meters" subtitle="Read a meter, or check how the round is going." />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-        <Link to="/meter-reading/scan" style={{ ...buttonStyle.primary, textDecoration: "none", textAlign: "center" }}>
+      <ActionList>
+        <Action as={Link} to="/meter-reading/scan" variant="primary" icon={<IconMeters size={18} />}>
           Read a meter
-        </Link>
-        <Link to="/meter-reading/progress" style={listButtonStyle}>
+        </Action>
+        <Action as={Link} to="/meter-reading/progress" description="How much of the round is done">
           Round progress
-        </Link>
+        </Action>
+      </ActionList>
 
-        {permissions.has("can_manage_meter_readings") && (
-          <>
-            <p style={{ color: colors.inkSoft, fontSize: "12px", margin: "14px 0 0", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Admin
-            </p>
-            <Link to="/meter-reading/upload" style={listButtonStyle}>
+      {permissions.has("can_manage_meter_readings") && (
+        <>
+          <SectionLabel style={{ margin: "var(--space-6) 0 var(--space-2)" }}>Admin</SectionLabel>
+          <ActionList>
+            <Action as={Link} to="/meter-reading/upload">
               Upload CampManager CSVs
-            </Link>
-            <Link to="/meter-reading/download" style={listButtonStyle}>
+            </Action>
+            <Action as={Link} to="/meter-reading/download">
               Download for CampManager
-            </Link>
-            <Link to="/meter-reading/labels" style={listButtonStyle}>
+            </Action>
+            <Action as={Link} to="/meter-reading/labels" icon={<IconPrint size={18} />}>
               Print QR labels
-            </Link>
-            <Link to="/meter-reading/settings" style={listButtonStyle}>
+            </Action>
+            <Action as={Link} to="/meter-reading/settings" icon={<IconSettings size={18} />}>
               Unit cost settings
-            </Link>
-          </>
-        )}
-      </div>
+            </Action>
+          </ActionList>
+        </>
+      )}
     </div>
   );
 }
