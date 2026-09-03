@@ -7,9 +7,8 @@
 // Deliberately scoped to files CHANGED in the current push, not the whole
 // tree: the goal is to stop new drift, not retroactively fail on whatever
 // was already there before this script existed (there is some -- see
-// UI-REDESIGN-PLAN.md section 8c). Wired in as a non-blocking step in
-// .github/workflows/deploy.yml; flip it to blocking once it has run clean
-// on a few pushes.
+// UI-REDESIGN-PLAN.md section 8c). Blocking in .github/workflows/deploy.yml
+// since section 8f -- a violation fails the build.
 //
 // Usage:
 //   node scripts/check-styles.mjs              # diff against HEAD~1 (local)
@@ -154,8 +153,7 @@ function main() {
   if (total > 0) {
     console.log(
       `\ncheck-styles: ${total} issue${total === 1 ? "" : "s"} in ${files.length} changed file${files.length === 1 ? "" : "s"}.\n` +
-        "See CLAUDE.md's UI rules / BUILD-BRIEF.md section 8 -- colour and size come from a token, controls come from src/ui/.\n" +
-        "This check is currently a warning, not a blocker (see .github/workflows/deploy.yml)."
+        "See CLAUDE.md's UI rules / BUILD-BRIEF.md section 8 -- colour and size come from a token, controls come from src/ui/."
     );
   } else {
     console.log(`check-styles: clean (${files.length} changed .jsx file${files.length === 1 ? "" : "s"} checked).`);
