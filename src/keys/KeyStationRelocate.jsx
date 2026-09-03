@@ -36,7 +36,7 @@ export default function KeyStationRelocate() {
 
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <p style={{ color: colors.inkSoft, fontSize: "var(--text-md)" }}>This account doesn't have access to relocate keys.</p>
         <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />}>Menu</Button>
       </div>
@@ -49,7 +49,7 @@ export default function KeyStationRelocate() {
       specialLocations.find((s) => s.id === specialLocationId)?.label
     );
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <PageHeader title="Relocated" />
         <p style={{ fontSize: "var(--text-md)" }}>Moved to {newLabel}.</p>
         <Button variant="primary" size="kiosk" onClick={() => navigate("/keys")}>Done</Button>
@@ -59,7 +59,7 @@ export default function KeyStationRelocate() {
 
   if (view === "confirm") {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
@@ -106,7 +106,7 @@ export default function KeyStationRelocate() {
   }
 
   return (
-    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
       <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
         Menu
       </Button>

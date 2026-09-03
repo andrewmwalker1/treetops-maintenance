@@ -10,7 +10,7 @@ export default function FindKey() {
 
   if (selectedTag) {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
           Back
         </Button>
@@ -40,7 +40,7 @@ export default function FindKey() {
   }
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
         Keys
       </Button>

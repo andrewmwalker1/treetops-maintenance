@@ -147,7 +147,7 @@ export default function ContractorsTab() {
 
       {form && (
         <Modal title={form.id ? "Edit contractor" : "New contractor"} onClose={() => setForm(null)}>
-          <Card pad="lg" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "440px" }}>
+          <Card pad="lg" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "var(--width-base)" }}>
             <form onSubmit={handleSave}>
               <label className="tt-field__label">Company name</label>
               <Input required autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Kevin Parry Heating Ltd" style={{ marginBottom: "var(--space-3)" }} />

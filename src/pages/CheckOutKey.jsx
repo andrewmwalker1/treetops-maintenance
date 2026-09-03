@@ -44,7 +44,7 @@ export default function CheckOutKey() {
 
   if (view === "done") {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <PageHeader title="Checked out" />
         <p style={{ fontSize: "var(--text-base)" }}>{locationLabel(selectedTag)} — logged.</p>
         <Button variant="primary" onClick={() => navigate("/key-register")}>Done</Button>
@@ -54,7 +54,7 @@ export default function CheckOutKey() {
 
   if (view === "confirm") {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
           Back
         </Button>
@@ -161,7 +161,7 @@ export default function CheckOutKey() {
   }
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
         Keys
       </Button>

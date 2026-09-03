@@ -87,7 +87,7 @@ export default function RfidTagsTab() {
       ))}
       {tags.length === 0 && <EmptyState title="No fobs registered yet" />}
 
-      <Card pad="md" style={{ maxWidth: "440px", marginTop: "var(--space-4)" }}>
+      <Card pad="md" style={{ maxWidth: "var(--width-base)", marginTop: "var(--space-4)" }}>
         <PageHeader title="Register a new fob" level={2} />
         <RfidScanListener onScan={handleScan} />
         {!scannedUid && (

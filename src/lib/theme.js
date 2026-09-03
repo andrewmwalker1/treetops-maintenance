@@ -93,6 +93,18 @@ export const space = {
   8: "var(--space-8)",
 };
 
+// Container-width scale for narrow single-column screens (key-station,
+// in-app key pages, meters, admin modals). See tokens.css for why each
+// value is kept exact rather than rounded to a neighbour.
+export const width = {
+  sm: "var(--width-sm)",
+  base: "var(--width-base)",
+  md: "var(--width-md)",
+  lg: "var(--width-lg)",
+  xl: "var(--width-xl)",
+  xxl: "var(--width-2xl)",
+};
+
 export const shadow = {
   card: "var(--shadow-card)",
   overlay: "var(--shadow-overlay)",

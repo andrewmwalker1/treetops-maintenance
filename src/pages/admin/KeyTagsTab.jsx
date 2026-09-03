@@ -489,7 +489,7 @@ export default function KeyTagsTab() {
       {/* Up here, not below the tag list, so scanning a tag doesn't mean
           scrolling past a long (100-200+) list to reach where you actually
           enter its location. */}
-      <Card pad="md" style={{ maxWidth: "440px", marginBottom: "var(--space-5)" }}>
+      <Card pad="md" style={{ maxWidth: "var(--width-base)", marginBottom: "var(--space-5)" }}>
         <PageHeader title="Register a new tag" level={2} />
         <RfidScanListener onScan={handleScan} />
         {!scannedUid && (
@@ -528,7 +528,7 @@ export default function KeyTagsTab() {
           </Chip>
         ))}
       </div>
-      <div style={{ maxWidth: "360px" }}>
+      <div style={{ maxWidth: "var(--width-sm)" }}>
         <LocationSearchBox pitches={searchablePitches} specialLocations={searchableSpecialLocations} value={search} onChange={setSearch} />
       </div>
 
@@ -620,7 +620,7 @@ export default function KeyTagsTab() {
         <EmptyState title="No tags have been handed over" />
       )}
 
-      <Card pad="md" style={{ maxWidth: "440px", marginTop: "var(--space-4)" }}>
+      <Card pad="md" style={{ maxWidth: "var(--width-base)", marginTop: "var(--space-4)" }}>
         <PageHeader title="Special locations" level={2} />
         <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
           Fixed places a key can live besides a pitch, e.g. the sales keyring.

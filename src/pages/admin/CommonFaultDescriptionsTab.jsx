@@ -132,7 +132,7 @@ export default function CommonFaultDescriptionsTab() {
       )}
 
       {selectedTypeId && (
-        <Card pad="md" style={{ maxWidth: "480px" }}>
+        <Card pad="md" style={{ maxWidth: "var(--width-md)" }}>
           {faults.length === 0 && <EmptyState title="No common faults listed yet" />}
           {faults.map((f, i) => (
             <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0" }}>

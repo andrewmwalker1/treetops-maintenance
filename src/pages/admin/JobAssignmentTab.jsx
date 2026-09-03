@@ -55,7 +55,7 @@ export default function JobAssignmentTab() {
   return (
     <div>
       <PageHeader title="Job assignment" level={2} />
-      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0, maxWidth: "560px" }}>
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0, maxWidth: "var(--width-xl)" }}>
         Which roles a role (down the left) can create or reassign a job to (across the top). Nothing is implicit — even
         assigning within a role's own team needs a tick here.
       </p>

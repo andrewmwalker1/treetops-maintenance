@@ -304,7 +304,7 @@ export default function NewJob() {
   if (!org || !activeSite) return null;
 
   return (
-    <div style={{ maxWidth: "520px" }}>
+    <div style={{ maxWidth: "var(--width-lg)" }}>
       <PageHeader title="New job" />
       <Card as="form" onSubmit={handleSubmit} pad="lg">
         <Fieldset>

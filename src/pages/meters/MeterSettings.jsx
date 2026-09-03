@@ -43,7 +43,7 @@ export default function MeterSettings() {
   if (!activeSite) return null;
 
   return (
-    <div style={{ maxWidth: "480px" }}>
+    <div style={{ maxWidth: "var(--width-md)" }}>
       <PageHeader title="Unit cost settings" />
       <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Used only for the estimated £ shown on the confirm screen as a sanity check — not for actual billing.

@@ -261,7 +261,7 @@ export default function KioskJobs() {
   if (selectedJob) {
     const isCompleted = selectedJob.job_status?.is_completed;
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <Button onClick={() => setSelectedJob(null)} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
@@ -400,7 +400,7 @@ export default function KioskJobs() {
   }
 
   return (
-    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
       <div
         style={{
           display: "flex",

@@ -70,7 +70,7 @@ function PitchesWithoutKeysReport() {
                   }
                 />
               ) : (
-                <Card pad="md" style={{ overflowX: "auto", maxWidth: "360px" }}>
+                <Card pad="md" style={{ overflowX: "auto", maxWidth: "var(--width-sm)" }}>
                   <Table>
                     <thead>
                       <tr>

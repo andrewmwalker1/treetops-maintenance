@@ -9,7 +9,7 @@ const searchStyle = {
   borderRadius: "var(--radius-sm)",
   border: `1px solid ${colors.lineStrong}`,
   fontFamily: fonts.body,
-  fontSize: "13px",
+  fontSize: "var(--text-sm)",
   marginBottom: "var(--space-2)",
 };
 
@@ -42,16 +42,16 @@ export default function DocumentPicker({ documents, selectedIds, onToggle }) {
   return (
     <div>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search documents…" style={searchStyle} />
-      <p style={{ fontSize: "12px", color: colors.inkSoft, margin: "0 0 var(--space-2)" }}>{selectedIds.length} selected</p>
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, margin: "0 0 var(--space-2)" }}>{selectedIds.length} selected</p>
       <div style={{ maxHeight: "220px", overflowY: "auto", border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", padding: "var(--space-1) var(--space-3)" }}>
         {groups.map(([type, docs]) =>
           docs.length === 0 ? null : (
             <div key={type} style={{ marginBottom: "var(--space-1)" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, color: colors.inkSoft, textTransform: "uppercase", margin: "var(--space-2) 0 var(--space-1)" }}>
+              <div style={{ fontSize: "var(--text-xs)", fontWeight: 700, color: colors.inkSoft, textTransform: "uppercase", margin: "var(--space-2) 0 var(--space-1)" }}>
                 {typeLabel[type] || type}
               </div>
               {docs.map((d) => (
-                <label key={d.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "14px", padding: "var(--space-1) 0" }}>
+                <label key={d.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", padding: "var(--space-1) 0" }}>
                   <input type="checkbox" checked={selectedIds.includes(d.id)} onChange={() => onToggle(d.id)} />
                   {d.title}
                 </label>

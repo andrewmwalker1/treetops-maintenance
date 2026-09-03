@@ -14,7 +14,7 @@ export default function MeterReadingHome() {
   const permissions = usePermissions();
 
   return (
-    <div style={{ maxWidth: "520px" }}>
+    <div style={{ maxWidth: "var(--width-lg)" }}>
       <PageHeader title="Meters" subtitle="Read a meter, or check how the round is going." />
 
       <ActionList>

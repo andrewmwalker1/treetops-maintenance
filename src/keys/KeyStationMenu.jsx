@@ -91,7 +91,7 @@ export default function KeyStationMenu() {
 
   if (detailGroup) {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <Button onClick={() => setDetailGroup(null)} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>

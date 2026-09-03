@@ -32,7 +32,7 @@ export default function CheckinKit() {
     const reportingCheckout = reportingIssueFor ? selected.find((c) => c.id === reportingIssueFor) : null;
 
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={backToList} icon={<IconArrowLeft size={15} />}>
           Back
         </Button>
@@ -103,7 +103,7 @@ export default function CheckinKit() {
   ].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <PageHeader title="Check-in kit" />
       {error && (
           <Alert tone="danger" title="Something went wrong">

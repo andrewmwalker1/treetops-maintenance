@@ -901,3 +901,73 @@ files would fail CI over pre-existing code that edit never touched.
 That needs its own dedicated tokenizing sweep first — the same shape
 and size as the empty-state sweep (8d), not a same-session "widening."
 Flagged as a real follow-up, not closed here.
+
+---
+
+## 8h. Px tokenizing sweep, part 1 (2026-09-03)
+
+The follow-up 8g flagged, started as its own pass. Categorized the 199
+hits by CSS property and by value before touching anything, rather than
+mechanically converting every literal — the same discipline as 8d's
+empty-state sweep.
+
+**`fontSize`: 10 leftovers, fixed.** `tokens.css`'s own comment already
+documents the exact ad-hoc-to-token mapping from when the type scale
+was created (`10/11 -> xs, 12/12.5/13 -> sm, 14/15 -> base, ... 26/28 ->
+xl`) — these 10 (`AssigneePicker`, `DocumentPicker` x4, `KeysGate`,
+`MeterReadingsGate`, `SafetyDocumentLink`, `MeterProgress`,
+`ScanMeter`) were simply never migrated when that scale went in. Zero
+new decisions: each snapped to the token the existing mapping already
+names for its exact value.
+
+**`maxWidth`: a new six-step container-width scale.** Unlike the type
+scale's original job — collapsing genuinely ad-hoc sizes with
+"minimal visual movement" — these values turned out to already be a
+de-facto consistent scale: 640px (32 uses), 560px (28), 360px (13),
+480px (5), 440px (4), 520px (3), each identical across every use in its
+group (key-station screens all 640, in-app key pages all 560, etc.).
+So `--width-sm` through `--width-2xl` were added to `tokens.css` (plus
+a `width` export in `theme.js`) at each value **exactly as it already
+was — no rounding, no collapsing neighbours**. Retrofitting onto an
+already-shipped, only-partially-visually-tested app is a different
+situation from the type scale's original greenfield one; a value
+change here is a real layout change nothing has re-verified, not
+"minimal movement". 85 of 94 `maxWidth` literals converted, across 41
+files (40 found by `git ls-files "src/**/*.jsx"`, plus `src/App.jsx`
+itself, which that glob silently excludes — git's `**` requires at
+least one intervening directory, so a file directly under `src/`
+doesn't match it; caught by cross-checking against `git ls-files
+"src/*.jsx"`, which for git's glob semantics actually matches every
+depth and returns all 89).
+
+**Left for a future pass, and why:**
+- **The 9 remaining one-off `maxWidth`s** (592, 980, 720, 700, 600,
+  380, 260px, each used once or twice, no shared value) aren't drift
+  from a scale — they never were part of one. Naming a token for a
+  single consumer doesn't reduce anything.
+- **Borders (`1px`, one `2px`): untouched, deliberately.** BUILD-BRIEF.md
+  section 8 itself specifies "Resting cards use a 1px border" as the
+  correct value, and `src/ui/ui.css` — the actual source-of-truth
+  stylesheet, which `check-styles.mjs` doesn't even scan — already uses
+  literal `1px` in 29 places. There's no border-width token category in
+  `tokens.css` to convert into; this was never an oversight to begin
+  with.
+- **Icon/checkbox `width`+`height` pairs** (16/18/20/22/24/26/28px,
+  always set together on square elements): a real recurring pattern,
+  but a different one from container widths, and touch-sizing-shaped —
+  the 22px checkboxes are the kiosk/key-station ones, deliberately
+  larger than the 18-20px desktop-admin ones, which is exactly the kind
+  of distinction `--control-h` already handles for controls via
+  `@media (pointer: coarse)`. Whether icon sizing wants that same
+  coarse-pointer-aware treatment is a real design question, not a
+  mechanical one — not decided here.
+
+**Verification.** Production build clean. `check-styles.mjs` (which
+doesn't gate on `px` at all, per 8g) still reports clean against the
+full diff. Computed-style check in the browser: every new `--width-*`
+and the 10 corrected `--text-*` custom properties resolve to exactly
+their original pixel values — confirms every converted screen renders
+pixel-identical to before. `/ui-gallery` loads with no console errors.
+No signed-in screen was exercised directly (most of what changed here —
+key-station, kiosk, admin — needs a real login), so the computed-style
+check is what stands in for it, same as prior phases.

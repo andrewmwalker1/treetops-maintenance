@@ -38,7 +38,7 @@ export default function KeyStationCheckOut() {
 
   if (view === "done") {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <PageHeader title="Checked out" />
         <p style={{ fontSize: "var(--text-md)" }}>{locationLabel(selectedTag)} — logged.</p>
         <Button variant="primary" size="kiosk" onClick={() => navigate("/keys")}>Done</Button>
@@ -48,7 +48,7 @@ export default function KeyStationCheckOut() {
 
   if (view === "confirm") {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
@@ -159,7 +159,7 @@ export default function KeyStationCheckOut() {
   }
 
   return (
-    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
       <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
         Menu
       </Button>

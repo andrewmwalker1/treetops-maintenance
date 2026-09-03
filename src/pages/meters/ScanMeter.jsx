@@ -283,7 +283,7 @@ export default function ScanMeter() {
   if (!org || !activeSite) return null;
 
   return (
-    <div style={{ maxWidth: "480px" }}>
+    <div style={{ maxWidth: "var(--width-md)" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
         <PageHeader title="Read a meter" />
         <Link to="/meter-reading/progress" style={{ color: colors.moss, fontSize: "var(--text-sm)" }}>Progress</Link>
@@ -393,7 +393,7 @@ export default function ScanMeter() {
                 display: "block",
                 width: "100%",
                 boxSizing: "border-box",
-                fontSize: "28px",
+                fontSize: "var(--text-xl)",
                 padding: "var(--space-3) var(--space-4)",
                 borderRadius: "var(--radius-sm)",
                 border: `1px solid ${colors.lineStrong}`,

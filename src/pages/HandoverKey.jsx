@@ -34,7 +34,7 @@ export default function HandoverKey() {
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
       <div style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
-        <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
+        <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "var(--width-sm)", margin: "0 auto" }}>
           This account doesn't have access to hand over keys.
         </p>
       </div>
@@ -43,7 +43,7 @@ export default function HandoverKey() {
 
   if (view === "done") {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <PageHeader title="Handed over" />
         <p style={{ fontSize: "var(--text-base)" }}>{locationLabel(selectedTag)} — handed over to {handoverTo.trim()}.</p>
         <Button variant="primary" onClick={() => navigate("/key-register")}>Done</Button>
@@ -53,7 +53,7 @@ export default function HandoverKey() {
 
   if (view === "confirm") {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
           Back
         </Button>
@@ -123,7 +123,7 @@ export default function HandoverKey() {
   }
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
         Keys
       </Button>

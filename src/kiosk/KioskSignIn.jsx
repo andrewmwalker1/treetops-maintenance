@@ -54,7 +54,7 @@ export default function KioskSignIn() {
       </p>
 
       {error && (
-        <Alert tone="danger" title="Sign-in failed" style={{ marginTop: "var(--space-4)", maxWidth: "480px", textAlign: "left" }}>
+        <Alert tone="danger" title="Sign-in failed" style={{ marginTop: "var(--space-4)", maxWidth: "var(--width-md)", textAlign: "left" }}>
           {error}
         </Alert>
       )}

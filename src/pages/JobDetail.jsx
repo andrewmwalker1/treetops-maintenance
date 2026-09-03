@@ -932,7 +932,7 @@ export default function JobDetail() {
   }
 
   return (
-    <div style={{ maxWidth: "640px" }}>
+    <div style={{ maxWidth: "var(--width-2xl)" }}>
       <div
         style={{
           display: "flex",

@@ -48,14 +48,14 @@ export default function UploadMeters() {
   if (!activeSite) return null;
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <PageHeader title="Upload CampManager files" />
       <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Upload the Electric and/or Gas Utilities CSV exported from CampManager. Meters are matched to pitches by
         the Site column — any row that doesn't match a known pitch is flagged, not silently dropped.
       </p>
       <Card pad="lg">
-        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", maxWidth: "360px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", maxWidth: "var(--width-sm)" }}>
           <label style={{ fontSize: "var(--text-sm)" }}>
             Electric Utilities CSV
             <input type="file" accept=".csv" onChange={(e) => setElectricFile(e.target.files?.[0] || null)} style={{ display: "block", marginTop: "var(--space-1)" }} />

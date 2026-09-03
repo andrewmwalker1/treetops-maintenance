@@ -13,7 +13,7 @@ export default function KeyStationLookup() {
 
   if (selectedTag) {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
@@ -43,7 +43,7 @@ export default function KeyStationLookup() {
   }
 
   return (
-    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
       <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
         Menu
       </Button>

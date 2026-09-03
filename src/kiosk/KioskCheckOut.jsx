@@ -32,7 +32,7 @@ export default function KioskCheckOut() {
 
   if (view === "results" && checkoutOutcome) {
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <PageHeader title="Check-out results" />
 
         {checkoutOutcome.succeeded.length > 0 && (
@@ -76,7 +76,7 @@ export default function KioskCheckOut() {
     });
 
     return (
-      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
         <Button onClick={() => setView("units")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
@@ -215,7 +215,7 @@ export default function KioskCheckOut() {
       <div
         style={{
           padding: "var(--space-6)",
-          maxWidth: "640px",
+          maxWidth: "var(--width-2xl)",
           margin: "0 auto",
           paddingBottom: multi ? "110px" : "var(--space-6)",
           boxSizing: "border-box",
@@ -294,7 +294,7 @@ export default function KioskCheckOut() {
   }
 
   return (
-    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
       <Button onClick={() => navigate("/kiosk")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
         Menu
       </Button>

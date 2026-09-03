@@ -60,7 +60,7 @@ export default function KioskSafety() {
       : documents.filter((d) => (activityDocIds && activityDocIds.has(d.id)) || (equipmentDocIds && equipmentDocIds.has(d.id)));
 
   return (
-    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "var(--width-2xl)", margin: "0 auto" }}>
       <Button onClick={() => navigate("/kiosk")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
         Menu
       </Button>

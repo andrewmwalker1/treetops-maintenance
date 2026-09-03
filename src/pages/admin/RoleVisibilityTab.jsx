@@ -67,7 +67,7 @@ export default function RoleVisibilityTab() {
   return (
     <div>
       <PageHeader title="Role visibility" level={2} />
-      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, maxWidth: "640px" }}>
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, maxWidth: "var(--width-2xl)" }}>
         Which roles' jobs each role can see, on top of their own assigned jobs (always visible regardless of this). Tick the row role
         under every column role whose jobs it should see -- e.g. tick Head Gardener's row under Maintenance so Head Gardener sees
         Maintenance's jobs too. Add or rename roles from Roles &amp; Permissions.

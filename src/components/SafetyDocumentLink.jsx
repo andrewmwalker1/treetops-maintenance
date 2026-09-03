@@ -73,7 +73,7 @@ export default function SafetyDocumentLink({ doc, variant = "text" }) {
   }
 
   return (
-    <div style={{ padding: "var(--space-1) 0", fontSize: "13px" }}>
+    <div style={{ padding: "var(--space-1) 0", fontSize: "var(--text-sm)" }}>
       <span style={{ color: colors.inkSoft, textTransform: "capitalize" }}>{doc.type.replace("_", " ")}</span>{" "}
       {url ? (
         <a href={url} target="_blank" rel="noreferrer" style={{ color: colors.moss, fontWeight: 600 }}>{doc.title}</a>

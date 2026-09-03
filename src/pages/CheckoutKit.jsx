@@ -39,7 +39,7 @@ export default function CheckoutKit() {
 
   if (view === "results" && checkoutOutcome) {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <PageHeader title="Check-out results" />
 
         {checkoutOutcome.succeeded.length > 0 && (
@@ -85,7 +85,7 @@ export default function CheckoutKit() {
     });
 
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={() => setView("units")} icon={<IconArrowLeft size={15} />} style={{ marginBottom: "var(--space-4)" }}>
           Back
         </Button>
@@ -214,7 +214,7 @@ export default function CheckoutKit() {
   if (view === "units") {
     const multi = selectedType.allowMultiCheckout;
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={backToCategories} icon={<IconArrowLeft size={15} />}>
           Kit
         </Button>
@@ -270,7 +270,7 @@ export default function CheckoutKit() {
   }
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <PageHeader title="Checkout kit" />
       {categories.length === 0 && <EmptyState title="No equipment types set up yet" />}
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

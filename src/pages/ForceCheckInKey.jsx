@@ -19,7 +19,7 @@ export default function ForceCheckInKey() {
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
       <div style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
-        <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
+        <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "var(--width-sm)", margin: "0 auto" }}>
           This account doesn't have access to force a key check-in.
         </p>
       </div>
@@ -28,7 +28,7 @@ export default function ForceCheckInKey() {
 
   if (view === "done") {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <PageHeader title="Checked in" />
         <p style={{ fontSize: "var(--text-base)" }}>{locationLabel(selected)} — force checked in.</p>
         <Button variant="primary" onClick={() => navigate("/key-register")}>Done</Button>
@@ -39,7 +39,7 @@ export default function ForceCheckInKey() {
   if (view === "confirm") {
     const c = selected.checkout;
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
           Back
         </Button>
@@ -67,7 +67,7 @@ export default function ForceCheckInKey() {
   }
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
         Keys
       </Button>

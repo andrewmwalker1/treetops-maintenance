@@ -29,7 +29,7 @@ export default function MeterProgress() {
   if (!activeSite) return null;
 
   return (
-    <div style={{ maxWidth: "520px" }}>
+    <div style={{ maxWidth: "var(--width-lg)" }}>
       <PageHeader title="Round progress" />
 
       {loading && <SkeletonList rows={3} />}
@@ -37,7 +37,7 @@ export default function MeterProgress() {
       {!loading && progress && (
         <>
           <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
-            <div style={{ fontFamily: fonts.display, fontSize: "28px", color: colors.mossDark }}>
+            <div style={{ fontFamily: fonts.display, fontSize: "var(--text-xl)", color: colors.mossDark }}>
               {progress.read} of {progress.total}
             </div>
             <div style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>connected meters read this round</div>

@@ -45,7 +45,7 @@ export default function AssigneePicker({ kind, id, onChange, people, groups, con
     <div>
       <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
         {["none", "person", "group", "contractor"].map((k) => (
-          <label key={k} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "13px" }}>
+          <label key={k} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
             <input type="radio" checked={kind === k} onChange={() => onChange(k, "")} />
             {k === "none" ? noneLabel : k.charAt(0).toUpperCase() + k.slice(1)}
           </label>

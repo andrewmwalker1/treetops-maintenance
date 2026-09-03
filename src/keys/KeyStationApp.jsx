@@ -66,7 +66,7 @@ export default function KeyStationApp() {
           textAlign: "center",
         }}
       >
-        <p style={{ fontSize: "var(--text-md)", color: colors.inkSoft, maxWidth: "360px" }}>
+        <p style={{ fontSize: "var(--text-md)", color: colors.inkSoft, maxWidth: "var(--width-sm)" }}>
           This account doesn't have access to the key system.
         </p>
         <Button variant="danger" size="lg" onClick={() => signOut()} style={{ marginTop: "var(--space-5)" }}>

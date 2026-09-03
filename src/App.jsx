@@ -138,7 +138,7 @@ function AppShell() {
     if (deactivated) {
       return (
         <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
-          <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
+          <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "var(--width-sm)" }}>
             This account has been deactivated.
           </p>
         </div>
@@ -159,7 +159,7 @@ function AppShell() {
     if (deactivated) {
       return (
         <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
-          <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
+          <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "var(--width-sm)" }}>
             This account has been deactivated.
           </p>
         </div>
@@ -180,7 +180,7 @@ function AppShell() {
   if (deactivated) {
     return (
       <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
-        <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
+        <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "var(--width-sm)" }}>
           Your account has been deactivated. Contact your admin if you think this is a mistake.
         </p>
       </div>
@@ -199,7 +199,7 @@ function AppShell() {
   if (!canAccessDesktop) {
     return (
       <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
-        <p style={{ color: colors.inkSoft, textAlign: "center", maxWidth: "360px" }}>
+        <p style={{ color: colors.inkSoft, textAlign: "center", maxWidth: "var(--width-sm)" }}>
           This account doesn't have access to the desktop app.
         </p>
       </div>

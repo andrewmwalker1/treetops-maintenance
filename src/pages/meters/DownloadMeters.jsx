@@ -28,7 +28,7 @@ export default function DownloadMeters() {
   if (!org || !activeSite) return null;
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <PageHeader title="Download for CampManager" />
       <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Downloads both CSVs in CampManager's own format with New Reading Date/New Reading filled in for every

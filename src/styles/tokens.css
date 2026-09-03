@@ -100,6 +100,20 @@
   --page-pad: var(--space-5);
   --page-pad-mobile: var(--space-2);
 
+  /* Six steps, naming the container-width values already in de-facto reuse
+     across the app's narrow single-column screens (key-station, in-app key
+     pages, meters, admin modals) before this token existed -- each value
+     kept exact, not rounded to a neighbour, since (unlike the type scale)
+     these are retrofitted onto screens that already shipped and were never
+     visually tested end to end; changing any of them is a real layout
+     change, not "minimal movement". See UI-REDESIGN-PLAN.md section 8h. */
+  --width-sm: 360px;
+  --width-base: 440px;
+  --width-md: 480px;
+  --width-lg: 520px;
+  --width-xl: 560px;
+  --width-2xl: 640px;
+
   /* ---- Shape ------------------------------------------------------- */
   --radius-sm: 8px;
   --radius-md: 14px;

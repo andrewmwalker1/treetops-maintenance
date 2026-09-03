@@ -85,7 +85,7 @@ export default function KeysHome() {
 
   if (detailGroup) {
     return (
-      <div style={{ maxWidth: "560px" }}>
+      <div style={{ maxWidth: "var(--width-xl)" }}>
         <Button variant="secondary" icon={<IconArrowLeft size={15} />} onClick={() => setDetailGroup(null)} style={{ marginBottom: "var(--space-4)" }}>
           Back
         </Button>
@@ -107,7 +107,7 @@ export default function KeysHome() {
   }
 
   return (
-    <div style={{ maxWidth: "560px" }}>
+    <div style={{ maxWidth: "var(--width-xl)" }}>
       <RfidScanListener onScan={handleScan} />
       <PageHeader title="Keys" subtitle="Scan a key to check it out or in, or pick what you need below." />
       {scanError && (
