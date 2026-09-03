@@ -24,6 +24,20 @@ export function downloadCsv(columns, rows, filenamePrefix) {
   URL.revokeObjectURL(url);
 }
 
+const JOBS_CSV_COLUMNS = ["description", "priority", "status", "assignee", "due_date", "location", "created_at"];
+
+function jobsToCsvRows(jobs) {
+  return jobs.map((job) => [
+    job.description,
+    job.priority,
+    job.job_status?.name,
+    job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name || "",
+    job.due_date || "",
+    job.pitch?.pitch_number_or_name || job.area?.name || "",
+    job.created_at,
+  ]);
+}
+
 export async function exportJobsCsv({ orgId, siteId, profileId, filters = {} }) {
   const { error: logError } = await supabase.from("export_logs").insert({
     exported_by: profileId,
@@ -35,19 +49,26 @@ export async function exportJobsCsv({ orgId, siteId, profileId, filters = {} }) 
   }
 
   const jobs = await queryJobs(siteId, filters);
+  downloadCsv(JOBS_CSV_COLUMNS, jobsToCsvRows(jobs), "jobs-export");
+}
 
-  const columns = ["description", "priority", "status", "assignee", "due_date", "location", "created_at"];
-  const rows = jobs.map((job) => [
-    job.description,
-    job.priority,
-    job.job_status?.name,
-    job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name || "",
-    job.due_date || "",
-    job.pitch?.pitch_number_or_name || job.area?.name || "",
-    job.created_at,
-  ]);
+// `jobs` is the jobs list's own already-filtered, already-selected set, not
+// a fresh query off a filter -- same reasoning as exportEquipmentCheckoutsCsv
+// below: re-querying could export a different set than what the user
+// actually ticked. `job_ids` (not a filters object) is what's logged for
+// the audit trail here, since "selected jobs" isn't expressible as a
+// queryJobs() filter.
+export async function exportSelectedJobsCsv({ orgId, profileId, jobs }) {
+  const { error: logError } = await supabase.from("export_logs").insert({
+    exported_by: profileId,
+    org_id: orgId,
+    filters_used: { export_type: "selected_jobs", job_ids: jobs.map((j) => j.id) },
+  });
+  if (logError) {
+    throw new Error(`Export not permitted: ${logError.message}`);
+  }
 
-  downloadCsv(columns, rows, "jobs-export");
+  downloadCsv(JOBS_CSV_COLUMNS, jobsToCsvRows(jobs), "jobs-export");
 }
 
 // `events` is the tab's own already-filtered-and-sorted visibleEvents, not

@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Link, useSearchParams, useNavigationType } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { usePermissions } from "../lib/permissions.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { useViewAsJobFilter } from "../lib/simulateJobVisibility.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import { openPrintWindow, writeAndPrintJobBundles, writeAndPrintJobsChecklist } from "../lib/printJobCards.jsx";
+import { exportSelectedJobsCsv } from "../lib/csvExport.js";
 import JobCard from "../components/JobCard.jsx";
 import { colors } from "../lib/theme.js";
 import {
@@ -84,7 +86,8 @@ function initialSelectedIds(navigationType) {
 }
 
 export default function JobsList() {
-  const { activeSite, terminology } = useAuth();
+  const { org, profile, activeSite, terminology } = useAuth();
+  const permissions = usePermissions();
   const viewAsFilter = useViewAsJobFilter();
   const [searchParams, setSearchParams] = useSearchParams();
   const quickFilter = useMemo(() => quickFilterFromParams(searchParams), [searchParams]);
@@ -101,6 +104,7 @@ export default function JobsList() {
   const navigationType = useNavigationType();
   const [selectedIds, setSelectedIds] = useState(() => initialSelectedIds(navigationType));
   const [printing, setPrinting] = useState(false);
+  const [exportingCsv, setExportingCsv] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
   useEffect(() => {
@@ -313,6 +317,22 @@ export default function JobsList() {
     writeAndPrintJobsChecklist(printWindow, selected, terminology);
   }
 
+  // Same "use what's already on screen" reasoning as handlePrintChecklist --
+  // no extra query, and exports exactly the rows the user ticked rather than
+  // whatever a fresh filter-based query might return.
+  async function handleExportCsv() {
+    setError(null);
+    setExportingCsv(true);
+    try {
+      const selected = visibleJobs.filter((j) => selectedIds.has(j.id));
+      await exportSelectedJobsCsv({ orgId: org.id, profileId: profile.id, jobs: selected });
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setExportingCsv(false);
+    }
+  }
+
   if (!activeSite) return <SkeletonList rows={3} />;
 
   return (
@@ -380,6 +400,11 @@ export default function JobsList() {
               <Button size="sm" onClick={handlePrintChecklist}>
                 Print checklist
               </Button>
+              {permissions.has("can_export_jobs") && (
+                <Button size="sm" loading={exportingCsv} onClick={handleExportCsv}>
+                  {exportingCsv ? "Exporting…" : "Export CSV"}
+                </Button>
+              )}
               <Button size="sm" variant="primary" loading={printing} onClick={handlePrintSelected}>
                 {printing ? "Preparing…" : "Print selected"}
               </Button>
