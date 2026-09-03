@@ -718,9 +718,90 @@ current tree — a one-line fix once `IconClose` was already imported for
 Phase 5's icon sweep.
 
 **Follow-ups for a future session**, not done here: the ~35-screen
-empty-state sweep and `ViewAsControl.jsx`'s button treatment from 8b;
-flipping `check-styles.mjs` to blocking once it's proven quiet; deciding
-whether `check-styles.mjs` should also catch other literal-value patterns
-(literal px spacing, `rgba()` colours) now that the hex/button pair has
-proven the approach, or whether that's diminishing returns for a
-non-blocking warning.
+empty-state sweep (done separately — see 8d) and `ViewAsControl.jsx`'s
+button treatment from 8b remain; flipping `check-styles.mjs` to blocking
+once it's proven quiet; deciding whether `check-styles.mjs` should also
+catch other literal-value patterns (literal px spacing, `rgba()` colours)
+now that the hex/button pair has proven the approach, or whether that's
+diminishing returns for a non-blocking warning.
+
+---
+
+## 8d. Empty-state sweep (2026-09-03)
+
+Applied on branch `ui-redesign-emptystate-sweep`, one commit. The follow-up
+flagged in 8b — done as its own pass, not folded into a future phase,
+since the user asked for it directly.
+
+**Not a blanket find-and-replace.** `EmptyState`'s own CSS
+(`.tt-empty`) is a dashed box with `--space-7` (40px) padding, built for
+"this whole page or section has nothing in it" — not a drop-in
+replacement for every stray "No X yet" paragraph regardless of context.
+Wrapping a minor inline note in that box, nested inside an already-boxed
+Card, produces a box-within-a-box that reads as visually heavier than the
+fact deserves. So each of the ~42 sites the original audit found was
+individually judged, not mechanically swept:
+
+- **~35 converted**, across 29 files — the ones where the empty message
+  really is the entire content of its view or section: every remaining
+  admin tab's "no rows yet" list state, the six key-station/in-app
+  "no keys to pick from" screens, and a handful of modal- and
+  card-scoped states (`ContractorDocumentsModal`, `KioskJobs`'s
+  view-only Checklist card, `ReportIssueForm`'s preset-fault picker).
+- **Six deliberately left as plain, already-tokenized text**, because
+  converting them would look wrong rather than because they were missed:
+  `ChecklistBuilder`'s "No checklist items" (a widget embedded in a
+  bigger form, not its own section), the per-activity-type "No RA/MS
+  documents linked yet" in both `JobDetail` and `KioskJobs` (one line
+  among several activity types in a loop, not the whole section),
+  `JobDetail`'s "No photos on this job yet" in the contractor-email
+  modal (sits beside an Add photo button that's already visible either
+  way), `GroupsTab`'s "No users yet" (inside a small bounded
+  member-picker card within the group-edit form), and `ScanMeter`'s "No
+  matches" (an intentionally quiet, small-type autocomplete-style hint).
+  Two more text fragments the original audit's regex had also caught
+  turned out not to be empty states at all — `KeyTagsTab`'s "Type a
+  pitch… to see its key tags" is an instructional prompt for a
+  not-yet-run search, and `KeyReportsTab`'s "Every pitch has at least one
+  active key" is good news — neither was touched.
+
+**Actions added only where genuinely useful** (four sites), matching the
+discipline from Phase 5's three fixes rather than defaulting to
+"always add a button":
+
+- `CommonFaultDescriptionsTab`'s "no equipment types yet" links to the
+  Equipment types tab — safe because this is a standalone list view with
+  nothing to lose by navigating away, and both tabs share a permission
+  gate.
+- `KeyActivityLogTab`'s filtered-empty state gets a single "Clear
+  filters" action that resets all five controls at once (a status chip,
+  two selects, two date inputs) — genuinely convenient given how many
+  there are to reset by hand, unlike a single visible chip.
+- `KeyReportsTab` and `KeyTagsTab`'s search-result empty states, and
+  `DocumentPicker`'s own live-search empty state, get a "Clear search"
+  action.
+
+**Actions deliberately withheld**, each for a different reason:
+
+- `DocumentPicker`'s "library is empty" state and `JobTemplatesTab`'s "no
+  activity types" state both sit inside an in-progress create/edit
+  form — a link to another admin tab would silently abandon whatever the
+  admin was filling in, exactly the risk flagged (but not yet acted on)
+  for `ViewAsControl.jsx` in 8b.
+- `HealthAndSafety`'s "no activity types" state is reachable by any
+  signed-in user, most of whom don't hold `can_manage_reference_data` —
+  a link to Admin would dead-end most viewers at a "no access" screen,
+  so it stays informational only.
+- `KeyTagsTab`'s status-filtered states and `EquipmentTab`'s type-filtered
+  state didn't get a duplicate "Clear" button: both already have a
+  persistently visible filter control (a chip strip / a dropdown) sitting
+  above the list at all times, so a second button doing the same
+  one-click thing adds nothing.
+
+**Verification.** Production build after the full change. The same three
+static sweeps from Phase 4/5 (unused imports, unresolved JSX components,
+tag balance) re-run clean. `check-styles.mjs`, run against this exact
+commit for real (not simulated), reports clean across all 29 changed
+files. `/ui-gallery` loads with no console errors. No signed-in screen
+was exercised — same caveat as every phase before this one; most of what
+changed here lives behind Admin, which needs a real login to see.
