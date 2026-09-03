@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { colors } from "../lib/theme.js";
-import { Button, IconButton, Input } from "../ui/index.js";
+import { Button, IconArrowDown, IconArrowUp, IconButton, IconCamera, IconClose, Input } from "../ui/index.js";
 
 // Reusable ordered-list editor for checklist items — used for job
 // templates (admin) and for building/editing a job's actual checklist.
@@ -72,19 +72,19 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false, ca
                   : undefined
               }
             >
-              📷
+              <IconCamera size={14} />
             </IconButton>
           )}
           {!readOnly && (
             <>
               <IconButton size="sm" label="Move up" onClick={() => moveItem(i, -1)} disabled={i === 0}>
-                ↑
+                <IconArrowUp size={14} />
               </IconButton>
               <IconButton size="sm" label="Move down" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1}>
-                ↓
+                <IconArrowDown size={14} />
               </IconButton>
               <IconButton size="sm" label="Remove item" onClick={() => removeItem(i)} style={{ color: colors.immediate }}>
-                ✕
+                <IconClose size={14} />
               </IconButton>
             </>
           )}

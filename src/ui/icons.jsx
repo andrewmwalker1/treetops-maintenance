@@ -105,6 +105,16 @@ export const IconArrowLeft = (p) => (
     <path d="M19 12H5M12 19l-7-7 7-7" />
   </Svg>
 );
+export const IconArrowUp = (p) => (
+  <Svg {...p}>
+    <path d="M12 19V5M5 12l7-7 7 7" />
+  </Svg>
+);
+export const IconArrowDown = (p) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12l7 7 7-7" />
+  </Svg>
+);
 export const IconSearch = (p) => (
   <Svg {...p}>
     <circle cx="11" cy="11" r="7" />
@@ -133,6 +143,19 @@ export const IconUser = (p) => (
   <Svg {...p}>
     <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
     <circle cx="12" cy="7" r="4" />
+  </Svg>
+);
+export const IconCamera = (p) => (
+  <Svg {...p}>
+    <path d="M4 8h3l1.6-2.2a1 1 0 01.8-.4h5.2a1 1 0 01.8.4L17 8h3a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z" />
+    <circle cx="12" cy="13.5" r="3.5" />
+  </Svg>
+);
+export const IconGallery = (p) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <circle cx="8.5" cy="10" r="1.5" />
+    <path d="M21 16l-5.3-5.3a2 2 0 00-2.8 0L5 19" />
   </Svg>
 );
 

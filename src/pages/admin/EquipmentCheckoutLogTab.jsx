@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabaseClient.js";
 import { queryEquipmentHistory } from "../../lib/equipmentCheckoutsQuery.js";
 import { exportEquipmentCheckoutsCsv } from "../../lib/csvExport.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Chip, Input, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, Input, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
 
 const EVENT_TYPE = {
   checkout: { label: "Checkout", color: colors.gold },
@@ -118,8 +118,16 @@ export default function EquipmentCheckoutLogTab() {
   }
 
   function sortIndicator(field) {
-    if (sort.field !== field) return "";
-    return sort.direction === "asc" ? " ↑" : " ↓";
+    if (sort.field !== field) return null;
+    return sort.direction === "asc" ? <IconArrowUp size={13} /> : <IconArrowDown size={13} />;
+  }
+
+  // Screen readers announce a sortable column's current direction from
+  // this, which the old click-handler-on-a-th version had no way to
+  // express.
+  function ariaSort(field) {
+    if (sort.field !== field) return "none";
+    return sort.direction === "asc" ? "ascending" : "descending";
   }
 
   async function handleForceCheckIn(checkoutId) {
@@ -212,18 +220,27 @@ export default function EquipmentCheckoutLogTab() {
         </Alert>
       )}
       {loading && <SkeletonList rows={3} />}
-      {!loading && visibleEvents.length === 0 && <p style={{ color: colors.inkSoft }}>No history matches this view.</p>}
+      {!loading && visibleEvents.length === 0 && <EmptyState title="No history matches this view" />}
 
       {!loading && visibleEvents.length > 0 && (
         <Card pad="md" style={{ overflowX: "auto" }}>
           <Table>
             <thead>
               <tr>
-                <th onClick={() => toggleSort("equipment")}>Equipment{sortIndicator("equipment")}</th>
-                <th onClick={() => toggleSort("type")}>Event{sortIndicator("type")}</th>
-                <th onClick={() => toggleSort("details")}>Details{sortIndicator("details")}</th>
-                <th onClick={() => toggleSort("person")}>Person{sortIndicator("person")}</th>
-                <th onClick={() => toggleSort("date")}>Date{sortIndicator("date")}</th>
+                {[
+                  ["equipment", "Equipment"],
+                  ["type", "Event"],
+                  ["details", "Details"],
+                  ["person", "Person"],
+                  ["date", "Date"],
+                ].map(([field, label]) => (
+                  <th key={field} aria-sort={ariaSort(field)}>
+                    <button type="button" className="tt-sortbtn" onClick={() => toggleSort(field)}>
+                      {label}
+                      {sortIndicator(field)}
+                    </button>
+                  </th>
+                ))}
                 <th />
               </tr>
             </thead>

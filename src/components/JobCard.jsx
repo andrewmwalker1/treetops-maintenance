@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { colors, fonts, priorityBarStyle, priorityColor, statusPillStyle } from "../lib/theme.js";
-import { Card } from "../ui/index.js";
+import { Card, Pill } from "../ui/index.js";
 
 export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect }) {
   const location = job.pitch
@@ -26,7 +26,6 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
         marginBottom: "var(--space-2)",
         textDecoration: "none",
         color: colors.ink,
-        ...(isOverdue ? { borderTop: `3px solid ${priorityColor.immediate}` } : null),
       }}
     >
       {selectable && (
@@ -42,7 +41,10 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
           <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{job.description}</div>
-          <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+            {isOverdue && <Pill tone="danger">Overdue</Pill>}
+            <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
+          </div>
         </div>
         <div
           style={{

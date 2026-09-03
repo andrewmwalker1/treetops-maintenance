@@ -124,8 +124,8 @@ export default function HandoverKey() {
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <Button onClick={() => navigate("/key-register")}>
-        ← Keys
+      <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
+        Keys
       </Button>
       <PageHeader title="Handover a key" />
       <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised, or has no home pitch yet." />

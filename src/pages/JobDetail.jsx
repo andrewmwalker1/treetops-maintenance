@@ -19,7 +19,14 @@ import {
   Button,
   Card,
   Field,
+  IconAlert,
+  IconArrowDown,
   IconArrowLeft,
+  IconArrowUp,
+  IconCamera,
+  IconCheck,
+  IconClose,
+  IconGallery,
   IconPrint,
   IconButton,
   Input,
@@ -1160,7 +1167,14 @@ export default function JobDetail() {
       </Card>
 
       {(activityTypes.length > 0 || (canEditJobDetails && allActivityTypes.length > 0)) && (
-        <Section title="⚠ Safety">
+        <Section
+          title={
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <IconAlert size={18} />
+              Safety
+            </span>
+          }
+        >
           {canEditJobDetails && allActivityTypes.length > 0 && (
             <div style={{ marginBottom: "var(--space-4)" }}>
               <SectionLabel>Activity types</SectionLabel>
@@ -1226,12 +1240,12 @@ export default function JobDetail() {
                     disabled={uploadingSubtaskId === s.id}
                     label="Add photo"
                   >
-                    {uploadingSubtaskId === s.id ? "…" : "📷"}
+                    {uploadingSubtaskId === s.id ? "…" : <IconCamera size={14} />}
                   </IconButton>
                 )}
                 {itemPhotos.length > 0 && (
-                  <Button size="sm" onClick={() => setViewPhotosSubtaskId(s.id)}>
-                    🖼 View photos ({itemPhotos.length})
+                  <Button size="sm" icon={<IconGallery size={14} />} onClick={() => setViewPhotosSubtaskId(s.id)}>
+                    View photos ({itemPhotos.length})
                   </Button>
                 )}
                 {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
@@ -1261,17 +1275,17 @@ export default function JobDetail() {
                         : undefined
                     }
                   >
-                    📷
+                    <IconCamera size={14} />
                   </IconButton>
                 )}
                 <IconButton size="sm" label="Move up" onClick={() => moveSubtask(i, -1)} disabled={i === 0}>
-                  ↑
+                  <IconArrowUp size={14} />
                 </IconButton>
                 <IconButton size="sm" label="Move down" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1}>
-                  ↓
+                  <IconArrowDown size={14} />
                 </IconButton>
                 <IconButton size="sm" label="Remove item" onClick={() => removeSubtask(s.id)} style={{ color: colors.immediate }}>
-                  ✕
+                  <IconClose size={14} />
                 </IconButton>
               </>
             );
@@ -1362,7 +1376,8 @@ export default function JobDetail() {
                     checked={newChecklistItemRequiresPhoto}
                     onChange={(e) => setNewChecklistItemRequiresPhoto(e.target.checked)}
                   />
-                  📷 Requires photo
+                  <IconCamera size={14} />
+                  Requires photo
                 </label>
               )}
               <Button type="submit">Add</Button>
@@ -1487,11 +1502,12 @@ export default function JobDetail() {
             variant="primary"
             size="lg"
             block
+            icon={<IconCheck size={16} />}
             onClick={openCompleteModal}
             disabled={outstandingPhotoItems.length > 0}
             title={outstandingPhotoItems.length > 0 ? "Check off all photo-required checklist items first" : undefined}
           >
-            ✓ Complete
+            Complete
           </Button>
         </>
       )}

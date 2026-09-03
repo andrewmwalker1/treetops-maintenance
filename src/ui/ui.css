@@ -207,7 +207,7 @@
 .tt-input--invalid:focus,
 .tt-input[aria-invalid="true"]:focus {
   border-color: var(--c-priority-immediate);
-  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.13);
+  box-shadow: var(--focus-ring-inset-danger);
 }
 textarea.tt-input {
   min-height: calc(var(--control-h) * 2);

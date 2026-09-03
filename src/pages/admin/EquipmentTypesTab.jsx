@@ -5,7 +5,7 @@ import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
 import AssigneePicker, { assigneeKindAndIdFromRow, assigneeLabel } from "../../components/AssigneePicker.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, IconButton, Input, Modal, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, IconArrowDown, IconArrowUp, IconButton, Input, Modal, PageHeader, Select } from "../../ui/index.js";
 
 const blank = {
   id: null,
@@ -271,8 +271,8 @@ export default function EquipmentTypesTab() {
             </div>
           </div>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
-            <IconButton size="sm" label="Move up" onClick={() => moveType(i, -1)} disabled={i === 0}>↑</IconButton>
-            <IconButton size="sm" label="Move down" onClick={() => moveType(i, 1)} disabled={i === types.length - 1}>↓</IconButton>
+            <IconButton size="sm" label="Move up" onClick={() => moveType(i, -1)} disabled={i === 0}><IconArrowUp size={14} /></IconButton>
+            <IconButton size="sm" label="Move down" onClick={() => moveType(i, 1)} disabled={i === types.length - 1}><IconArrowDown size={14} /></IconButton>
             <Button onClick={() => editType(t)}>Edit</Button>
             <Button variant="danger" onClick={() => handleDelete(t.id)}>Delete</Button>
           </div>

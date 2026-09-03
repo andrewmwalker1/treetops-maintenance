@@ -35,6 +35,10 @@
   --c-on-dark-muted: rgba(255, 255, 255, 0.75);
   --c-disabled-bg: #C8D0DA;
   --c-disabled-ink: #7E8894;
+  /* Between --c-ink-soft and --c-line-strong -- placeholder text needs to
+     read as fainter than real input text but not as faint as a disabled
+     control, and neither existing shade sat there. */
+  --c-placeholder: #9AA3AD;
 
   /* Semantic surfaces, for Alert/EmptyState and the panels that used to
      hardcode #FBF3E3 / #F5E9E8 (leftovers from the old warm palette). */
@@ -116,6 +120,10 @@
   --control-h-lg: 52px;
   --focus-ring: 0 0 0 2px var(--c-paper), 0 0 0 4px var(--c-moss);
   --focus-ring-inset: 0 0 0 3px rgba(31, 59, 92, 0.16);
+  /* Same shape as --focus-ring-inset, danger-tinted -- for a field already
+     showing invalid (aria-invalid), where the moss ring would say
+     "focused" without also saying "and it's wrong". */
+  --focus-ring-inset-danger: 0 0 0 3px rgba(198, 40, 40, 0.13);
 }
 
 /* Touch. Catches the wall-mounted kiosk and key-station screens that the

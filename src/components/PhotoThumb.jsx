@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
 import { colors } from "../lib/theme.js";
+import { IconClose } from "../ui/index.js";
 
 // `url` lets a caller pass an already-resolved signed URL (e.g. the bulk
 // print flow pre-fetches these before calling window.print(), so the
@@ -68,13 +69,12 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl, bucket =
               right: "16px",
               background: "none",
               border: "none",
-              fontSize: "32px",
               color: colors.onDark,
               cursor: "pointer",
               lineHeight: 1,
             }}
           >
-            ×
+            <IconClose size={28} />
           </button>
         </div>
       )}

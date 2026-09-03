@@ -439,7 +439,22 @@ export default function KioskJobs() {
         </Alert>
       )}
       {!loading && jobs.length === 0 && (
-        <EmptyState title="No jobs to show">
+        <EmptyState
+          title="No jobs to show"
+          action={
+            activeStatusId ? (
+              <Button
+                variant="primary"
+                onClick={() => {
+                  setActiveStatusId(null);
+                  setShowFilters(false);
+                }}
+              >
+                Clear filter
+              </Button>
+            ) : null
+          }
+        >
           {activeStatusId ? "Nothing matches that filter." : "Nothing is outstanding for you right now."}
         </EmptyState>
       )}

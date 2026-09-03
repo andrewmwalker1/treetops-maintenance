@@ -53,8 +53,8 @@ export default function CheckInKey() {
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <Button onClick={() => navigate("/key-register")}>
-        ← Keys
+      <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
+        Keys
       </Button>
       <PageHeader title="Check in a key" />
       {error && (

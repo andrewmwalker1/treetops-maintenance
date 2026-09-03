@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, text } from "../../lib/theme.js";
-import { Alert, Button, Card, Chip, IconButton, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, IconArrowDown, IconArrowUp, IconButton, IconClose, Input, PageHeader } from "../../ui/index.js";
 
 export default function CommonFaultDescriptionsTab() {
   const { org } = useAuth();
@@ -125,9 +125,9 @@ export default function CommonFaultDescriptionsTab() {
           {faults.map((f, i) => (
             <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0" }}>
               <Input value={f.description} onChange={(e) => editFaultLocal(i, e.target.value)} onBlur={() => persistFault(faults[i])} />
-              <IconButton size="sm" label="Move up" onClick={() => moveFault(i, -1)} disabled={i === 0}>↑</IconButton>
-              <IconButton size="sm" label="Move down" onClick={() => moveFault(i, 1)} disabled={i === faults.length - 1}>↓</IconButton>
-              <IconButton size="sm" label="Remove" onClick={() => removeFault(f.id)} style={{ color: colors.immediate }}>✕</IconButton>
+              <IconButton size="sm" label="Move up" onClick={() => moveFault(i, -1)} disabled={i === 0}><IconArrowUp size={14} /></IconButton>
+              <IconButton size="sm" label="Move down" onClick={() => moveFault(i, 1)} disabled={i === faults.length - 1}><IconArrowDown size={14} /></IconButton>
+              <IconButton size="sm" label="Remove" onClick={() => removeFault(f.id)} style={{ color: colors.immediate }}><IconClose size={14} /></IconButton>
             </div>
           ))}
 

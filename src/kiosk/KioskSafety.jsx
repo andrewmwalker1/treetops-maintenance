@@ -100,7 +100,24 @@ export default function KioskSafety() {
 
           <Card pad="lg" style={{ marginTop: "var(--space-3)" }}>
             {visibleDocuments.length === 0 && (
-              <EmptyState title="No documents match">Widen the filters above to see the rest of the library.</EmptyState>
+              <EmptyState
+                title="No documents match"
+                action={
+                  activityFilter || equipmentFilter ? (
+                    <Button
+                      variant="primary"
+                      onClick={() => {
+                        setActivityFilter("");
+                        setEquipmentFilter("");
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  ) : null
+                }
+              >
+                Widen the filters above to see the rest of the library.
+              </EmptyState>
             )}
             {visibleDocuments.map((doc) => (
               <SafetyDocumentLink key={doc.id} doc={doc} />

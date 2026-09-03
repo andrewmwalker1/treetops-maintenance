@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { useMediaQuery } from "../../lib/useIsMobile.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Card, EmptyState, PageHeader, SectionLabel, Switch, Table } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, PageHeader, SectionLabel, Switch, Table } from "../../ui/index.js";
 
 // A roles-against-roles grid stops being readable long before a phone --
 // somewhere around here on a half-width desktop window too, which is why
@@ -77,7 +78,18 @@ export default function RoleVisibilityTab() {
         </Alert>
       )}
 
-      {roles.length === 0 && <EmptyState title="No roles yet">Add one from Roles &amp; permissions.</EmptyState>}
+      {roles.length === 0 && (
+        <EmptyState
+          title="No roles yet"
+          action={
+            <Button as={Link} to="/admin/roles" variant="primary">
+              Go to Roles &amp; permissions
+            </Button>
+          }
+        >
+          Add one from Roles &amp; permissions.
+        </EmptyState>
+      )}
 
       {/* Below the breakpoint the grid becomes one card per role: the same
           toggles, read down instead of across, so each role's visibility is

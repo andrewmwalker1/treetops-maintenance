@@ -68,8 +68,8 @@ export default function ForceCheckInKey() {
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <Button onClick={() => navigate("/key-register")}>
-        ← Keys
+      <Button onClick={() => navigate("/key-register")} icon={<IconArrowLeft size={15} />}>
+        Keys
       </Button>
       <PageHeader title="Force check-in" />
       {error && (

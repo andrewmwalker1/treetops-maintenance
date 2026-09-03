@@ -13,7 +13,9 @@ import {
   Chip,
   EmptyState,
   Field,
+  IconArrowDown,
   IconArrowLeft,
+  IconArrowUp,
   Input,
   PageHeader,
   Select,
@@ -227,8 +229,8 @@ export default function EquipmentDetail() {
   }
 
   function historySortIndicator(field) {
-    if (historySort.field !== field) return "";
-    return historySort.direction === "asc" ? " ↑" : " ↓";
+    if (historySort.field !== field) return null;
+    return historySort.direction === "asc" ? <IconArrowUp size={13} /> : <IconArrowDown size={13} />;
   }
 
   async function applyTemplate() {

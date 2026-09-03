@@ -49,6 +49,20 @@ button {
   textarea {
     font-size: 16px;
   }
+
+  /* --control-h covers buttons and text inputs, but a native checkbox/radio
+     never referenced it -- it stayed at the ~13px UA default on every touch
+     device outside the kiosk and key-station screens, which hand-size their
+     own (see e.g. KioskJobs.jsx, KeyStationHandover.jsx). This is the same
+     fix, applied once, for every checkbox/radio that doesn't set its own
+     size: NewJob's location/assignee radios, JobDetail's activity-type and
+     location radios, every admin form. An inline `style={{ width, height }}`
+     still wins over this, so the hand-sized kiosk instances are unaffected. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 22px;
+    height: 22px;
+  }
 }
 
 textarea {
@@ -97,7 +111,7 @@ samp {
 }
 
 ::placeholder {
-  color: #9AA3AD;
+  color: var(--c-placeholder);
   opacity: 1;
 }
 
@@ -127,6 +141,10 @@ samp {
    case of someone hitting Ctrl+P on the app itself. */
 @media print {
   body {
+    /* Deliberately not --c-paper: that token is a shade off pure white so
+       screen surfaces read against --c-bg, which is exactly the subtlety
+       printed paper does not have and does not want -- this is the literal
+       colour of the paper, not a design choice, so it stays a literal. */
     background: #FFFFFF;
   }
   .no-print {

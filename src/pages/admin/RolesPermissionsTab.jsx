@@ -3,7 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { useMediaQuery } from "../../lib/useIsMobile.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, IconButton, Input, PageHeader, SectionLabel, Switch, Table } from "../../ui/index.js";
+import { Alert, Button, Card, IconButton, IconClose, Input, PageHeader, SectionLabel, Switch, Table } from "../../ui/index.js";
 
 // A permissions-against-roles grid stops being readable long before a
 // phone -- somewhere around here on a half-width desktop window too, which
@@ -149,7 +149,7 @@ export default function RolesPermissionsTab() {
                   </Button>
                 )}
                 <IconButton label={`Delete ${r.name}`} onClick={() => deleteRole(r)}>
-                  ×
+                  <IconClose size={16} />
                 </IconButton>
               </div>
               <SectionLabel>Permissions</SectionLabel>
@@ -210,7 +210,7 @@ export default function RolesPermissionsTab() {
                             {r.name}
                           </button>
                           <IconButton size="sm" label={`Delete ${r.name}`} onClick={() => deleteRole(r)}>
-                            ×
+                            <IconClose size={14} />
                           </IconButton>
                         </div>
                       )}
