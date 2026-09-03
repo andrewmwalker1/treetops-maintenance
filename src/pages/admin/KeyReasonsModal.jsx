@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, text, space } from "../../lib/theme.js";
-import { Alert, Button, Input, Modal } from "../../ui/index.js";
+import { Alert, Button, EmptyState, Input, Modal } from "../../ui/index.js";
 
 // Generic preset-reasons editor, backing contractor_reasons
 // (ContractorsTab.jsx, keyed by contractor_id), role_key_reasons
@@ -72,7 +72,7 @@ export default function KeyReasonsModal({ title, table, ownerColumn, ownerId, ex
             <Button variant="danger" size="sm" onClick={() => handleDelete(r.id)}>Delete</Button>
           </div>
         ))}
-        {reasons.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>No preset reasons yet — staff will type a reason freehand.</p>}
+        {reasons.length === 0 && <EmptyState title="No preset reasons yet">Staff will type a reason freehand.</EmptyState>}
 
         <form onSubmit={handleAdd} style={{ marginTop: "var(--space-3)" }}>
           <Input type="text" value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="e.g. Boiler service / repair" style={{ marginBottom: "var(--space-3)" }} />

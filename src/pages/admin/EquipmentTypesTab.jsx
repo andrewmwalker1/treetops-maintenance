@@ -5,7 +5,7 @@ import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
 import AssigneePicker, { assigneeKindAndIdFromRow, assigneeLabel } from "../../components/AssigneePicker.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, IconArrowDown, IconArrowUp, IconButton, Input, Modal, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, IconArrowDown, IconArrowUp, IconButton, Input, Modal, PageHeader, Select } from "../../ui/index.js";
 
 const blank = {
   id: null,
@@ -278,7 +278,7 @@ export default function EquipmentTypesTab() {
           </div>
         </Card>
       ))}
-      {types.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment types yet.</p>}
+      {types.length === 0 && <EmptyState title="No equipment types yet" />}
 
       {form && (
         <Modal title={form.id ? "Edit equipment type" : "New equipment type"} onClose={() => setForm(null)}>

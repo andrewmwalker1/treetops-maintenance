@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabaseClient.js";
 import ContractorDocumentsModal from "./ContractorDocumentsModal.jsx";
 import KeyReasonsModal from "./KeyReasonsModal.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, Modal, PageHeader, Textarea } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader, Textarea } from "../../ui/index.js";
 
 const blank = {
   id: null,
@@ -132,7 +132,7 @@ export default function ContractorsTab() {
           </div>
         </Card>
       ))}
-      {contractors.length === 0 && <p style={{ color: colors.inkSoft }}>No contractors set up yet.</p>}
+      {contractors.length === 0 && <EmptyState title="No contractors set up yet" />}
 
       {docsFor && <ContractorDocumentsModal contractor={docsFor} orgId={org.id} onClose={() => setDocsFor(null)} />}
       {reasonsFor && (

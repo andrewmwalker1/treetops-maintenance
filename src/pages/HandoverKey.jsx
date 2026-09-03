@@ -3,7 +3,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { useKeyHandover } from "../lib/useKeyHandover.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
 import { colors, fonts } from "../lib/theme.js";
-import { Alert, Button, Card, Field, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
+import { Alert, Button, Card, EmptyState, Field, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
 
 // Same key-handover logic as the key-cupboard kiosk (useKeyHandover.js),
 // matching RelocateKey.jsx's relationship to KeyStationRelocate.jsx --
@@ -129,7 +129,7 @@ export default function HandoverKey() {
       </Button>
       <PageHeader title="Handover a key" />
       <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised, or has no home pitch yet." />
-      {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently eligible for handover.</p>}
+      {keyTags.length === 0 && <EmptyState title="No keys are currently eligible for handover" />}
     </div>
   );
 }

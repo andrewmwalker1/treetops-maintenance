@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader, Textarea } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader, Textarea } from "../../ui/index.js";
 
 const blank = { id: null, type: "risk_assessment", title: "", description: "", pdf_storage_path: null };
 
@@ -86,7 +86,7 @@ export default function SafetyLibraryTab() {
             </div>
           </Card>
         ))}
-        {documents.length === 0 && <p style={{ color: colors.inkSoft }}>No documents yet.</p>}
+        {documents.length === 0 && <EmptyState title="No documents yet" />}
       </div>
 
       <div>

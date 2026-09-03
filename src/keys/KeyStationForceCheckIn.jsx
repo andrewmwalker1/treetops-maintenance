@@ -4,7 +4,7 @@ import { useKeyForceCheckIn } from "../lib/useKeyForceCheckIn.js";
 import { issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
 import { colors } from "../lib/theme.js";
-import { Alert, Button, Card, IconArrowLeft, PageHeader } from "../ui/index.js";
+import { Alert, Button, Card, EmptyState, IconArrowLeft, PageHeader } from "../ui/index.js";
 
 // A separate, can_manage_keys-gated path from ordinary check-in
 // (KeyStationCheckIn.jsx, open to anyone with can_use_key_system) --
@@ -77,7 +77,7 @@ export default function KeyStationForceCheckIn() {
           </Alert>
         )}
       <KeySelector tags={openTags} onPick={pickTag} notFoundMessage="That key isn't currently checked out." />
-      {openTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently checked out.</p>}
+      {openTags.length === 0 && <EmptyState title="No keys are currently checked out" />}
     </div>
   );
 }

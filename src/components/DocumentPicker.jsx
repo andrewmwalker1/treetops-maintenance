@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { colors, fonts } from "../lib/theme.js";
+import { Button, EmptyState } from "../ui/index.js";
 
 const searchStyle = {
   width: "100%",
@@ -25,7 +26,10 @@ export default function DocumentPicker({ documents, selectedIds, onToggle }) {
   const [query, setQuery] = useState("");
 
   if (documents.length === 0) {
-    return <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No documents in the library yet — add some in the Safety Library tab first.</p>;
+    // No navigation action here on purpose -- this sits inside another
+    // tab's in-progress create/edit form, and a link to the Safety
+    // Library tab would abandon whatever the admin was filling in.
+    return <EmptyState title="No documents in the library yet">Add some in the Safety Library tab first.</EmptyState>;
   }
 
   const q = query.trim().toLowerCase();
@@ -55,7 +59,16 @@ export default function DocumentPicker({ documents, selectedIds, onToggle }) {
             </div>
           )
         )}
-        {visible.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: "var(--space-2) 0" }}>No documents match "{query}".</p>}
+        {visible.length === 0 && (
+          <EmptyState
+            title={`No documents match "${query}"`}
+            action={
+              <Button size="sm" onClick={() => setQuery("")}>
+                Clear search
+              </Button>
+            }
+          />
+        )}
       </div>
     </div>
   );

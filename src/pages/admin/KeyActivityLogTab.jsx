@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabaseClient.js";
 import { queryKeyCheckouts } from "../../lib/keyCheckoutsQuery.js";
 import { formatKeyLocation } from "../../keys/KeySelector.jsx";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, Chip, Input, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, Input, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
 
 const STATUS_CHIPS = [
   { key: "all", label: "All" },
@@ -132,7 +132,25 @@ export default function KeyActivityLogTab() {
         </Alert>
       )}
       {loading && <SkeletonList rows={3} />}
-      {!loading && checkouts.length === 0 && <p style={{ color: colors.inkSoft }}>No activity matches this view.</p>}
+      {!loading && checkouts.length === 0 && (
+        <EmptyState
+          title="No activity matches this view"
+          action={
+            <Button
+              variant="primary"
+              onClick={() => {
+                setStatus("all");
+                setLocation("");
+                setProfileId("");
+                setFrom("");
+                setTo("");
+              }}
+            >
+              Clear filters
+            </Button>
+          }
+        />
+      )}
 
       {!loading && checkouts.length > 0 && (
         <Card pad="md" style={{ overflowX: "auto" }}>

@@ -3,7 +3,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import { colors } from "../lib/theme.js";
-import { Card, PageHeader, SkeletonList } from "../ui/index.js";
+import { Card, EmptyState, PageHeader, SkeletonList } from "../ui/index.js";
 
 export default function HealthAndSafety() {
   const { org } = useAuth();
@@ -72,7 +72,12 @@ export default function HealthAndSafety() {
       <PageHeader title="Health & Safety" />
 
       {activityTypes.length === 0 && (
-        <p style={{ color: colors.inkSoft }}>No activity types have been set up yet — manage these, and their RA/MS documents, from Admin → Activity Types.</p>
+        // No action button here on purpose -- most viewers of this page
+        // don't hold can_manage_reference_data, so a link to Admin would
+        // dead-end most of them at a "no access" screen.
+        <EmptyState title="No activity types have been set up yet">
+          Managed from Admin → Activity Types.
+        </EmptyState>
       )}
 
       {activityTypes.map((t) => (

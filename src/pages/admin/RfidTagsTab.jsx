@@ -3,7 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
 import { colors, fonts, space } from "../../lib/theme.js";
-import { Alert, Button, Card, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, PageHeader, Select } from "../../ui/index.js";
 
 export default function RfidTagsTab() {
   const { org } = useAuth();
@@ -85,7 +85,7 @@ export default function RfidTagsTab() {
           <Button variant="danger" onClick={() => handleRevoke(t.id)}>Revoke</Button>
         </Card>
       ))}
-      {tags.length === 0 && <p style={{ color: colors.inkSoft }}>No fobs registered yet.</p>}
+      {tags.length === 0 && <EmptyState title="No fobs registered yet" />}
 
       <Card pad="md" style={{ maxWidth: "440px", marginTop: "var(--space-4)" }}>
         <PageHeader title="Register a new fob" level={2} />

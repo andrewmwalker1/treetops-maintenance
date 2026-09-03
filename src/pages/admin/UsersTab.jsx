@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader, Select } from "../../ui/index.js";
 
 const blankInvite = { email: "", displayName: "", roleId: "", isContractor: false, contractorId: "", siteIds: [] };
 
@@ -253,7 +253,7 @@ export default function UsersTab() {
             )}
           </Card>
         ))}
-        {users.length === 0 && <p style={{ color: colors.inkSoft }}>No users yet.</p>}
+        {users.length === 0 && <EmptyState title="No users yet" />}
       </div>
 
       <div>

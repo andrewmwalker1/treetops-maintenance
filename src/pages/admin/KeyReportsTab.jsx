@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, text } from "../../lib/theme.js";
-import { Alert, Card, Chip, Input, PageHeader, SkeletonList, Table } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, Input, PageHeader, SkeletonList, Table } from "../../ui/index.js";
 
 // First of a growing set of key-system reports (Andy, 2026-08-26) --
 // pitches with zero *active* key_tags rows attached. Lost and handed-over
@@ -61,7 +61,14 @@ function PitchesWithoutKeysReport() {
             <>
               <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filter by pitch…" style={{ marginBottom: "var(--space-3)" }} />
               {visible.length === 0 ? (
-                <p style={{ color: colors.inkSoft }}>Nothing matches this filter.</p>
+                <EmptyState
+                  title="Nothing matches this filter"
+                  action={
+                    <Button size="sm" onClick={() => setSearch("")}>
+                      Clear
+                    </Button>
+                  }
+                />
               ) : (
                 <Card pad="md" style={{ overflowX: "auto", maxWidth: "360px" }}>
                   <Table>

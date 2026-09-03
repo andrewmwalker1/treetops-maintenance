@@ -3,7 +3,7 @@ import { RRule } from "rrule";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, text, space, priorityBarStyle } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader, Select, Textarea } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader, Select, Textarea } from "../../ui/index.js";
 import PitchPicker from "../../components/PitchPicker.jsx";
 
 
@@ -337,7 +337,7 @@ export default function SchedulesTab() {
             </div>
           </Card>
         ))}
-        {schedules.length === 0 && <p style={{ color: colors.inkSoft }}>No recurring jobs set up yet.</p>}
+        {schedules.length === 0 && <EmptyState title="No recurring jobs set up yet" />}
       </div>
 
       <div>

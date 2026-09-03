@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
 import { colors } from "../lib/theme.js";
-import { Button, Card, Field, PageHeader, Textarea } from "../ui/index.js";
+import { Button, Card, EmptyState, Field, PageHeader, Textarea } from "../ui/index.js";
 
 // Shared "pink ticket a machine" form -- used both from the check-out
 // confirm screen (reporting a fault before taking a unit) and the
@@ -35,7 +35,7 @@ export default function ReportIssueForm({ equipmentTypeId, onSubmit, onCancel, s
       <PageHeader title="Report an issue" level={2} />
 
       {commonFaults.length === 0 ? (
-        <p style={{ color: colors.inkSoft }}>No common faults set up for this equipment type yet — add a note below.</p>
+        <EmptyState title="No common faults set up for this equipment type yet">Add a note below.</EmptyState>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
           {commonFaults.map((f) => (

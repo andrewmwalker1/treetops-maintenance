@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Card, PageHeader, Table } from "../../ui/index.js";
+import { Alert, Card, EmptyState, PageHeader, Table } from "../../ui/index.js";
 
 // role_assignable_roles (44-role-assignable-job-targets.sql) -- who a role
 // can create or reassign a job to. Nothing is implicit: a role can't even
@@ -95,7 +95,7 @@ export default function JobAssignmentTab() {
           </tbody>
         </Table>
       </Card>
-      {roles.length === 0 && <p style={{ color: colors.inkSoft }}>No roles set up yet.</p>}
+      {roles.length === 0 && <EmptyState title="No roles set up yet" />}
     </div>
   );
 }

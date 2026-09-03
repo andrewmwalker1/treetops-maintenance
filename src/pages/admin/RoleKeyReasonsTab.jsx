@@ -3,7 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import KeyReasonsModal from "./KeyReasonsModal.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Button, Card, PageHeader } from "../../ui/index.js";
+import { Button, Card, EmptyState, PageHeader } from "../../ui/index.js";
 
 // Preset key check-out reasons for staff checking a key out for
 // themselves (issued_to_kind "self" on KeyStationCheckOut.jsx), by role --
@@ -48,7 +48,7 @@ export default function RoleKeyReasonsTab() {
           <Button onClick={() => setReasonsFor({ kind: "role", id: r.id, name: r.name })}>Reasons</Button>
         </Card>
       ))}
-      {roles.length === 0 && <p style={{ color: colors.inkSoft }}>No roles set up yet.</p>}
+      {roles.length === 0 && <EmptyState title="No roles set up yet" />}
 
       <PageHeader title="Standard reasons" level={2} />
       {FIXED_REASON_OWNERS.map((f) => (

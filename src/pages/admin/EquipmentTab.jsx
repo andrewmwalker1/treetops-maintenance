@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, Modal, PageHeader, Select, Textarea } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader, Select, Textarea } from "../../ui/index.js";
 
 const statusLabels = { in_service: "In service", monitor: "Monitor", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
 
@@ -219,7 +219,9 @@ export default function EquipmentTab() {
           </div>
         </Card>
       ))}
-      {visibleEquipment.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment {filterTypeId ? "of this type" : "yet"}.</p>}
+      {visibleEquipment.length === 0 && (
+        <EmptyState title={filterTypeId ? "No equipment of this type" : "No equipment yet"} />
+      )}
 
       {form && (
         <Modal title={form.id ? "Edit equipment" : "New equipment"} onClose={() => setForm(null)}>

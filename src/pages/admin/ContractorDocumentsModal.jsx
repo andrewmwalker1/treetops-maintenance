@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, Modal, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader } from "../../ui/index.js";
 
 function formatDate(dateStr) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-GB");
@@ -131,7 +131,7 @@ export default function ContractorDocumentsModal({ contractor, orgId, onClose })
         {documents.map((d) => (
           <DocumentRow key={d.id} doc={d} onDelete={handleDelete} />
         ))}
-        {documents.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>No documents uploaded yet.</p>}
+        {documents.length === 0 && <EmptyState title="No documents uploaded yet" />}
 
         <PageHeader title="Add a document" level={2} />
         <form onSubmit={handleAdd}>

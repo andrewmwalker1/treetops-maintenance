@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader } from "../../ui/index.js";
 
 export default function GroupsTab() {
   const { org } = useAuth();
@@ -139,7 +139,7 @@ export default function GroupsTab() {
             </div>
           </Card>
         ))}
-        {groups.length === 0 && <p style={{ color: colors.inkSoft }}>No groups set up yet.</p>}
+        {groups.length === 0 && <EmptyState title="No groups set up yet" />}
         {editingId === null && (
           <Button variant="primary" onClick={startNew}>+ Add group</Button>
         )}

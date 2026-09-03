@@ -3,7 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader } from "../../ui/index.js";
 
 const blank = { id: null, name: "", equipment_category: "", documentIds: [] };
 
@@ -110,7 +110,7 @@ export default function ActivityTypesTab() {
             </div>
           </Card>
         ))}
-        {activityTypes.length === 0 && <p style={{ color: colors.inkSoft }}>No activity types yet.</p>}
+        {activityTypes.length === 0 && <EmptyState title="No activity types yet" />}
       </div>
 
       <div>

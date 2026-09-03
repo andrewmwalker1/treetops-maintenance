@@ -4,7 +4,7 @@ import { usePermissions } from "../../lib/permissions.js";
 import { supabase } from "../../lib/supabaseClient.js";
 import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader } from "../../ui/index.js";
 
 const blank = { id: null, name: "", requires_completion_photo: false, template_schema: [], activityTypeIds: [] };
 
@@ -110,7 +110,7 @@ export default function JobTemplatesTab() {
             </div>
           </Card>
         ))}
-        {templates.length === 0 && <p style={{ color: colors.inkSoft }}>No job templates yet.</p>}
+        {templates.length === 0 && <EmptyState title="No job templates yet" />}
       </div>
 
       <div>
@@ -135,7 +135,11 @@ export default function JobTemplatesTab() {
 
           <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, margin: "var(--space-4) 0 var(--space-2)" }}>Default activity types</label>
           <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: 0 }}>Ticked automatically when this template is picked on a new job — still editable per job afterward.</p>
-          {activityTypes.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>No activity types set up yet — add some in the Activity Types tab first.</p>}
+          {activityTypes.length === 0 && (
+            // No navigation action -- this sits inside the template form
+            // in progress, and a link away would abandon it.
+            <EmptyState title="No activity types set up yet">Add some in the Activity Types tab first.</EmptyState>
+          )}
           {activityTypes.map((a) => (
             <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", padding: "var(--space-1) 0" }}>
               <input type="checkbox" checked={form.activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />

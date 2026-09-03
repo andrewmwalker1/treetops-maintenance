@@ -3,7 +3,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { useKeyHandover } from "../lib/useKeyHandover.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
 import { colors } from "../lib/theme.js";
-import { Alert, Button, Card, Field, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
+import { Alert, Button, Card, EmptyState, Field, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
 
 // can_manage_keys-gated, same as Relocate/Force check-in -- lets someone
 // like Sam complete a handover from the key station itself instead of
@@ -131,7 +131,7 @@ export default function KeyStationHandover() {
       </Button>
       <PageHeader title="Handover a key" />
       <KeySelector tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised, or has no home pitch yet." />
-      {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently eligible for handover.</p>}
+      {keyTags.length === 0 && <EmptyState title="No keys are currently eligible for handover" />}
     </div>
   );
 }

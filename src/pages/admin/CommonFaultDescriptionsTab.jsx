@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, text } from "../../lib/theme.js";
-import { Alert, Button, Card, Chip, IconArrowDown, IconArrowUp, IconButton, IconClose, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, IconButton, IconClose, Input, PageHeader } from "../../ui/index.js";
 
 export default function CommonFaultDescriptionsTab() {
   const { org } = useAuth();
@@ -99,7 +100,18 @@ export default function CommonFaultDescriptionsTab() {
         The picklist staff choose from when reporting an issue with a piece of kit on the workshop kiosk, per equipment type.
       </p>
 
-      {types.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment types yet -- add some in the Equipment Types tab first.</p>}
+      {types.length === 0 && (
+        <EmptyState
+          title="No equipment types yet"
+          action={
+            <Button as={Link} to="/admin/equipmentTypes" variant="primary">
+              Go to Equipment types
+            </Button>
+          }
+        >
+          Add some there first.
+        </EmptyState>
+      )}
 
       <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
         {types.map((t) => (
@@ -121,7 +133,7 @@ export default function CommonFaultDescriptionsTab() {
 
       {selectedTypeId && (
         <Card pad="md" style={{ maxWidth: "480px" }}>
-          {faults.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>No common faults listed yet.</p>}
+          {faults.length === 0 && <EmptyState title="No common faults listed yet" />}
           {faults.map((f, i) => (
             <div key={f.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0" }}>
               <Input value={f.description} onChange={(e) => editFaultLocal(i, e.target.value)} onBlur={() => persistFault(faults[i])} />

@@ -4,7 +4,7 @@ import { useKeyForceCheckIn } from "../lib/useKeyForceCheckIn.js";
 import { issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
 import { colors, fonts } from "../lib/theme.js";
-import { Alert, Button, Card, IconArrowLeft, PageHeader } from "../ui/index.js";
+import { Alert, Button, Card, EmptyState, IconArrowLeft, PageHeader } from "../ui/index.js";
 
 // Same force-check-in logic as the key-cupboard kiosk
 // (useKeyForceCheckIn.js), matching CheckInKey.jsx's relationship to
@@ -78,7 +78,7 @@ export default function ForceCheckInKey() {
           </Alert>
         )}
       <KeySelector size="normal" tags={openTags} onPick={pickTag} notFoundMessage="That key isn't currently checked out." />
-      {openTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently checked out.</p>}
+      {openTags.length === 0 && <EmptyState title="No keys are currently checked out" />}
     </div>
   );
 }

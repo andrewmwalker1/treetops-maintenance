@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useKeyCheckin, issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
 import { colors } from "../lib/theme.js";
-import { Alert, Button, Card, IconArrowLeft, PageHeader } from "../ui/index.js";
+import { Alert, Button, Card, EmptyState, IconArrowLeft, PageHeader } from "../ui/index.js";
 
 // Same key check-in logic as the key-cupboard kiosk (useKeyCheckin.js),
 // matching CheckinKit.jsx's relationship to KioskCheckIn.jsx.
@@ -63,7 +63,7 @@ export default function CheckInKey() {
           </Alert>
         )}
       <KeySelector size="normal" tags={openTags} onPick={pickTag} notFoundMessage="That key isn't currently checked out." />
-      {openTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently checked out.</p>}
+      {openTags.length === 0 && <EmptyState title="No keys are currently checked out" />}
     </div>
   );
 }

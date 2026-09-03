@@ -299,7 +299,7 @@ export default function KioskJobs() {
 
         <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
           <PageHeader title="Checklist" level={2} />
-          {subtasks.length === 0 && <p style={{ color: colors.inkSoft }}>No checklist items.</p>}
+          {subtasks.length === 0 && <EmptyState title="No checklist items" />}
           {subtasks.map((s) => (
             <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-3) 0", fontSize: "var(--text-md)", cursor: "pointer" }}>
               <input

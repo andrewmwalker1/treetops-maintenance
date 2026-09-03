@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabaseClient.js";
 import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import AssigneePicker, { assigneeKindAndIdFromRow } from "../../components/AssigneePicker.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, Modal, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader, Select } from "../../ui/index.js";
 
 function blankTier() {
   return {
@@ -209,7 +209,7 @@ export default function ServiceTemplatesTab() {
           </div>
         </Card>
       ))}
-      {templates.length === 0 && <p style={{ color: colors.inkSoft }}>No service templates yet.</p>}
+      {templates.length === 0 && <EmptyState title="No service templates yet" />}
 
       {form && (
         <Modal title={form.id ? "Edit service template" : "New service template"} onClose={() => setForm(null)} maxWidth="560px">

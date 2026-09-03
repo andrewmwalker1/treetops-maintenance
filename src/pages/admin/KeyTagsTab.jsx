@@ -5,7 +5,7 @@ import RfidScanListener from "../../components/RfidScanListener.jsx";
 import PitchPicker from "../../components/PitchPicker.jsx";
 import { formatKeyLocation } from "../../keys/KeySelector.jsx";
 import { colors, fonts, text, space, radius, shadow } from "../../lib/theme.js";
-import { Alert, Button, Card, Chip, Input, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, Input, PageHeader, Select } from "../../ui/index.js";
 
 function locationLabel(tag, pitches, specialLocations) {
   const pitchLabel = tag.pitch_id ? pitches.find((p) => p.id === tag.pitch_id)?.pitch_number_or_name || "Unknown pitch" : null;
@@ -538,7 +538,7 @@ export default function KeyTagsTab() {
         </Alert>
       )}
 
-      {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
+      {keyTags.length === 0 && <EmptyState title="No key tags registered yet" />}
       {keyTags.length > 0 && !search.trim() && statusFilter !== "lost" && statusFilter !== "handed_over" && (
         <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>Type a pitch, area, location, or tag ID above to see its key tags.</p>
       )}
@@ -603,12 +603,21 @@ export default function KeyTagsTab() {
           )}
         </Card>
       ))}
-      {search.trim() && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this search.</p>}
+      {search.trim() && visibleTags.length === 0 && (
+        <EmptyState
+          title="Nothing matches this search"
+          action={
+            <Button size="sm" onClick={() => setSearch("")}>
+              Clear search
+            </Button>
+          }
+        />
+      )}
       {!search.trim() && statusFilter === "lost" && keyTags.length > 0 && visibleTags.length === 0 && (
-        <p style={{ color: colors.inkSoft }}>No tags are currently marked lost.</p>
+        <EmptyState title="No tags are currently marked lost" />
       )}
       {!search.trim() && statusFilter === "handed_over" && keyTags.length > 0 && visibleTags.length === 0 && (
-        <p style={{ color: colors.inkSoft }}>No tags have been handed over.</p>
+        <EmptyState title="No tags have been handed over" />
       )}
 
       <Card pad="md" style={{ maxWidth: "440px", marginTop: "var(--space-4)" }}>
