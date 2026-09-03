@@ -1192,7 +1192,7 @@ export default function JobDetail() {
                     style={{
                       ...checklistIconStyle,
                       background: s.requires_photo ? colors.mossDark : "transparent",
-                      color: s.requires_photo ? "#FFFFFF" : colors.inkSoft,
+                      color: s.requires_photo ? colors.onDark : colors.inkSoft,
                       border: `1px solid ${s.requires_photo ? colors.mossDark : colors.lineStrong}`,
                     }}
                   >

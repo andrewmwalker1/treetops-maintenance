@@ -75,7 +75,7 @@ function sidebarItemStyle(active) {
     textAlign: "left",
     border: "none",
     background: active ? colors.mossDark : "transparent",
-    color: active ? "#FFFFFF" : colors.ink,
+    color: active ? colors.onDark : colors.ink,
     borderRadius: "8px",
     padding: "8px 10px",
     marginBottom: "2px",

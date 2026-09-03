@@ -133,7 +133,7 @@ export default function CheckinKit() {
               style={{
                 ...listButtonStyle,
                 background: selectedIds.has(c.id) ? colors.mossDark : "transparent",
-                color: selectedIds.has(c.id) ? "#FFFFFF" : colors.mossDark,
+                color: selectedIds.has(c.id) ? colors.onDark : colors.mossDark,
                 cursor: "pointer",
               }}
             >

@@ -161,7 +161,7 @@ export default function ContractorsTab() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(49, 56, 45, 0.5)",
+            background: colors.scrim,
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
-import { colors, fonts, pageStyle } from "../lib/theme.js";
+import { colors, fonts, shadow, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
 import { flushQueue, getQueueStatus, flushReadingQueue, getReadingQueueStatus } from "../platform/syncQueue.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
@@ -147,7 +147,7 @@ export default function Layout({ children }) {
               style={{
                 fontSize: "12px",
                 fontWeight: 600,
-                color: "#fff",
+                color: colors.onDark,
                 background: queueStatus.online ? colors.gold : colors.clay,
                 borderRadius: "999px",
                 padding: "5px 12px",
@@ -163,7 +163,7 @@ export default function Layout({ children }) {
               style={{
                 fontSize: "12px",
                 fontWeight: 600,
-                color: "#fff",
+                color: colors.onDark,
                 background: readingQueueStatus.online ? colors.gold : colors.clay,
                 borderRadius: "999px",
                 padding: "5px 12px",
@@ -290,7 +290,7 @@ function NavMenu({ items }) {
               border: `1px solid ${colors.line}`,
               borderRadius: "12px",
               padding: "8px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              boxShadow: shadow.overlay,
               zIndex: 20,
               display: "flex",
               flexDirection: "column",
@@ -350,7 +350,7 @@ function AccountMenu({ displayName, showControls, dnd, onToggleDnd, pushStatus, 
               borderRadius: "12px",
               padding: "12px",
               minWidth: "220px",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              boxShadow: shadow.overlay,
               zIndex: 20,
               display: "flex",
               flexDirection: "column",

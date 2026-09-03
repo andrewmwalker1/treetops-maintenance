@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
 import PitchPicker from "../../components/PitchPicker.jsx";
 import { formatKeyLocation } from "../../keys/KeySelector.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors, fonts, cardStyle, buttonStyle, shadow } from "../../lib/theme.js";
 
 const fieldStyle = {
   width: "100%",
@@ -131,7 +131,7 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
             background: colors.paper,
             border: `1px solid ${colors.lineStrong}`,
             borderRadius: "10px",
-            boxShadow: "0 8px 24px rgba(27, 36, 48, 0.16)",
+            boxShadow: shadow.overlay,
           }}
         >
           {suggestions.map((s, i) => (
@@ -533,7 +533,7 @@ export default function KeyTagsTab() {
             style={{
               border: `1px solid ${statusFilter === s.key ? colors.mossDark : colors.lineStrong}`,
               background: statusFilter === s.key ? colors.mossDark : "transparent",
-              color: statusFilter === s.key ? "#FFFFFF" : colors.inkSoft,
+              color: statusFilter === s.key ? colors.onDark : colors.inkSoft,
               borderRadius: "999px",
               padding: "6px 14px",
               fontFamily: fonts.body,
@@ -563,12 +563,12 @@ export default function KeyTagsTab() {
               <div style={{ fontWeight: 600 }}>
                 {locationLabel(tag, pitches, specialLocations)}
                 {tag.status === "lost" && (
-                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: "#FFFFFF", background: colors.immediate, borderRadius: "999px", padding: "2px 10px" }}>
+                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.onDark, background: colors.immediate, borderRadius: "999px", padding: "2px 10px" }}>
                     LOST
                   </span>
                 )}
                 {tag.status === "handed_over" && (
-                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: "#FFFFFF", background: colors.mossDark, borderRadius: "999px", padding: "2px 10px" }}>
+                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.onDark, background: colors.mossDark, borderRadius: "999px", padding: "2px 10px" }}>
                     HANDED OVER
                   </span>
                 )}

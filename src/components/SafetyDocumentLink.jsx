@@ -8,11 +8,11 @@ const buttonVariants = {
   // workshop touchscreen, then filled solid for the same reason as the
   // "button" variant below (the outlined version blended into the page
   // background).
-  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px", background: colors.moss, border: colors.moss, color: "#FFFFFF", mutedColor: "rgba(255, 255, 255, 0.75)" },
+  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px", background: colors.moss, border: colors.moss, color: colors.onDark, mutedColor: colors.onDarkMuted },
   // Matches the in-app (phone) machine list buttons' proportions
   // (listButtonStyle in CheckoutKit.jsx/CheckinKit.jsx) -- same
   // button-per-document treatment, sized for the smaller non-kiosk view.
-  button: { padding: "12px 16px", typeSize: "11px", titleSize: "15px", descSize: "13px", background: colors.moss, border: colors.moss, color: "#FFFFFF", mutedColor: "rgba(255, 255, 255, 0.75)" },
+  button: { padding: "12px 16px", typeSize: "11px", titleSize: "15px", descSize: "13px", background: colors.moss, border: colors.moss, color: colors.onDark, mutedColor: colors.onDarkMuted },
 };
 
 // Renders one RA/MS library entry: type, title (linked to a signed PDF

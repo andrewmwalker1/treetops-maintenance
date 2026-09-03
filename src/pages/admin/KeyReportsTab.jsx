@@ -119,7 +119,7 @@ export default function KeyReportsTab() {
               style={{
                 border: `1px solid ${activeReport === r.key ? colors.mossDark : colors.lineStrong}`,
                 background: activeReport === r.key ? colors.mossDark : "transparent",
-                color: activeReport === r.key ? "#FFFFFF" : colors.inkSoft,
+                color: activeReport === r.key ? colors.onDark : colors.inkSoft,
                 borderRadius: "999px",
                 padding: "6px 14px",
                 fontFamily: fonts.body,

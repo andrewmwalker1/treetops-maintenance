@@ -122,7 +122,7 @@ export default function KeyActivityLogTab() {
             style={{
               border: `1px solid ${status === s.key ? colors.mossDark : colors.lineStrong}`,
               background: status === s.key ? colors.mossDark : "transparent",
-              color: status === s.key ? "#FFFFFF" : colors.inkSoft,
+              color: status === s.key ? colors.onDark : colors.inkSoft,
               borderRadius: "999px",
               padding: "6px 14px",
               fontFamily: fonts.body,

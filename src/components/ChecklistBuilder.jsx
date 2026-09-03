@@ -75,7 +75,7 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false, ca
               style={{
                 ...iconButtonStyle,
                 background: item.requiresPhoto ? colors.mossDark : "transparent",
-                color: item.requiresPhoto ? "#FFFFFF" : colors.inkSoft,
+                color: item.requiresPhoto ? colors.onDark : colors.inkSoft,
                 borderColor: item.requiresPhoto ? colors.mossDark : colors.lineStrong,
               }}
             >

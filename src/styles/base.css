@@ -1,0 +1,135 @@
+/* Global base layer. Deliberately low-specificity: everything here is a
+   default that src/ui/*.css and per-component styles override freely.
+
+   This file (and tokens.css beside it) is the first stylesheet the app has
+   ever had. Until now every style was an inline `style={{}}` object, which
+   is why the app had zero :hover and zero :focus rules -- inline styles
+   cannot express either. See UI-REDESIGN-PLAN.md section 2.1. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Form controls do not inherit typography by default, which is why nearly
+   every input in the app carried its own `fontFamily: fonts.body`. */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: inherit;
+}
+
+/* iOS Safari zooms the viewport when a focused control's text is under
+   16px. The app is installed to home screens as a PWA, so that zoom is a
+   real, daily annoyance -- and before this stylesheet existed most inputs
+   rendered at the UA default of ~13px, so it was firing constantly. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* The single highest-value rule in the redesign: until now nothing in the
+   app showed where keyboard focus was. :focus-visible (rather than :focus)
+   so a mouse click does not leave a ring behind. */
+:focus-visible {
+  outline: 2px solid var(--c-moss);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Elements that draw their own ring via box-shadow opt out of the outline. */
+.has-own-focus-ring:focus-visible {
+  outline: none;
+}
+
+a {
+  color: var(--c-moss);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
+  color: var(--c-moss-dark);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+
+hr {
+  border: none;
+  border-top: 1px solid var(--c-line);
+  margin: var(--space-5) 0;
+}
+
+code,
+kbd,
+samp {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+::placeholder {
+  color: #9AA3AD;
+  opacity: 1;
+}
+
+/* Scroll containers get a slightly calmer scrollbar than the platform
+   default, which is loud against the paper surfaces. */
+@supports (scrollbar-width: thin) {
+  main,
+  .scroll-y {
+    scrollbar-width: thin;
+    scrollbar-color: var(--c-line-strong) transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print: the app's own chrome never belongs on paper. The dedicated print
+   window (printJobCards.jsx) carries its own styles; this only covers the
+   case of someone hitting Ctrl+P on the app itself. */
+@media print {
+  body {
+    background: #FFFFFF;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

@@ -2,7 +2,50 @@ import { renderToStaticMarkup } from "react-dom/server";
 import PrintableJobCard from "../components/PrintableJobCard.jsx";
 import PrintableJobsChecklist from "../components/PrintableJobsChecklist.jsx";
 
+// The print window is a separate document, so the app's own stylesheet --
+// and with it every `--c-*` custom property from src/styles/tokens.css --
+// never reaches it. Anything rendered here that resolves a token would come
+// out unstyled, so the handful of tokens the printable components can
+// touch are redeclared below. This duplication is deliberate and is the one
+// documented exception to "all colour comes from tokens.css"; keep the two
+// in step if the palette changes.
+const PRINT_TOKENS = `
+  :root {
+    --c-bg: #E4E7EC;
+    --c-paper: #FAFBFC;
+    --c-ink: #1B2430;
+    --c-ink-soft: #64707D;
+    --c-moss: #1F3B5C;
+    --c-moss-dark: #142840;
+    --c-clay: #5C6670;
+    --c-gold: #A9862F;
+    --c-immediate: #7A2E28;
+    --c-line: #D4D9DF;
+    --c-line-strong: #B9C1CA;
+    --c-on-dark: #FFFFFF;
+    --c-priority-low: #1B7A4D;
+    --c-priority-medium: #C68A00;
+    --c-priority-high: #C2571A;
+    --c-priority-immediate: #C62828;
+    --c-priority-immediate-alt: #7A1710;
+    --radius-sm: 8px;
+    --radius-md: 14px;
+    --radius-full: 999px;
+    --font-display: 'Lora', Georgia, serif;
+    --font-body: 'Work Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+    --text-xs: 11px;
+    --text-sm: 13px;
+    --text-base: 15px;
+    --text-md: 17px;
+    --text-lg: 20px;
+    --text-xl: 26px;
+    --text-2xl: 32px;
+  }
+`;
+
 const PRINT_DOCUMENT_STYLE = `
+  ${PRINT_TOKENS}
   body { margin: 0; font-family: 'Work Sans', sans-serif; padding-bottom: 28px; }
   .print-job-card:not(:last-child) { page-break-after: always; }
   .print-footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 10px; color: #666; }

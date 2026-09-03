@@ -87,7 +87,7 @@ function FilterChip({ active, onClick, label }) {
       style={{
         border: `2px solid ${active ? colors.mossDark : colors.lineStrong}`,
         background: active ? colors.mossDark : "transparent",
-        color: active ? "#FFFFFF" : colors.inkSoft,
+        color: active ? colors.onDark : colors.inkSoft,
         borderRadius: "999px",
         padding: "8px 16px",
         fontFamily: fonts.body,

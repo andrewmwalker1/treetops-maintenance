@@ -128,7 +128,7 @@ export default function CommonFaultDescriptionsTab() {
             style={{
               border: `1px solid ${selectedTypeId === t.id ? colors.mossDark : colors.lineStrong}`,
               background: selectedTypeId === t.id ? colors.mossDark : "transparent",
-              color: selectedTypeId === t.id ? "#FFFFFF" : colors.inkSoft,
+              color: selectedTypeId === t.id ? colors.onDark : colors.inkSoft,
               borderRadius: "999px",
               padding: "8px 16px",
               fontFamily: fonts.body,

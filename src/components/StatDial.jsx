@@ -47,11 +47,15 @@ export default function StatDial({ label, value, color = colors.mossDark, onClic
         cursor: clickable ? "pointer" : "default",
       }}
     >
+      {/* Colours go through `style`, not the stroke/fill *attributes*: the
+          theme tokens are CSS custom properties, and an SVG presentation
+          attribute is not parsed as CSS, so `stroke="var(--c-ink)"` would
+          silently render as no stroke at all. */}
       <svg width="90" height="64" viewBox="0 0 90 64" style={{ display: "block", margin: "0 auto" }}>
         <path
           d={dialArcPath(DIAL_CX, DIAL_CY, DIAL_R, DIAL_SWEEP_START, DIAL_SWEEP_END)}
           fill="none"
-          stroke={colors.lineStrong}
+          style={{ stroke: colors.lineStrong }}
           strokeWidth="7"
           strokeLinecap="round"
         />
@@ -59,13 +63,13 @@ export default function StatDial({ label, value, color = colors.mossDark, onClic
           <path
             d={dialArcPath(DIAL_CX, DIAL_CY, DIAL_R, DIAL_SWEEP_START, valueAngle)}
             fill="none"
-            stroke={color}
+            style={{ stroke: color }}
             strokeWidth="7"
             strokeLinecap="round"
           />
         )}
-        <line x1={DIAL_CX} y1={DIAL_CY} x2={needle.x} y2={needle.y} stroke={colors.ink} strokeWidth="2" strokeLinecap="round" />
-        <circle cx={DIAL_CX} cy={DIAL_CY} r="3" fill={colors.ink} />
+        <line x1={DIAL_CX} y1={DIAL_CY} x2={needle.x} y2={needle.y} style={{ stroke: colors.ink }} strokeWidth="2" strokeLinecap="round" />
+        <circle cx={DIAL_CX} cy={DIAL_CY} r="3" style={{ fill: colors.ink }} />
       </svg>
       <div style={{ fontFamily: fonts.mono, fontSize: "20px", fontWeight: 700, color, marginTop: "-10px" }}>{value}</div>
       <div style={{ fontSize: "12.5px", color: colors.inkSoft, textTransform: "capitalize", marginTop: "1px" }}>{label}</div>

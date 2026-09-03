@@ -3,7 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#3F5837" />
+    <!-- Keep in step with --c-moss-dark (src/styles/tokens.css) and with
+         vite.config.js's manifest theme_color. -->
+    <meta name="theme-color" content="#142840" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -13,9 +15,12 @@
       rel="stylesheet"
     />
     <title>Tree Tops Maintenance</title>
+    <!-- Minimal pre-paint reset only. The real base layer lives in
+         src/styles/base.css; this exists so the first frame before that
+         stylesheet loads isn't visibly wrong. -->
     <style>
       * { box-sizing: border-box; }
-      body { margin: 0; }
+      body { margin: 0; background: #E4E7EC; }
     </style>
     <script>
       // Other half of the public/404.html GitHub Pages SPA fallback --

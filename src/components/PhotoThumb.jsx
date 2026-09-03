@@ -44,7 +44,7 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl, bucket =
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(49, 56, 45, 0.85)",
+            background: colors.scrimStrong,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -69,7 +69,7 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl, bucket =
               background: "none",
               border: "none",
               fontSize: "32px",
-              color: "#fff",
+              color: colors.onDark,
               cursor: "pointer",
               lineHeight: 1,
             }}

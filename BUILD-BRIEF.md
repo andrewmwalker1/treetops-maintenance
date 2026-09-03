@@ -117,32 +117,76 @@ Enforce all of the following at the Postgres level. Never rely on client-side fi
 
 ---
 
-## 8. Visual Design Reference (Field Journal direction — approved)
+## 8. Visual Design Reference (Admiralty direction — current)
 
-Reproduce these tokens exactly. Full working HTML/CSS reference prototypes exist (mobile: jobs list, job detail, new job form, equipment; desktop: dashboard, job detail) — request them if not already provided alongside this brief.
+**`src/styles/tokens.css` is the single source of truth.** This section
+describes it; if the two ever disagree, the stylesheet is right and this
+section is stale. Don't hardcode any value below anywhere else — read it
+from a token (in CSS) or from `src/lib/theme.js` (in an inline style).
 
-**Colours**
+> **History:** the project started on a warm "Field Journal" palette
+> (`#E7E2CC` bg / `#5C7A4E` moss / `#A65A34` clay). It was replaced by the
+> cooler "Admiralty" chart-paper navy below, but this section wasn't
+> updated for some time — which is how the PWA manifest and several alert
+> panels ended up stranded on the old colours. Hence the rule above.
+
+**Colours** — `--c-*` in `tokens.css`
 ```
---bg:        #E7E2CC   (page background)
---paper:     #FBF9F1   (card/panel surface)
---ink:       #31382D   (primary text)
---ink-soft:  #78806E   (secondary text)
---moss:      #5C7A4E   (primary action colour, low priority)
---moss-dark: #3F5837   (headings, nav active state)
---clay:      #A65A34   (high priority, secondary accent)
---gold:      #C9962F   (medium priority, "open" status tag)
---immediate: #8C3A22   (immediate priority — combine with a diagonal hazard stripe pattern, not solid fill)
---line:      #DDD6BC
---line-strong: #CBC2A0
+--c-bg:          #E4E7EC   (page background)
+--c-paper:       #FAFBFC   (card/panel surface)
+--c-ink:         #1B2430   (primary text)
+--c-ink-soft:    #64707D   (secondary text)
+--c-moss:        #1F3B5C   (primary action colour)
+--c-moss-dark:   #142840   (headings, nav active state)
+--c-clay:        #5C6670   ("in progress" status)
+--c-gold:        #A9862F   ("open" status)
+--c-immediate:   #7A2E28   (danger text/borders)
+--c-line:        #D4D9DF
+--c-line-strong: #B9C1CA
 ```
+Plus derived surfaces (`--c-surface-hover`, `--c-scrim`) and semantic
+sets (`--c-info-*`, `--c-warn-*`, `--c-danger-*`, `--c-ok-*`) for alerts.
 
-**Priority indicator — important, revised from initial draft**: use a solid rounded colour bar (6px wide, rounded, `moss`/`gold`/`clay`/`immediate`-with-hazard-stripe) next to each job, NOT icon-based badges. This was explicitly preferred over an earlier icon-based ("leaf emoji") version — don't reintroduce icons for priority.
+**Priority** is its own escalating scale, deliberately NOT aliased to the
+brand tokens above — low `#1B7A4D`, medium `#C68A00`, high `#C2571A`,
+immediate `#C62828` (with `#7A1710` for its hazard stripe). Andy confirmed
+this recolour 2026-08-21 against the muted original.
 
-**Typography**: `Lora` (serif, weight 600–700, sometimes italic for headings) for display/headings; `Work Sans` for body and UI; `IBM Plex Mono` for IDs, timestamps, data labels.
+**Priority indicator — important**: a solid rounded colour bar (6px wide,
+rounded) next to each job, NOT icon-based badges. Explicitly preferred over
+an earlier icon-based ("leaf emoji") version — don't reintroduce icons for
+priority, even now that the rest of the UI uses them.
 
-**Shape language**: generously rounded corners (12–20px on cards/buttons), soft shadows, pill-shaped tags and buttons — warm and approachable, not sharp/industrial.
+**Typography**: `Lora` (600–700) for display/headings; `Work Sans` for body
+and UI; `IBM Plex Mono` for IDs, timestamps, data labels.
 
-**Status tags**: pill-shaped, filled colour, white text — Open = gold, In Progress = clay, Completed = moss.
+Seven-step scale, `--text-*`: xs 11 · sm 13 · base 15 · md 17 · lg 20 ·
+xl 26 · 2xl 32. Stay on it — the app had 16 ad-hoc sizes before it existed.
+
+**Spacing**: 4px base, `--space-1` (4px) through `--space-8` (40px).
+
+**Shape**: three radii only — `--radius-sm` 8px (controls, inputs),
+`--radius-md` 14px (cards, panels), `--radius-full` (pills, avatars).
+
+**Elevation**: two levels only — `--shadow-card` for a hovered/raised card,
+`--shadow-overlay` for popovers and modals. Resting cards use a 1px border,
+no shadow.
+
+**Motion**: `--dur-fast` 120ms for hover, `--dur` 180ms for anything that
+opens or moves; `--ease`. `prefers-reduced-motion` is honoured globally in
+`base.css`.
+
+**Controls**: `--control-h` is 40px, and 48px under
+`@media (pointer: coarse)` — which is what gives the wall-mounted kiosk and
+key-station touchscreens a proper target size.
+
+**Status tags**: pill-shaped, filled colour, white text — Open = gold,
+In Progress = clay, Completed = moss.
+
+**Components**: build with `src/ui/` (Button, Field, Card, Table, Modal,
+Pill, PageHeader, EmptyState, Alert…). They carry the hover/focus/active
+states that an inline style cannot express. Don't add new raw
+`<button style={{}}>` or re-declare a local `fieldStyle`.
 
 ---
 

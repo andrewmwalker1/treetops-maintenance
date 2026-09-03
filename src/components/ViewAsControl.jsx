@@ -134,7 +134,7 @@ export function ViewAsBanner() {
     <div
       style={{
         background: colors.mossDark,
-        color: "#FFFFFF",
+        color: colors.onDark,
         padding: "8px 20px",
         display: "flex",
         alignItems: "center",
@@ -151,7 +151,7 @@ export function ViewAsBanner() {
       <button
         onClick={stopViewingAs}
         style={{
-          background: "#FFFFFF",
+          background: colors.onDark,
           color: colors.mossDark,
           border: "none",
           borderRadius: "999px",

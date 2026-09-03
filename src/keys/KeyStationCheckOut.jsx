@@ -89,7 +89,7 @@ export default function KeyStationCheckOut() {
                       padding: "10px 18px",
                       fontSize: "16px",
                       background: issuedToKind === opt.value ? colors.mossDark : "transparent",
-                      color: issuedToKind === opt.value ? "#FFFFFF" : colors.mossDark,
+                      color: issuedToKind === opt.value ? colors.onDark : colors.mossDark,
                     }}
                   >
                     {opt.label}

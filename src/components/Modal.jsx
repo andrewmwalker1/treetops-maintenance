@@ -6,7 +6,7 @@ export default function Modal({ title, onClose, children, maxWidth = "440px" }) 
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(49, 56, 45, 0.5)",
+        background: colors.scrim,
         display: "flex",
         alignItems: "flex-start",
         justifyContent: "center",

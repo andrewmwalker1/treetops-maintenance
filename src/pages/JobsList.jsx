@@ -437,7 +437,7 @@ export default function JobsList() {
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(49, 56, 45, 0.5)",
+            background: colors.scrim,
             display: "flex",
             alignItems: "flex-start",
             justifyContent: "center",
@@ -553,7 +553,7 @@ function FilterChip({ active, onClick, label }) {
       style={{
         border: `1px solid ${active ? colors.mossDark : colors.lineStrong}`,
         background: active ? colors.mossDark : "transparent",
-        color: active ? "#FFFFFF" : colors.inkSoft,
+        color: active ? colors.onDark : colors.inkSoft,
         borderRadius: "999px",
         padding: "6px 14px",
         fontFamily: fonts.body,

@@ -1,11 +1,23 @@
-// Field Journal design tokens — Section 8 of BUILD-BRIEF.md. Reproduced
-// exactly; don't hardcode these hex values anywhere else.
+// Design tokens, as JS values for inline `style={{}}` objects.
+//
+// Every value below is a `var(--…)` reference into src/styles/tokens.css,
+// which is now the single source of truth (BUILD-BRIEF.md section 8). The
+// export names and shapes are unchanged from before that stylesheet
+// existed, deliberately: the app carries ~1,400 inline style objects that
+// spread `cardStyle`/`buttonStyle` or read `colors.x`, and all of them keep
+// working untouched. New code should prefer the components in src/ui/,
+// which style themselves with real CSS classes and so can express hover,
+// focus and active states -- something an inline style cannot do at all.
+//
+// Two callers need literal values rather than `var()`:
+//   - anything setting an SVG *presentation attribute* (stroke="…",
+//     fill="…"), which does not resolve custom properties -- set those via
+//     `style={{ stroke: … }}` instead, as StatDial.jsx does.
+//   - the print window (printJobCards.jsx), a separate document these
+//     custom properties never reach.
+// `rawColors` below exists for those cases.
 
-// Admiralty colourway — chart-paper navy, swapped in in place of the
-// original Field Journal moss/clay/gold palette. Same token names so
-// every consumer (priorityColor, statusColor, cardStyle, etc. below)
-// keeps working unchanged; only the hex values moved.
-export const colors = {
+export const rawColors = {
   bg: "#E4E7EC",
   paper: "#FAFBFC",
   ink: "#1B2430",
@@ -19,25 +31,90 @@ export const colors = {
   lineStrong: "#B9C1CA",
 };
 
+export const colors = {
+  bg: "var(--c-bg)",
+  paper: "var(--c-paper)",
+  ink: "var(--c-ink)",
+  inkSoft: "var(--c-ink-soft)",
+  moss: "var(--c-moss)",
+  mossDark: "var(--c-moss-dark)",
+  clay: "var(--c-clay)",
+  gold: "var(--c-gold)",
+  immediate: "var(--c-immediate)",
+  line: "var(--c-line)",
+  lineStrong: "var(--c-line-strong)",
+  // Added with the token layer -- these were hardcoded per-file before
+  // (a leftover moss-green scrim, and two warm-palette alert panels that
+  // predate the Admiralty recolour).
+  onDark: "var(--c-on-dark)",
+  onDarkMuted: "var(--c-on-dark-muted)",
+  scrim: "var(--c-scrim)",
+  scrimStrong: "var(--c-scrim-strong)",
+  surfaceHover: "var(--c-surface-hover)",
+  surfaceSunken: "var(--c-surface-sunken)",
+  warnSurface: "var(--c-warn-surface)",
+  warnBorder: "var(--c-warn-border)",
+  warnInk: "var(--c-warn-ink)",
+  dangerSurface: "var(--c-danger-surface)",
+  dangerBorder: "var(--c-danger-border)",
+  dangerInk: "var(--c-danger-ink)",
+  okSurface: "var(--c-ok-surface)",
+  okBorder: "var(--c-ok-border)",
+  okInk: "var(--c-ok-ink)",
+};
+
 export const fonts = {
-  display: "'Lora', serif",
-  body: "'Work Sans', sans-serif",
-  mono: "'IBM Plex Mono', monospace",
+  display: "var(--font-display)",
+  body: "var(--font-body)",
+  mono: "var(--font-mono)",
+};
+
+// The type scale, for inline styles that still need a size directly.
+export const text = {
+  xs: "var(--text-xs)",
+  sm: "var(--text-sm)",
+  base: "var(--text-base)",
+  md: "var(--text-md)",
+  lg: "var(--text-lg)",
+  xl: "var(--text-xl)",
+  xxl: "var(--text-2xl)",
+};
+
+export const space = {
+  1: "var(--space-1)",
+  2: "var(--space-2)",
+  3: "var(--space-3)",
+  4: "var(--space-4)",
+  5: "var(--space-5)",
+  6: "var(--space-6)",
+  7: "var(--space-7)",
+  8: "var(--space-8)",
+};
+
+export const shadow = {
+  card: "var(--shadow-card)",
+  overlay: "var(--shadow-overlay)",
+};
+
+export const radius = {
+  sm: "var(--radius-sm)",
+  md: "var(--radius-md)",
+  full: "var(--radius-full)",
 };
 
 // Priority indicator: a solid rounded colour bar, not an icon badge
-// (explicitly rejected an earlier icon-based version — see Section 8).
-// Deliberately its own palette, not aliased to colors.moss/gold/clay/immediate
-// above -- those are shared brand/status/danger tokens, and reusing them here
-// is what made the bar hard to read (grey read as "muted", navy as "the
-// important one", rather than escalating low -> immediate). Andy confirmed
-// this recolour (2026-08-21) after comparing it against the muted original
-// in a mockup.
+// (explicitly rejected an earlier icon-based version -- see BUILD-BRIEF.md
+// section 8). Deliberately its own palette, not aliased to
+// colors.moss/gold/clay/immediate above -- those are shared brand/status/
+// danger tokens, and reusing them here is what made the bar hard to read
+// (grey read as "muted", navy as "the important one", rather than
+// escalating low -> immediate). Andy confirmed this recolour (2026-08-21)
+// after comparing it against the muted original in a mockup.
 export const priorityColor = {
-  low: "#1B7A4D",
-  medium: "#C68A00",
-  high: "#C2571A",
-  immediate: "#C62828",
+  low: "var(--c-priority-low)",
+  medium: "var(--c-priority-medium)",
+  high: "var(--c-priority-high)",
+  immediate: "var(--c-priority-immediate)",
 };
 
 export const statusColor = {
@@ -49,14 +126,15 @@ export const statusColor = {
 export function priorityBarStyle(priority) {
   const base = {
     width: "6px",
-    borderRadius: "999px",
+    borderRadius: radius.full,
     alignSelf: "stretch",
     flexShrink: 0,
   };
   if (priority === "immediate") {
     return {
       ...base,
-      backgroundImage: `repeating-linear-gradient(45deg, ${priorityColor.immediate}, ${priorityColor.immediate} 4px, #7A1710 4px, #7A1710 8px)`,
+      backgroundImage:
+        "repeating-linear-gradient(45deg, var(--c-priority-immediate), var(--c-priority-immediate) 4px, var(--c-priority-immediate-alt) 4px, var(--c-priority-immediate-alt) 8px)",
     };
   }
   return { ...base, background: priorityColor[priority] || priorityColor.low };
@@ -66,11 +144,11 @@ export function statusPillStyle(statusName) {
   return {
     display: "inline-block",
     padding: "3px 12px",
-    borderRadius: "999px",
+    borderRadius: radius.full,
     background: statusColor[statusName] || colors.inkSoft,
-    color: "#FFFFFF",
+    color: colors.onDark,
     fontFamily: fonts.body,
-    fontSize: "12px",
+    fontSize: text.xs,
     fontWeight: 600,
     whiteSpace: "nowrap",
   };
@@ -86,15 +164,15 @@ export const pageStyle = {
 export const cardStyle = {
   background: colors.paper,
   border: `1px solid ${colors.line}`,
-  borderRadius: "16px",
+  borderRadius: radius.md,
 };
 
 export const buttonStyle = {
   primary: {
     background: colors.moss,
-    color: "#FFFFFF",
+    color: colors.onDark,
     border: "none",
-    borderRadius: "999px",
+    borderRadius: radius.full,
     padding: "10px 20px",
     fontFamily: fonts.body,
     fontWeight: 600,
@@ -104,7 +182,7 @@ export const buttonStyle = {
     background: "transparent",
     color: colors.mossDark,
     border: `1px solid ${colors.lineStrong}`,
-    borderRadius: "999px",
+    borderRadius: radius.full,
     padding: "10px 20px",
     fontFamily: fonts.body,
     fontWeight: 600,

@@ -123,7 +123,7 @@ export default function KioskCheckIn() {
               style={{
                 ...kioskButtonStyle,
                 background: selectedIds.has(c.id) ? colors.mossDark : "transparent",
-                color: selectedIds.has(c.id) ? "#FFFFFF" : colors.mossDark,
+                color: selectedIds.has(c.id) ? colors.onDark : colors.mossDark,
                 border: `2px solid ${colors.mossDark}`,
                 display: "flex",
                 alignItems: "center",

@@ -414,7 +414,7 @@ export default function EquipmentDetail() {
         )}
 
         {equipment.status === "monitor" && pendingMonitorNote === null && (
-          <div style={{ background: "#FBF3E3", border: `1px solid ${colors.gold}`, borderRadius: "10px", padding: "12px" }}>
+          <div style={{ background: colors.warnSurface, border: `1px solid ${colors.warnBorder}`, borderRadius: "10px", padding: "12px" }}>
             <p style={{ color: colors.gold, fontWeight: 600, fontSize: "13px", margin: "0 0 6px" }}>Being monitored</p>
             {canManage ? (
               <form onSubmit={handleUpdateMonitorNote}>
@@ -539,7 +539,7 @@ export default function EquipmentDetail() {
                   style={{
                     border: `1px solid ${historyStatusFilter === chip.key ? colors.mossDark : colors.lineStrong}`,
                     background: historyStatusFilter === chip.key ? colors.mossDark : "transparent",
-                    color: historyStatusFilter === chip.key ? "#FFFFFF" : colors.inkSoft,
+                    color: historyStatusFilter === chip.key ? colors.onDark : colors.inkSoft,
                     borderRadius: "999px",
                     padding: "6px 14px",
                     fontFamily: fonts.body,
@@ -595,7 +595,7 @@ function TabButton({ active, onClick, label }) {
       style={{
         border: `1px solid ${active ? colors.mossDark : colors.lineStrong}`,
         background: active ? colors.mossDark : "transparent",
-        color: active ? "#FFFFFF" : colors.inkSoft,
+        color: active ? colors.onDark : colors.inkSoft,
         borderRadius: "999px",
         padding: "6px 14px",
         fontFamily: fonts.body,

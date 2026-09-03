@@ -101,7 +101,7 @@ export default function CheckOutKey() {
                       padding: "8px 14px",
                       fontSize: "13px",
                       background: issuedToKind === opt.value ? colors.mossDark : "transparent",
-                      color: issuedToKind === opt.value ? "#FFFFFF" : colors.mossDark,
+                      color: issuedToKind === opt.value ? colors.onDark : colors.mossDark,
                     }}
                   >
                     {opt.label}

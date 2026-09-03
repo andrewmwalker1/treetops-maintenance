@@ -420,7 +420,7 @@ export default function ScanMeter() {
           )}
 
           {belowLast && (
-            <div style={{ background: "#F5E9E8", border: `1px solid ${colors.immediate}`, borderRadius: "10px", padding: "10px" }}>
+            <div style={{ background: colors.dangerSurface, border: `1px solid ${colors.dangerBorder}`, borderRadius: "10px", padding: "10px" }}>
               <p style={{ color: colors.immediate, fontWeight: 600, fontSize: "13px", margin: 0 }}>
                 New reading is lower than the last recorded reading. Double-check the dial before overriding.
               </p>

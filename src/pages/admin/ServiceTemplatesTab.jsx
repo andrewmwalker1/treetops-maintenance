@@ -220,7 +220,7 @@ export default function ServiceTemplatesTab() {
 
       {form && (
         <div
-          style={{ position: "fixed", inset: 0, background: "rgba(49, 56, 45, 0.5)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto", zIndex: 100 }}
+          style={{ position: "fixed", inset: 0, background: colors.scrim, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto", zIndex: 100 }}
           onClick={() => setForm(null)}
         >
           <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "560px" }} onClick={(e) => e.stopPropagation()}>

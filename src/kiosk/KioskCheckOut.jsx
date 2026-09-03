@@ -110,7 +110,7 @@ export default function KioskCheckOut() {
         )}
 
         {selected.some((u) => u.status === "monitor") && (
-          <div style={{ ...kioskCardStyle, marginBottom: "20px", background: "#FBF3E3", border: `2px solid ${colors.gold}` }}>
+          <div style={{ ...kioskCardStyle, marginBottom: "20px", background: colors.warnSurface, border: `2px solid ${colors.warnBorder}` }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.gold, marginTop: 0 }}>Being monitored</h2>
             {selected
               .filter((u) => u.status === "monitor")
@@ -248,7 +248,7 @@ export default function KioskCheckOut() {
                 style={{
                   ...kioskButtonStyle,
                   background: selectedIds.has(u.id) ? colors.mossDark : "transparent",
-                  color: selectedIds.has(u.id) ? "#FFFFFF" : colors.mossDark,
+                  color: selectedIds.has(u.id) ? colors.onDark : colors.mossDark,
                   border: `2px solid ${colors.mossDark}`,
                   display: "flex",
                   alignItems: "center",

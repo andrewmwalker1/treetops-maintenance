@@ -31,11 +31,17 @@ function detectIsPhoneDevice() {
   return Math.max(window.innerWidth, window.innerHeight) <= PHONE_MAX_DIMENSION;
 }
 
-// No CSS stylesheet/media-queries anywhere in this codebase -- every
-// other responsive decision already lives in JS/JSX (styles are plain
-// objects throughout), so this keeps that pattern rather than
-// introducing a stylesheet just to collapse a couple of header/filter
-// elements on phone screens.
+// This used to be the app's ONLY responsive mechanism, back when there was
+// no stylesheet at all. There is one now (src/styles/), so prefer a plain
+// CSS media query for anything that is purely a layout or sizing decision
+// -- and prefer `@media (pointer: coarse)` over this hook for touch-target
+// sizing specifically, since the wall-mounted kiosk and key-station screens
+// are touch devices that this width check classifies as desktop.
+//
+// This hook remains the right tool for the cases CSS genuinely cannot
+// reach: rendering a structurally *different* component tree on a phone
+// (Layout's bottom tab bar vs the desktop nav row, Admin's collapsible
+// group list vs its sidebar) rather than restyling the same one.
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState(detectIsPhoneDevice);
   useEffect(() => {

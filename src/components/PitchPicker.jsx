@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { colors, fonts } from "../lib/theme.js";
+import { colors, fonts, shadow } from "../lib/theme.js";
 
 // A searchable, keyboard-navigable dropdown for picking one pitch out of a
 // (100-200+) list -- a plain <select> that long makes finding one tedious.
@@ -130,7 +130,7 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
             background: colors.paper,
             border: `1px solid ${colors.lineStrong}`,
             borderRadius: "10px",
-            boxShadow: "0 8px 24px rgba(27, 36, 48, 0.16)",
+            boxShadow: shadow.overlay,
           }}
         >
           {matches.map((p, i) => (

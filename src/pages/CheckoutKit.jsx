@@ -131,7 +131,7 @@ export default function CheckoutKit() {
             it -- the checklist is fixed per equipment type, this is a note
             specific to this one unit right now. Same review step, own card. */}
         {selected.some((u) => u.status === "monitor") && (
-          <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px", background: "#FBF3E3", border: `1px solid ${colors.gold}` }}>
+          <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px", background: colors.warnSurface, border: `1px solid ${colors.warnBorder}` }}>
             <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.gold, marginTop: 0 }}>Being monitored</h2>
             {selected
               .filter((u) => u.status === "monitor")
@@ -270,7 +270,7 @@ export default function CheckoutKit() {
                 style={{
                   ...listButtonStyle,
                   background: selectedIds.has(u.id) ? colors.mossDark : "transparent",
-                  color: selectedIds.has(u.id) ? "#FFFFFF" : colors.mossDark,
+                  color: selectedIds.has(u.id) ? colors.onDark : colors.mossDark,
                   cursor: "pointer",
                 }}
               >

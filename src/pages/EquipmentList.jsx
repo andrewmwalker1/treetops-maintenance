@@ -83,7 +83,7 @@ export default function EquipmentList() {
               {eq.held_by && `${eq.make || eq.model ? " · " : ""}Held by ${eq.held_by.display_name}`}
             </div>
           </div>
-          <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: "999px", background: statusColors[eq.status], color: "#FFF", fontSize: "12px", fontWeight: 600 }}>
+          <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: "999px", background: statusColors[eq.status], color: colors.onDark, fontSize: "12px", fontWeight: 600 }}>
             {statusLabels[eq.status]}
           </span>
         </Link>

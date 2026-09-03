@@ -39,8 +39,13 @@ export default defineConfig({
         start_url: "/",
         scope: "/",
         display: "standalone",
-        background_color: "#E7E2CC",
-        theme_color: "#3F5837",
+        // Must stay in step with --c-bg / --c-moss-dark in
+        // src/styles/tokens.css -- these paint the PWA splash screen and
+        // the phone's status bar, and were still carrying the pre-Admiralty
+        // warm palette (#E7E2CC / #3F5837) long after the app itself moved
+        // to navy, so an installed copy opened in the wrong colours.
+        background_color: "#E4E7EC",
+        theme_color: "#142840",
         orientation: "portrait",
         icons: [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
