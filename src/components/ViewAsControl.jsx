@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
-import { colors, fonts } from "../lib/theme.js";
 
 // Admin-only. Lets Andy (or another can_manage_users holder) fake being a
 // different role client-side for training/demoing screens -- NOT a real
@@ -89,20 +88,7 @@ export function ViewAsPicker() {
   }
 
   return (
-    <select
-      value={picked}
-      onChange={handleChange}
-      onFocus={refresh}
-      style={{
-        border: `1px solid ${colors.lineStrong}`,
-        borderRadius: "var(--radius-full)",
-        padding: "var(--space-2) var(--space-4)",
-        fontFamily: fonts.body,
-        fontSize: "13px",
-        color: colors.inkSoft,
-        background: "transparent",
-      }}
-    >
+    <select className="tt-viewas-select" value={picked} onChange={handleChange} onFocus={refresh}>
       <option value="">View as…</option>
       {roles.length > 0 && (
         <optgroup label="By role (no one picked)">
@@ -131,37 +117,11 @@ export function ViewAsBanner() {
   if (!viewingAs) return null;
 
   return (
-    <div
-      style={{
-        background: colors.mossDark,
-        color: colors.onDark,
-        padding: "var(--space-2) var(--space-5)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: "var(--space-3)",
-        flexWrap: "wrap",
-        fontFamily: fonts.body,
-        fontSize: "13px",
-      }}
-    >
+    <div className="tt-viewas-banner">
       <span>
         Viewing as <strong>{profile.display_name}</strong> ({profile.roles?.name}) -- your data, faked permissions
       </span>
-      <button
-        onClick={stopViewingAs}
-        style={{
-          background: colors.onDark,
-          color: colors.mossDark,
-          border: "none",
-          borderRadius: "var(--radius-full)",
-          padding: "var(--space-1) var(--space-3)",
-          cursor: "pointer",
-          fontFamily: fonts.body,
-          fontSize: "13px",
-          fontWeight: 600,
-        }}
-      >
+      <button type="button" className="tt-viewas-return" onClick={stopViewingAs}>
         Return to my view
       </button>
     </div>
