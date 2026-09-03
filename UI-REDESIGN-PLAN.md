@@ -864,3 +864,40 @@ fails the build.
 Still undecided, carried over from 8c: whether to widen the script to
 catch other literal-value patterns (px spacing, `rgba()` colours) now
 that it's load-bearing, or leave that as diminishing returns.
+
+Confirmed working, separately: a throwaway branch with a deliberate
+hex + raw-`<button>` violation, run through `deploy.yml` via
+`workflow_dispatch` (never touching `main`), failed at the "Check
+styles" step with both violations reported and `Build`/`deploy` never
+running. In passing, also dropped a stale "this check is currently a
+warning, not a blocker" line the script itself still printed.
+
+---
+
+## 8g. `check-styles.mjs` widening decision (2026-09-03)
+
+Resolved the question 8c/8f left open, by checking actual footprint
+before deciding rather than reasoning about it in the abstract —
+CLAUDE.md's UI rules name three literal patterns that should never
+appear: hex, px, and `rgba(...)`. Only hex was enforced.
+
+**`rgba()`/`rgb()`: added, blocking immediately.** A repo-wide search
+found zero uses of either in any `.jsx` inline `style` prop — same
+clean-slate footprint hex had before Phase 6, same violation category
+(a literal colour, not from a token), same place the script already
+looks. `RGB_RE` added alongside `HEX_RE` in `findViolations()`, under
+a `literal-rgb` rule. Verified against the full repo history (86
+changed files, same root commit as 8c/8e's run): still clean. Verified
+the detection itself fires, locally, with a synthetic `rgba(0, 0, 0,
+0.5)` violation committed and reset off again before touching origin.
+
+**Literal `px`: not added.** A repo-wide scan of `style={{...}}` props
+found 199 hits across ~70 files — mostly one-off `maxWidth` values
+(modals, cards, key/kiosk screens) and `1px` borders, not stray drift.
+Because `check-styles.mjs` only checks files *changed* in a push, this
+isn't 199 immediate failures — but it is 199 landmines: the next
+unrelated edit to `JobDetail.jsx`, `Gallery.jsx`, or any of ~70 other
+files would fail CI over pre-existing code that edit never touched.
+That needs its own dedicated tokenizing sweep first — the same shape
+and size as the empty-state sweep (8d), not a same-session "widening."
+Flagged as a real follow-up, not closed here.

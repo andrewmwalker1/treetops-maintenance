@@ -75,6 +75,13 @@ function lineOf(src, index) {
 // comment referencing a hex is a real, if rare, case worth not flagging.
 const HEX_RE = /#[0-9A-Fa-f]{3}(?:[0-9A-Fa-f]{3})?(?:[0-9A-Fa-f]{2})?\b/g;
 
+// CLAUDE.md's UI rules name rgba(...) alongside hex as a literal colour
+// that should never appear -- same scope (inside a style prop) and same
+// zero-existing-usages footprint (verified 2026-09-03), so it's caught the
+// same way. Unlike literal px, which has ~200 pre-existing uses across the
+// app and would need its own tokenizing sweep before it could safely block.
+const RGB_RE = /rgba?\([^)]*\)/g;
+
 function findViolations(file, src) {
   const violations = [];
 
@@ -90,6 +97,13 @@ function findViolations(file, src) {
       violations.push({
         line: lineOf(src, idx + (m.index + "style=".length)),
         rule: "literal-hex",
+        detail: m[0],
+      });
+    }
+    while ((m = RGB_RE.exec(region))) {
+      violations.push({
+        line: lineOf(src, idx + (m.index + "style=".length)),
+        rule: "literal-rgb",
         detail: m[0],
       });
     }
@@ -145,7 +159,9 @@ function main() {
       const what =
         v.rule === "literal-hex"
           ? `literal hex colour ${v.detail} in a style prop`
-          : `raw <button ...> carrying its own style= (use <Button> from src/ui/ instead)`;
+          : v.rule === "literal-rgb"
+            ? `literal colour ${v.detail} in a style prop`
+            : `raw <button ...> carrying its own style= (use <Button> from src/ui/ instead)`;
       console.log(`${file}:${v.line}: ${what}`);
     }
   }
