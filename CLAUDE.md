@@ -48,6 +48,26 @@ automatically, every session.
   building further on it (flagged as pending in BUILD-BRIEF.md/RUNBOOK.md
   since the project started).
 
+## UI rules
+
+Full detail and rationale: BUILD-BRIEF.md §8 (single source of visual
+truth — update it in the same commit as any token change).
+
+- All colour, size, spacing and radius come from a token
+  (`src/styles/tokens.css`, or `src/lib/theme.js` in an inline style) —
+  never a literal hex, px or `rgba(...)`.
+- All controls are built from `src/ui/` (`Button`, `Field`, `Card`,
+  `Table`, `Modal`, `Menu`, `Pill`, `Chip`, `PageHeader`, `EmptyState`,
+  `Alert`, the icon set…), not a raw `<button style={{}}>` or a
+  re-declared local `fieldStyle`/`labelStyle`.
+- The print components (`src/components/Printable*`,
+  `src/lib/printJobCards.jsx`) are the one documented exception — a
+  separate document these tokens never reach, so they carry a deliberate,
+  duplicated copy of the few values they need.
+- `scripts/check-styles.mjs` checks changed files for the first two rules
+  on every push (see `.github/workflows/deploy.yml`) and is currently
+  non-blocking — read its warnings, don't wait for it to turn red.
+
 ## Current known state (from git log — confirm anything time-sensitive
 with Andy rather than assuming it's still accurate)
 

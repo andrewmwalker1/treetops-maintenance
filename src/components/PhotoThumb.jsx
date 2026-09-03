@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
 import { colors } from "../lib/theme.js";
-import { IconClose } from "../ui/index.js";
+import { IconButton, IconClose } from "../ui/index.js";
 
 // `url` lets a caller pass an already-resolved signed URL (e.g. the bulk
 // print flow pre-fetches these before calling window.print(), so the
@@ -57,25 +57,15 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl, bucket =
           <img
             src={url}
             alt=""
-            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }}
+            style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: "var(--radius-sm)" }}
           />
-          <button
-            type="button"
+          <IconButton
+            label="Close"
             onClick={() => setExpanded(false)}
-            aria-label="Close"
-            style={{
-              position: "fixed",
-              top: "16px",
-              right: "16px",
-              background: "none",
-              border: "none",
-              color: colors.onDark,
-              cursor: "pointer",
-              lineHeight: 1,
-            }}
+            style={{ position: "fixed", top: "16px", right: "16px", color: colors.onDark }}
           >
             <IconClose size={28} />
-          </button>
+          </IconButton>
         </div>
       )}
     </>
