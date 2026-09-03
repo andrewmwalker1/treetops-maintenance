@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigationType } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { useViewAsJobFilter } from "../lib/simulateJobVisibility.js";
@@ -70,6 +70,19 @@ function loadStoredSelectedIds() {
   }
 }
 
+// JobDetail's back button (and the browser's own back button) land here as
+// a POP -- that's the only round trip this storage is meant to survive.
+// Arriving any other way (the Jobs nav link, Dashboard, a fresh page load)
+// is a PUSH/REPLACE, and should start clean -- otherwise a selection from
+// one visit (e.g. "select all" before printing) resurfaces, fully checked,
+// on a completely unrelated later visit, since nothing else ever expires
+// or clears this key.
+function initialSelectedIds(navigationType) {
+  if (navigationType === "POP") return loadStoredSelectedIds();
+  sessionStorage.removeItem(SELECTED_IDS_STORAGE_KEY);
+  return new Set();
+}
+
 export default function JobsList() {
   const { activeSite, terminology } = useAuth();
   const viewAsFilter = useViewAsJobFilter();
@@ -85,7 +98,8 @@ export default function JobsList() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedIds, setSelectedIds] = useState(loadStoredSelectedIds);
+  const navigationType = useNavigationType();
+  const [selectedIds, setSelectedIds] = useState(() => initialSelectedIds(navigationType));
   const [printing, setPrinting] = useState(false);
   const [showFilterPanel, setShowFilterPanel] = useState(false);
 
