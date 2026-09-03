@@ -9,7 +9,7 @@ import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 // so someone like Hazel can check out a strimmer from her own phone without
 // needing to be stood at the kiosk terminal -- no permission gate here
 // either, matching the kiosk (equipment checkout has never been role-gated,
-// unlike keys). Styled for the normal app (theme.js, not kioskTheme.js)
+// unlike keys). Styled for the normal app rather than the kiosk
 // since this lives inside Layout's ordinary chrome, not a full-screen
 // kiosk takeover.
 const listButtonStyle = {
@@ -74,7 +74,7 @@ export default function CheckoutKit() {
 
         {checkoutOutcome.succeeded.length > 0 && (
           <div style={{ ...cardStyle, padding: "16px", marginBottom: "14px" }}>
-            <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Checked out</h2>
+            <PageHeader title="Checked out" level={2} />
             {checkoutOutcome.succeeded.map((u) => (
               <p key={u.id} style={{ fontSize: "15px", margin: "6px 0" }}>{u.name}</p>
             ))}
@@ -122,7 +122,7 @@ export default function CheckoutKit() {
 
         {selectedType.preUseChecklist.length > 0 && (
           <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-            <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginTop: 0 }}>Before you take it</h2>
+            <PageHeader title="Before you take it" level={2} />
             <ChecklistBuilder items={selectedType.preUseChecklist} onChange={() => {}} readOnly />
           </div>
         )}
@@ -146,7 +146,7 @@ export default function CheckoutKit() {
 
         {hoursUnits.length > 0 && (
           <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-            <h2 style={{ fontFamily: fonts.display, fontSize: "15px", color: colors.mossDark, marginTop: 0 }}>Hours reading</h2>
+            <PageHeader title="Hours reading" level={2} />
             {hoursUnits.map((u) => {
               const raw = hoursByUnitId[u.id] ?? "";
               const value = raw === "" ? null : Number(raw);
@@ -178,7 +178,11 @@ export default function CheckoutKit() {
           </div>
         )}
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         {reportingUnit ? (
           <>
@@ -196,9 +200,7 @@ export default function CheckoutKit() {
           <>
             {selected.length > 1 && (
               <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-                <h2 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>
-                  Taking {selected.length}
-                </h2>
+                <PageHeader title="Taking {selected.length}" level={2} />
                 {selected.map((u) => (
                   <div
                     key={u.id}

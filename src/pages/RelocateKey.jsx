@@ -103,7 +103,11 @@ export default function RelocateKey() {
           </select>
         </div>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         <button style={{ ...buttonStyle.primary, width: "100%", opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
           {submitting ? "Saving…" : "Save"}
@@ -118,7 +122,7 @@ export default function RelocateKey() {
         ← Keys
       </button>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Relocate a key</h1>
-      <KeySelector tags={keyTags} resultStyle={listButtonStyle} fieldStyle={fieldStyle} onPick={pickTag} notFoundMessage="That tag isn't recognised." />
+      <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised." />
     </div>
   );
 }

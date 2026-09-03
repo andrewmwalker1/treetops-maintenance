@@ -6,10 +6,8 @@ import { usePermissions } from "../lib/permissions.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
 import RfidScanListener from "../components/RfidScanListener.jsx";
 import StatDial from "../components/StatDial.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
-import { Action, ActionList, Button } from "../ui/primitives.jsx";
-import { IconKeys } from "../ui/icons.jsx";
+import { colors } from "../lib/theme.js";
+import { Action, ActionList, Alert, Button, Card, IconArrowLeft, IconKeys, PageHeader } from "../ui/index.js";
 
 
 export default function KeyStationMenu() {
@@ -93,41 +91,40 @@ export default function KeyStationMenu() {
 
   if (detailGroup) {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button
-          style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }}
-          onClick={() => setDetailGroup(null)}
-        >
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{detailGroup.label}</h1>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <Button onClick={() => setDetailGroup(null)} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+          Back
+        </Button>
+        <PageHeader title={detailGroup.label} />
         {detailGroup.rows.map((c) => (
-          <div key={c.id} style={{ ...kioskCardStyle, marginBottom: "12px" }}>
-            <p style={{ margin: "0 0 4px", fontSize: "17px", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
-            <p style={{ margin: "0 0 4px", fontSize: "15px" }}>Out to {keyIssuedToLabel(c)}</p>
-            {c.reason && <p style={{ margin: "0 0 4px", fontSize: "15px", color: colors.inkSoft }}>Reason: {c.reason}</p>}
-            <p style={{ margin: 0, fontSize: "13px", color: colors.inkSoft }}>
+          <Card key={c.id} pad="lg" style={{ marginBottom: "var(--space-3)" }}>
+            <p style={{ margin: "0 0 4px", fontSize: "var(--text-md)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
+            <p style={{ margin: "0 0 4px", fontSize: "var(--text-base)" }}>Out to {keyIssuedToLabel(c)}</p>
+            {c.reason && <p style={{ margin: "0 0 4px", fontSize: "var(--text-base)", color: colors.inkSoft }}>Reason: {c.reason}</p>}
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: colors.inkSoft }}>
               Checked out by {c.checked_out_by_profile?.display_name || "—"}, {timeAgo(c.checked_out_at)}
             </p>
-          </div>
+          </Card>
         ))}
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "32px", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
+    <div style={{ padding: "var(--space-7)", display: "flex", flexDirection: "column", minHeight: "100vh", boxSizing: "border-box" }}>
       <RfidScanListener onScan={handleScan} />
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "28px", marginBottom: "4px" }}>
-        Hi {profile?.display_name || "there"}
-      </h1>
-      <p style={{ color: colors.inkSoft, fontSize: "16px", marginTop: 0, marginBottom: "20px" }}>
-        Scan a key to check it out or in, or pick what you need below.
-      </p>
-      {scanError && <p style={{ color: colors.immediate, fontSize: "15px", marginTop: "-12px" }}>{scanError}</p>}
+      <PageHeader
+        title={`Hi ${profile?.display_name || "there"}`}
+        subtitle="Scan a key to check it out or in, or pick what you need below."
+      />
+      {scanError && (
+        <Alert tone="danger" title="Tag not recognised" style={{ marginBottom: "var(--space-4)" }}>
+          {scanError}
+        </Alert>
+      )}
 
       {openCheckouts !== null && (
-        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+        <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
           <div style={{ flex: 1 }}>
             <StatDial label="Yours" value={myCheckouts.length} onClick={() => openDetail("Yours", myCheckouts)} />
           </div>

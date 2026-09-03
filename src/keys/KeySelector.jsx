@@ -1,7 +1,7 @@
 import { useState } from "react";
 import RfidScanListener from "../components/RfidScanListener.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskCardStyle } from "../kiosk/kioskTheme.js";
+import { colors } from "../lib/theme.js";
+import { Alert, Card, EmptyState, Input } from "../ui/index.js";
 
 // A key's home pitch and its current special location (if any) are now
 // independent columns (47-key-tags-pitch-persists-through-special-location.sql)
@@ -21,26 +21,17 @@ export function locationLabel(tag) {
   return formatKeyLocation(tag.pitches?.pitch_number_or_name, tag.key_special_locations?.label);
 }
 
-const searchFieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "14px 16px",
-  borderRadius: "12px",
-  border: `2px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "18px",
-  marginBottom: "16px",
-};
-
 // Shared "scan the key, or search for it" picker used by check-out,
 // check-in, and find-a-key -- each passes a `tags` list already filtered
 // to what's relevant for that action (available / currently out / all)
-// and gets back whichever one was picked, scanned or tapped. `resultStyle`
-// and `fieldStyle` default to the kiosk's big touch-target look; the in-app
-// Keys pages (KeysHome.jsx and friends) pass the normal theme's smaller
-// card/field styling instead, same as CheckoutKit.jsx restyling
-// useEquipmentCheckout's units list without touching its logic.
-export default function KeySelector({ tags, onPick, notFoundMessage, resultStyle, fieldStyle }) {
+// and gets back whichever one was picked, scanned or tapped.
+//
+// `size` used to be two style-object props (`resultStyle`/`fieldStyle`)
+// that every caller had to fill in, which is how the key station and the
+// in-app Keys pages ended up with differently-shaped rows for the same
+// list. It is one word now: "kiosk" (the default, walk-up touchscreen) or
+// "normal" (the phone/desktop pages).
+export default function KeySelector({ tags, onPick, notFoundMessage, size = "kiosk" }) {
   const [query, setQuery] = useState("");
   const [scanError, setScanError] = useState(null);
 
@@ -61,28 +52,36 @@ export default function KeySelector({ tags, onPick, notFoundMessage, resultStyle
   return (
     <div>
       <RfidScanListener onScan={handleScan} />
-      {scanError && <p style={{ color: colors.immediate, fontSize: "16px" }}>{scanError}</p>}
-      <p style={{ color: colors.inkSoft, fontSize: "16px" }}>Scan a key, or search for a pitch below.</p>
-      <input
+      {scanError && (
+        <Alert tone="warn" style={{ marginBottom: "var(--space-3)" }}>
+          {scanError}
+        </Alert>
+      )}
+      <p style={{ color: colors.inkSoft }}>Scan a key, or search for a pitch below.</p>
+      <Input
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search by pitch or location…"
-        style={fieldStyle || searchFieldStyle}
+        aria-label="Search by pitch or location"
+        className={size === "kiosk" ? "tt-input--kiosk" : undefined}
+        style={{ marginBottom: "var(--space-4)" }}
       />
-      <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "50vh", overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", maxHeight: "50vh", overflowY: "auto" }}>
         {filtered.map((t) => (
-          <button
+          <Card
             key={t.id}
+            as="button"
+            type="button"
+            interactive
+            pad={size === "kiosk" ? "lg" : "sm"}
             onClick={() => onPick(t)}
             style={{
-              ...(resultStyle || kioskCardStyle),
               textAlign: "left",
-              fontSize: "17px",
-              fontFamily: fonts.body,
-              cursor: "pointer",
-              border: `1px solid ${colors.line}`,
               width: "100%",
+              font: "inherit",
+              fontSize: size === "kiosk" ? "var(--text-md)" : "var(--text-base)",
+              color: "inherit",
               ...(t.isHistorical ? { opacity: 0.7 } : null),
             }}
           >
@@ -95,14 +94,14 @@ export default function KeySelector({ tags, onPick, notFoundMessage, resultStyle
                 itself, when they're two different physical keys. This
                 subline makes that explicit on every row rather than only
                 when it happens to matter. */}
-            <div style={{ fontSize: "13px", fontWeight: 400, color: colors.inkSoft, marginTop: "2px" }}>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 400, color: colors.inkSoft, marginTop: "2px" }}>
               {t.isHistorical
                 ? `A different key for this pitch was handed over to ${t.handed_over_to || "—"} on ${new Date(t.created_at).toLocaleDateString("en-GB")} — it's gone, no tag on file for it anymore.`
                 : `Tag ${t.tag_uid}`}
             </div>
-          </button>
+          </Card>
         ))}
-        {filtered.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches.</p>}
+        {filtered.length === 0 && <EmptyState title="Nothing matches">Try a different pitch number, or scan the key itself.</EmptyState>}
       </div>
     </div>
   );

@@ -34,7 +34,11 @@ export default function FindKey() {
         </button>
         <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
         <div style={{ ...cardStyle, padding: "16px" }}>
-          {error && <p style={{ color: colors.immediate }}>{error}</p>}
+          {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
           {selectedTag.isHistorical ? (
             <p style={{ fontSize: "15px", margin: 0 }}>
               Handed over to {selectedTag.handed_over_to || "—"} on {new Date(selectedTag.created_at).toLocaleDateString("en-GB")}.
@@ -59,7 +63,7 @@ export default function FindKey() {
         ← Keys
       </button>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Find a key</h1>
-      <KeySelector tags={keyTags} resultStyle={listButtonStyle} fieldStyle={fieldStyle} onPick={pickTag} notFoundMessage="That tag isn't recognised." />
+      <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised." />
     </div>
   );
 }

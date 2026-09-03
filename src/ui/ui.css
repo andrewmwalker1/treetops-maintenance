@@ -833,6 +833,37 @@ select.tt-input {
   font-size: var(--text-sm);
 }
 
+/* ===================== Kiosk =====================
+   The workshop kiosk and the key station are walk-up touchscreens driven
+   with a finger from a standing position. They are the same components as
+   the rest of the app, sized for that -- not a separate visual language,
+   which is what the old src/kiosk/kioskTheme.js had drifted into (20px radii and
+   22px type against the app's 14px and 15px). */
+.tt-kiosk-page {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+}
+.tt-btn--kiosk {
+  width: 100%;
+  min-height: 88px;
+  padding: var(--space-5);
+  border-width: 2px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+  white-space: normal;
+}
+.tt-input--kiosk {
+  min-height: 72px;
+  padding: var(--space-4) var(--space-5);
+  border-width: 2px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+}
+
 /* ===================== Section label ===================== */
 .tt-label {
   font-family: var(--font-mono);

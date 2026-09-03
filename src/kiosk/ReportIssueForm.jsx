@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "./kioskTheme.js";
+import { colors } from "../lib/theme.js";
+import { Button, Card, Field, PageHeader, Textarea } from "../ui/index.js";
 
 // Shared "pink ticket a machine" form -- used both from the check-out
 // confirm screen (reporting a fault before taking a unit) and the
@@ -31,61 +31,50 @@ export default function ReportIssueForm({ equipmentTypeId, onSubmit, onCancel, s
   }
 
   return (
-    <div style={{ ...kioskCardStyle, marginTop: "20px" }}>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "20px", color: colors.mossDark, marginTop: 0 }}>Report an issue</h2>
+    <Card pad="lg" style={{ marginTop: "var(--space-5)" }}>
+      <PageHeader title="Report an issue" level={2} />
 
       {commonFaults.length === 0 ? (
-        <p style={{ color: colors.inkSoft }}>No common faults set up for this equipment type yet -- add a note below.</p>
+        <p style={{ color: colors.inkSoft }}>No common faults set up for this equipment type yet — add a note below.</p>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "16px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", marginBottom: "var(--space-4)" }}>
           {commonFaults.map((f) => (
-            <button
+            <Button
               key={f.id}
+              variant={picked === f.description ? "primary" : "secondary"}
+              size="kiosk"
+              aria-pressed={picked === f.description}
               onClick={() => setPicked(picked === f.description ? null : f.description)}
-              style={{
-                ...kioskSecondaryButtonStyle,
-                textAlign: "left",
-                fontSize: "18px",
-                padding: "16px",
-                border: `2px solid ${picked === f.description ? colors.mossDark : colors.lineStrong}`,
-                background: picked === f.description ? colors.bg : "transparent",
-              }}
+              style={{ justifyContent: "flex-start", textAlign: "left" }}
             >
               {f.description}
-            </button>
+            </Button>
           ))}
         </div>
       )}
 
-      <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: colors.inkSoft, marginBottom: "8px" }}>
-        Note (optional)
-      </label>
-      <textarea
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        rows={3}
-        style={{
-          width: "100%",
-          boxSizing: "border-box",
-          padding: "14px",
-          borderRadius: "12px",
-          border: `1px solid ${colors.lineStrong}`,
-          fontFamily: fonts.body,
-          fontSize: "16px",
-          marginBottom: "16px",
-        }}
-      />
+      <Field label="Note (optional)">
+        {({ id }) => <Textarea id={id} value={note} onChange={(e) => setNote(e.target.value)} rows={3} />}
+      </Field>
 
-      <div style={{ display: "flex", gap: "12px" }}>
-        <button style={kioskSecondaryButtonStyle} onClick={onCancel} disabled={submitting}>Cancel</button>
-        <button style={kioskButtonStyle} onClick={handleSubmit} disabled={submitting || (!picked && !note.trim())}>
+      <div style={{ display: "flex", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
+        <Button size="kiosk" onClick={onCancel} disabled={submitting}>
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          size="kiosk"
+          onClick={handleSubmit}
+          loading={submitting}
+          disabled={!picked && !note.trim()}
+        >
           {submitting ? "Reporting…" : "Submit report"}
-        </button>
+        </Button>
       </div>
 
-      <p style={{ fontFamily: fonts.body, fontSize: "14px", color: colors.inkSoft, marginTop: "16px", marginBottom: 0, textAlign: "center" }}>
+      <p style={{ fontSize: "var(--text-base)", color: colors.inkSoft, marginTop: "var(--space-4)", marginBottom: 0, textAlign: "center" }}>
         Please remember to pink ticket the defective machine.
       </p>
-    </div>
+    </Card>
   );
 }

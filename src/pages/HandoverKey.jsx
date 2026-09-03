@@ -123,7 +123,11 @@ export default function HandoverKey() {
           I've removed the RFID fob from this key — only the physical key goes to the customer, the fob stays with us.
         </label>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         <button style={{ ...buttonStyle.primary, width: "100%", opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
           {submitting ? "Handing over…" : "Complete handover"}
@@ -138,7 +142,7 @@ export default function HandoverKey() {
         ← Keys
       </button>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Handover a key</h1>
-      <KeySelector tags={keyTags} resultStyle={listButtonStyle} fieldStyle={fieldStyle} onPick={pickTag} notFoundMessage="That tag isn't recognised, or has no home pitch yet." />
+      <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised, or has no home pitch yet." />
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently eligible for handover.</p>}
     </div>
   );

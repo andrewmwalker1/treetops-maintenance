@@ -71,7 +71,11 @@ export default function ForceCheckInKey() {
           </p>
         </div>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         <button style={{ ...buttonStyle.primary, width: "100%" }} onClick={handleConfirm} disabled={submitting}>
           {submitting ? "Checking in…" : "Force check-in"}
@@ -86,8 +90,12 @@ export default function ForceCheckInKey() {
         ← Keys
       </button>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Force check-in</h1>
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
-      <KeySelector tags={openTags} resultStyle={listButtonStyle} fieldStyle={fieldStyle} onPick={pickTag} notFoundMessage="That key isn't currently checked out." />
+      {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
+      <KeySelector size="normal" tags={openTags} onPick={pickTag} notFoundMessage="That key isn't currently checked out." />
       {openTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently checked out.</p>}
     </div>
   );

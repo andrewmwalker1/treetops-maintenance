@@ -3,19 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskSecondaryButtonStyle, kioskCardStyle } from "./kioskTheme.js";
-
-const selectStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "14px",
-  borderRadius: "12px",
-  border: `2px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "16px",
-  marginBottom: "12px",
-};
+import { Button, Card, EmptyState, IconArrowLeft, PageHeader, Select, SkeletonList } from "../ui/index.js";
 
 // Standalone RA/MS browser, reachable from the kiosk home screen without
 // going via a job or a checkout at all (Andy: "if they are asked to do a
@@ -72,38 +60,52 @@ export default function KioskSafety() {
       : documents.filter((d) => (activityDocIds && activityDocIds.has(d.id)) || (equipmentDocIds && equipmentDocIds.has(d.id)));
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => navigate("/kiosk")}>
-        ← Menu
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Health &amp; Safety</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "15px", marginTop: 0 }}>
-        Every risk assessment and method statement — narrow by activity or equipment type if you know it.
-      </p>
+    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <Button onClick={() => navigate("/kiosk")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+        Menu
+      </Button>
+      <PageHeader
+        title="Health & safety"
+        subtitle="Every risk assessment and method statement — narrow by activity or equipment type if you know it."
+      />
 
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
+      {loading && <SkeletonList rows={4} />}
 
       {!loading && (
         <>
-          <select value={activityFilter} onChange={(e) => setActivityFilter(e.target.value)} style={selectStyle}>
+          <Select
+            value={activityFilter}
+            onChange={(e) => setActivityFilter(e.target.value)}
+            aria-label="Filter by activity type"
+            className="tt-input--kiosk"
+            style={{ marginBottom: "var(--space-3)" }}
+          >
             <option value="">All activity types</option>
             {activityTypes.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
-          </select>
-          <select value={equipmentFilter} onChange={(e) => setEquipmentFilter(e.target.value)} style={selectStyle}>
+          </Select>
+          <Select
+            value={equipmentFilter}
+            onChange={(e) => setEquipmentFilter(e.target.value)}
+            aria-label="Filter by equipment type"
+            className="tt-input--kiosk"
+            style={{ marginBottom: "var(--space-3)" }}
+          >
             <option value="">All equipment types</option>
             {equipmentTypes.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
-          </select>
+          </Select>
 
-          <div style={{ ...kioskCardStyle, marginTop: "12px" }}>
-            {visibleDocuments.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "16px" }}>No documents match.</p>}
+          <Card pad="lg" style={{ marginTop: "var(--space-3)" }}>
+            {visibleDocuments.length === 0 && (
+              <EmptyState title="No documents match">Widen the filters above to see the rest of the library.</EmptyState>
+            )}
             {visibleDocuments.map((doc) => (
               <SafetyDocumentLink key={doc.id} doc={doc} />
             ))}
-          </div>
+          </Card>
         </>
       )}
     </div>

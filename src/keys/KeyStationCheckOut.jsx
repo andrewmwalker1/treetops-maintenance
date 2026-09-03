@@ -1,19 +1,8 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useKeyCheckout, OTHER_CONTRACTOR } from "../lib/useKeyCheckout.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "12px 16px",
-  borderRadius: "12px",
-  border: `2px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "17px",
-  marginBottom: "14px",
-};
+import { colors } from "../lib/theme.js";
+import { Alert, Button, Card, Chip, IconArrowLeft, Input, PageHeader, Select } from "../ui/index.js";
 
 export default function KeyStationCheckOut() {
   const navigate = useNavigate();
@@ -49,128 +38,132 @@ export default function KeyStationCheckOut() {
 
   if (view === "done") {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Checked out</h1>
-        <p style={{ fontSize: "18px" }}>{locationLabel(selectedTag)} — logged.</p>
-        <button style={kioskButtonStyle} onClick={() => navigate("/keys")}>Done</button>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <PageHeader title="Checked out" />
+        <p style={{ fontSize: "var(--text-md)" }}>{locationLabel(selectedTag)} — logged.</p>
+        <Button variant="primary" size="kiosk" onClick={() => navigate("/keys")}>Done</Button>
       </div>
     );
   }
 
   if (view === "confirm") {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={backToSelect}>
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <Button onClick={backToSelect} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+          Back
+        </Button>
+        <PageHeader title={locationLabel(selectedTag)} />
 
-        <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
+        <Card pad="lg" style={{ marginBottom: "var(--space-4)" }}>
           {myContractor ? (
-            <p style={{ margin: 0, fontSize: "16px" }}>
+            <p style={{ margin: 0, fontSize: "var(--text-md)" }}>
               Checking out for <strong>{myContractor.name}</strong>.
             </p>
           ) : (
             <>
-              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Who's taking it?</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", marginBottom: "6px" }}>
+              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "var(--space-3)" }}>Who's taking it?</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                 {[
                   { value: "self", label: "Me" },
                   { value: "contractor", label: "Contractor" },
                   { value: "customer", label: "Customer" },
                   { value: "guest", label: "Guest" },
                 ].map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => setIssuedToKind(opt.value)}
-                    style={{
-                      ...kioskSecondaryButtonStyle,
-                      width: "auto",
-                      padding: "10px 18px",
-                      fontSize: "16px",
-                      background: issuedToKind === opt.value ? colors.mossDark : "transparent",
-                      color: issuedToKind === opt.value ? colors.onDark : colors.mossDark,
-                    }}
-                  >
+                  <Chip key={opt.value} active={issuedToKind === opt.value} onClick={() => setIssuedToKind(opt.value)}>
                     {opt.label}
-                  </button>
+                  </Chip>
                 ))}
               </div>
 
               {issuedToKind === "contractor" && (
                 <>
-                  <select value={contractorChoice} onChange={(e) => setContractorChoice(e.target.value)} style={fieldStyle}>
+                  <Select
+                    value={contractorChoice}
+                    onChange={(e) => setContractorChoice(e.target.value)}
+                    aria-label="Contractor"
+                    className="tt-input--kiosk"
+                    style={{ marginBottom: "var(--space-4)" }}
+                  >
                     <option value="">Select a contractor…</option>
                     {contractors.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                     <option value={OTHER_CONTRACTOR}>Other…</option>
-                  </select>
+                  </Select>
                   {contractorChoice === OTHER_CONTRACTOR && (
-                    <input
+                    <Input
                       type="text"
                       value={contractorFreeText}
                       onChange={(e) => setContractorFreeText(e.target.value)}
                       placeholder="Contractor / company name"
-                      style={fieldStyle}
+                      aria-label="Contractor or company name"
+                      className="tt-input--kiosk"
                     />
                   )}
                 </>
               )}
 
               {(issuedToKind === "customer" || issuedToKind === "guest") && (
-                <input
+                <Input
                   type="text"
                   value={personName}
                   onChange={(e) => setPersonName(e.target.value)}
                   placeholder={issuedToKind === "guest" ? "Guest's name" : "Customer's name"}
-                  style={fieldStyle}
+                  aria-label="Name"
+                  className="tt-input--kiosk"
                 />
               )}
 
               {issuedToKind === "guest" && (
-                <label style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "15px", color: colors.inkSoft }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", color: colors.inkSoft }}>
                   <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "22px", height: "22px" }} />
                   Confirmed with the caravan owner
                 </label>
               )}
             </>
           )}
-        </div>
+        </Card>
 
-        <div style={{ ...kioskCardStyle, marginBottom: "16px" }}>
-          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px" }}>Reason</p>
+        <Card pad="lg" style={{ marginBottom: "var(--space-4)" }}>
+          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "var(--space-3)" }}>Reason</p>
           {reasonPresets.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
               {reasonPresets.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setReason(r.label)}
-                  style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "8px 14px", fontSize: "14px" }}
-                >
+                <Chip key={r.id} active={reason === r.label} onClick={() => setReason(r.label)}>
                   {r.label}
-                </button>
+                </Chip>
               ))}
             </div>
           )}
-          <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for taking this key" style={fieldStyle} />
-        </div>
+          <Input
+            type="text"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason for taking this key"
+            aria-label="Reason for taking this key"
+            className="tt-input--kiosk"
+          />
+        </Card>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
-        <button style={{ ...kioskButtonStyle, opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
+        <Button variant="primary" size="kiosk" onClick={handleSubmit} loading={submitting} disabled={!canSubmit}>
           {submitting ? "Checking out…" : "Check out"}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => navigate("/keys")}>
-        ← Menu
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Check out a key</h1>
+    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+        Menu
+      </Button>
+      <PageHeader title="Check out a key" />
       <KeySelector
         tags={availableTags}
         onPick={(tag) => {

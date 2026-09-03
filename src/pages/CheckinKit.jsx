@@ -7,7 +7,7 @@ import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 // so someone like Hazel can check a strimmer back in from her own phone
 // without needing to be stood at the kiosk terminal -- matches CheckoutKit.jsx
 // (equipment checkout/check-in has never been role-gated, unlike keys).
-// Styled for the normal app (theme.js, not kioskTheme.js) since this lives
+// Styled for the normal app rather than the kiosk, since this lives
 // inside Layout's ordinary chrome, not a full-screen kiosk takeover.
 const listButtonStyle = {
   ...buttonStyle.secondary,
@@ -50,7 +50,11 @@ export default function CheckinKit() {
           {selected.length > 1 ? `Checking in ${selected.length}` : selected[0]?.equipment.name}
         </h1>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         {reportingCheckout ? (
           <>
@@ -68,9 +72,7 @@ export default function CheckinKit() {
           <>
             {selected.length > 1 && (
               <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-                <h2 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>
-                  Checking in {selected.length}
-                </h2>
+                <PageHeader title="Checking in {selected.length}" level={2} />
                 {selected.map((c) => (
                   <div
                     key={c.id}
@@ -123,7 +125,11 @@ export default function CheckinKit() {
   return (
     <div style={{ maxWidth: "560px" }}>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Check-in kit</h1>
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
+      {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
       {checkouts.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing currently checked out to you.</p>}
       <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
         {checkouts.map((c) =>

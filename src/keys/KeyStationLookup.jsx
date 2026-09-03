@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useKeyLookup, summarizeKeyEvent } from "../lib/useKeyLookup.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
+import { colors } from "../lib/theme.js";
+import { Alert, Button, Card, IconArrowLeft, PageHeader, SkeletonList } from "../ui/index.js";
 
 // The non-admin "where's this key" view Andy asked for: shows only the
 // single most recent event, not the full history (that's the admin
@@ -13,40 +13,41 @@ export default function KeyStationLookup() {
 
   if (selectedTag) {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button
-          style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }}
-          onClick={backToSelect}
-        >
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
-        <div style={kioskCardStyle}>
-          {error && <p style={{ color: colors.immediate }}>{error}</p>}
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <Button onClick={backToSelect} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+          Back
+        </Button>
+        <PageHeader title={locationLabel(selectedTag)} />
+        <Card pad="lg">
+          {error && (
+            <Alert tone="danger" title="Something went wrong">
+              {error}
+            </Alert>
+          )}
           {selectedTag.isHistorical ? (
-            <p style={{ fontSize: "17px", margin: 0 }}>
+            <p style={{ fontSize: "var(--text-md)", margin: 0 }}>
               Handed over to {selectedTag.handed_over_to || "—"} on {new Date(selectedTag.created_at).toLocaleDateString("en-GB")}.
               {selectedTag.handed_over_notes && <> {selectedTag.handed_over_notes}</>}
               <br />
-              <span style={{ color: colors.inkSoft, fontSize: "14px" }}>This key is gone — no tag on file for it anymore. Other keys for this pitch, if any, are separate results in the search list.</span>
+              <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>This key is gone — no tag on file for it anymore. Other keys for this pitch, if any, are separate results in the search list.</span>
             </p>
           ) : (
             <>
-              {lastEvent === undefined && !error && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-              {lastEvent !== undefined && <p style={{ fontSize: "17px", margin: 0 }}>{summarizeKeyEvent(lastEvent)}</p>}
+              {lastEvent === undefined && !error && <SkeletonList rows={1} height={24} />}
+              {lastEvent !== undefined && <p style={{ fontSize: "var(--text-md)", margin: 0 }}>{summarizeKeyEvent(lastEvent)}</p>}
             </>
           )}
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => navigate("/keys")}>
-        ← Menu
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Find a key</h1>
+    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+        Menu
+      </Button>
+      <PageHeader title="Find a key" />
       <KeySelector tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised." />
     </div>
   );

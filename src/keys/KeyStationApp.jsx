@@ -9,8 +9,8 @@ import KeyStationLookup from "./KeyStationLookup.jsx";
 import KeyStationRelocate from "./KeyStationRelocate.jsx";
 import KeyStationForceCheckIn from "./KeyStationForceCheckIn.jsx";
 import KeyStationHandover from "./KeyStationHandover.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskPageStyle, kioskDangerButtonStyle } from "../kiosk/kioskTheme.js";
+import { colors } from "../lib/theme.js";
+import { Button, SkeletonList } from "../ui/index.js";
 
 // Same reasoning as KioskApp.jsx's idle timer -- a shared, unattended
 // terminal shouldn't stay signed in under the wrong identity indefinitely.
@@ -40,8 +40,8 @@ export default function KeyStationApp() {
 
   if (!activeSite) {
     return (
-      <div style={{ ...kioskPageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p>Loading…</p>
+      <div className="tt-kiosk-page" style={{ padding: "var(--space-7)" }}>
+        <SkeletonList rows={3} height={88} />
       </div>
     );
   }
@@ -55,19 +55,29 @@ export default function KeyStationApp() {
   // actually know the answer is no, not while it's still loading.
   if (permissions.size > 0 && !permissions.has("can_use_key_system")) {
     return (
-      <div style={{ ...kioskPageStyle, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "24px", textAlign: "center" }}>
-        <p style={{ fontFamily: fonts.body, fontSize: "18px", color: colors.inkSoft, maxWidth: "360px" }}>
+      <div
+        className="tt-kiosk-page"
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "var(--space-6)",
+          textAlign: "center",
+        }}
+      >
+        <p style={{ fontSize: "var(--text-md)", color: colors.inkSoft, maxWidth: "360px" }}>
           This account doesn't have access to the key system.
         </p>
-        <button style={{ ...kioskDangerButtonStyle, marginTop: "20px", width: "auto", padding: "14px 28px" }} onClick={() => signOut()}>
+        <Button variant="danger" size="lg" onClick={() => signOut()} style={{ marginTop: "var(--space-5)" }}>
           Sign out
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} style={kioskPageStyle}>
+    <div ref={containerRef} className="tt-kiosk-page">
       <Routes>
         <Route path="/keys" element={<KeyStationMenu />} />
         <Route path="/keys/checkout" element={<KeyStationCheckOut />} />

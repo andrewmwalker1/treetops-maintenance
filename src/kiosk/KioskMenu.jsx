@@ -6,7 +6,7 @@ import { IconEquipment, IconJobs, IconSafety } from "../ui/icons.jsx";
 // The workshop touchscreen's home. Renders through the same
 // <ActionList>/<Action> as KeysHome and MeterReadingHome, at size="kiosk"
 // -- a walk-up screen needs much bigger targets, but it should not be a
-// separate design language, which is what kioskTheme.js had made it.
+// separate design language, which is what the old kioskTheme.js had made it.
 export default function KioskMenu() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();

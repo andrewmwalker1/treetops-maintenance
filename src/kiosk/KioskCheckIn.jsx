@@ -2,8 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useEquipmentCheckin } from "../lib/useEquipmentCheckin.js";
 import ReportIssueForm from "./ReportIssueForm.jsx";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskDangerButtonStyle } from "./kioskTheme.js";
+import { colors } from "../lib/theme.js";
+import { Alert, Button, EmptyState, IconArrowLeft, PageHeader } from "../ui/index.js";
 
 export default function KioskCheckIn() {
   const navigate = useNavigate();
@@ -28,22 +28,21 @@ export default function KioskCheckIn() {
     const reportingCheckout = reportingIssueFor ? selected.find((c) => c.id === reportingIssueFor) : null;
 
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button
-          style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }}
-          onClick={backToList}
-        >
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>
-          {selected.length > 1 ? `Checking in ${selected.length}` : selected[0]?.equipment.name}
-        </h1>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <Button onClick={backToList} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+          Back
+        </Button>
+        <PageHeader title={selected.length > 1 ? `Checking in ${selected.length}` : selected[0]?.equipment.name} />
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         {reportingCheckout ? (
           <>
-            <p style={{ fontFamily: fonts.body, fontSize: "16px", color: colors.inkSoft }}>
+            <p style={{ fontSize: "var(--text-md)", color: colors.inkSoft }}>
               Reporting an issue with <strong>{reportingCheckout.equipment.name}</strong>
             </p>
             <ReportIssueForm
@@ -56,7 +55,7 @@ export default function KioskCheckIn() {
         ) : (
           <>
             {selected.length > 1 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
                 {selected.map((c) => (
                   <div
                     key={c.id}
@@ -64,34 +63,29 @@ export default function KioskCheckIn() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      padding: "8px 0",
+                      gap: "var(--space-3)",
+                      padding: "var(--space-2) 0",
                       borderBottom: `1px solid ${colors.line}`,
                     }}
                   >
-                    <span style={{ fontSize: "17px" }}>{c.equipment.name}</span>
-                    <button
-                      onClick={() => setReportingIssueFor(c.id)}
-                      disabled={busy}
-                      style={{ background: "none", border: "none", color: colors.immediate, fontSize: "14px", textDecoration: "underline", cursor: "pointer" }}
-                    >
+                    <span style={{ fontSize: "var(--text-md)" }}>{c.equipment.name}</span>
+                    <Button variant="danger" size="sm" onClick={() => setReportingIssueFor(c.id)} disabled={busy}>
                       Report issue
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
 
-            <p style={{ fontFamily: fonts.body, fontSize: "18px", color: colors.ink, marginTop: 0 }}>
-              Is the Kit clean and free from issues?
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-              <button style={kioskButtonStyle} onClick={handleConfirmClean} disabled={busy}>
+            <p style={{ fontSize: "var(--text-md)", color: colors.ink, marginTop: 0 }}>Is the Kit clean and free from issues?</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+              <Button variant="primary" size="kiosk" onClick={handleConfirmClean} loading={busy}>
                 {busy ? "Checking in…" : selected.length > 1 ? `Yes, check in all (${selected.length})` : "Yes"}
-              </button>
+              </Button>
               {selected.length === 1 && (
-                <button style={kioskDangerButtonStyle} onClick={() => setReportingIssueFor(selected[0].id)} disabled={busy}>
+                <Button variant="danger" size="kiosk" onClick={() => setReportingIssueFor(selected[0].id)} disabled={busy}>
                   Report an Issue
-                </button>
+                </Button>
               )}
             </div>
           </>
@@ -105,31 +99,36 @@ export default function KioskCheckIn() {
   ].sort((a, b) => a.title.localeCompare(b.title));
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto", paddingBottom: selectedIds.size > 0 ? "110px" : "24px", boxSizing: "border-box" }}>
-      <button
-        style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }}
-        onClick={() => navigate("/kiosk")}
-      >
-        ← Menu
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Check-in Kit</h1>
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
-      {checkouts.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing currently checked out to you.</p>}
-      <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+    <div
+      style={{
+        padding: "var(--space-6)",
+        maxWidth: "640px",
+        margin: "0 auto",
+        paddingBottom: selectedIds.size > 0 ? "110px" : "var(--space-6)",
+        boxSizing: "border-box",
+      }}
+    >
+      <Button onClick={() => navigate("/kiosk")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+        Menu
+      </Button>
+      <PageHeader title="Check-in Kit" />
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
+      {checkouts.length === 0 && <EmptyState title="Nothing to check in">Nothing is currently checked out to you.</EmptyState>}
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
         {checkouts.map((c) =>
           c.equipment.equipment_type?.allow_multi_checkout ? (
+            // A multi-checkout type ticks many, then continues, so its row
+            // is a label wrapping a checkbox rather than a button -- but it
+            // wears the same kiosk button sizing so the list reads as one
+            // set of targets.
             <label
               key={c.id}
-              style={{
-                ...kioskButtonStyle,
-                background: selectedIds.has(c.id) ? colors.mossDark : "transparent",
-                color: selectedIds.has(c.id) ? colors.onDark : colors.mossDark,
-                border: `2px solid ${colors.mossDark}`,
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
-                cursor: "pointer",
-              }}
+              className={`tt-btn tt-btn--kiosk ${selectedIds.has(c.id) ? "tt-btn--primary" : "tt-btn--secondary"}`}
+              style={{ justifyContent: "flex-start", gap: "var(--space-4)", cursor: "pointer" }}
             >
               <input
                 type="checkbox"
@@ -140,14 +139,16 @@ export default function KioskCheckIn() {
               {c.equipment.name}
             </label>
           ) : (
-            <button key={c.id} style={kioskButtonStyle} onClick={() => openSingle(c)}>{c.equipment.name}</button>
+            <Button key={c.id} variant="primary" size="kiosk" onClick={() => openSingle(c)}>
+              {c.equipment.name}
+            </Button>
           )
         )}
       </div>
 
       {documents.length > 0 && (
-        <div style={{ marginTop: "24px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginBottom: "8px" }}>Health &amp; Safety</h2>
+        <div style={{ marginTop: "var(--space-6)" }}>
+          <PageHeader title="Health & safety" level={2} />
           {documents.map((doc) => (
             <SafetyDocumentLink key={doc.id} doc={doc} variant="kiosk-button" />
           ))}
@@ -161,18 +162,20 @@ export default function KioskCheckIn() {
             left: 0,
             right: 0,
             bottom: 0,
-            padding: "16px 24px",
+            padding: "var(--space-4) var(--space-6)",
             background: colors.paper,
             borderTop: `1px solid ${colors.line}`,
             boxSizing: "border-box",
           }}
         >
-          <button
-            style={{ ...kioskButtonStyle, maxWidth: "592px", margin: "0 auto", display: "block" }}
+          <Button
+            variant="primary"
+            size="kiosk"
             onClick={proceedWithSelected}
+            style={{ maxWidth: "592px", margin: "0 auto", display: "flex" }}
           >
             Continue ({selectedIds.size})
-          </button>
+          </Button>
         </div>
       )}
     </div>

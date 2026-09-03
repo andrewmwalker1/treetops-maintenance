@@ -3,8 +3,8 @@ import { usePermissions } from "../lib/permissions.js";
 import { useKeyForceCheckIn } from "../lib/useKeyForceCheckIn.js";
 import { issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "./KeySelector.jsx";
-import { colors, fonts } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "../kiosk/kioskTheme.js";
+import { colors } from "../lib/theme.js";
+import { Alert, Button, Card, IconArrowLeft, PageHeader } from "../ui/index.js";
 
 // A separate, can_manage_keys-gated path from ordinary check-in
 // (KeyStationCheckIn.jsx, open to anyone with can_use_key_system) --
@@ -18,19 +18,19 @@ export default function KeyStationForceCheckIn() {
 
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <p style={{ color: colors.inkSoft, fontSize: "17px" }}>This account doesn't have access to force a key check-in.</p>
-        <button style={kioskSecondaryButtonStyle} onClick={() => navigate("/keys")}>← Menu</button>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <p style={{ color: colors.inkSoft, fontSize: "var(--text-md)" }}>This account doesn't have access to force a key check-in.</p>
+        <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />}>Menu</Button>
       </div>
     );
   }
 
   if (view === "done") {
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Checked in</h1>
-        <p style={{ fontSize: "18px" }}>{locationLabel(selected)} — force checked in.</p>
-        <button style={kioskButtonStyle} onClick={() => navigate("/keys")}>Done</button>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <PageHeader title="Checked in" />
+        <p style={{ fontSize: "var(--text-md)" }}>{locationLabel(selected)} — force checked in.</p>
+        <Button variant="primary" size="kiosk" onClick={() => navigate("/keys")}>Done</Button>
       </div>
     );
   }
@@ -38,36 +38,44 @@ export default function KeyStationForceCheckIn() {
   if (view === "confirm") {
     const c = selected.checkout;
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={backToSelect}>
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>{locationLabel(selected)}</h1>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <Button onClick={backToSelect} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+          Back
+        </Button>
+        <PageHeader title={locationLabel(selected)} />
 
-        <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
-          <p style={{ margin: "4px 0", fontSize: "17px" }}>Out to <strong>{issuedToSummary(c)}</strong></p>
-          <p style={{ margin: "4px 0", fontSize: "17px" }}>Reason: {c.reason}</p>
-          <p style={{ margin: "4px 0", fontSize: "15px", color: colors.inkSoft }}>
+        <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
+          <p style={{ margin: "var(--space-1) 0", fontSize: "var(--text-md)" }}>Out to <strong>{issuedToSummary(c)}</strong></p>
+          <p style={{ margin: "var(--space-1) 0", fontSize: "var(--text-md)" }}>Reason: {c.reason}</p>
+          <p style={{ margin: "var(--space-1) 0", fontSize: "var(--text-base)", color: colors.inkSoft }}>
             Checked out {new Date(c.checked_out_at).toLocaleString("en-GB")} by {c.checked_out_by_profile?.display_name || "—"}
           </p>
-        </div>
+        </Card>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
-        <button style={kioskButtonStyle} onClick={handleConfirm} disabled={submitting}>
+        <Button variant="primary" size="kiosk" onClick={handleConfirm} loading={submitting}>
           {submitting ? "Checking in…" : "Force check-in"}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => navigate("/keys")}>
-        ← Menu
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Force check-in</h1>
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
+    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <Button onClick={() => navigate("/keys")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+        Menu
+      </Button>
+      <PageHeader title="Force check-in" />
+      {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
       <KeySelector tags={openTags} onPick={pickTag} notFoundMessage="That key isn't currently checked out." />
       {openTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently checked out.</p>}
     </div>

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
 import RfidScanListener from "../components/RfidScanListener.jsx";
 import { colors, fonts } from "../lib/theme.js";
-import { kioskPageStyle } from "../kiosk/kioskTheme.js";
+import { Alert } from "../ui/index.js";
 
 // Identical shape to KioskSignIn.jsx, just posting/flagging context:
 // "key_station" -- see App.jsx for how the resulting claim, not this URL,
@@ -37,30 +37,30 @@ export default function KeyStationSignIn() {
     <div
       ref={containerRef}
       onClick={() => containerRef.current?.querySelector("input")?.focus()}
+      className="tt-kiosk-page"
       style={{
-        ...kioskPageStyle,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         textAlign: "center",
-        padding: "24px",
+        padding: "var(--space-6)",
       }}
     >
       <RfidScanListener onScan={handleScan} disabled={status === "checking"} />
 
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "32px", marginBottom: "12px" }}>
+      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "var(--text-2xl)", marginBottom: "var(--space-3)" }}>
         Tree Tops Key Station
       </h1>
 
-      {status === "checking" ? (
-        <p style={{ fontSize: "20px", color: colors.inkSoft }}>Signing in…</p>
-      ) : (
-        <p style={{ fontSize: "20px", color: colors.inkSoft }}>Scan your fob to sign in</p>
-      )}
+      <p style={{ fontSize: "var(--text-lg)", color: colors.inkSoft }}>
+        {status === "checking" ? "Signing in…" : "Scan your fob to sign in"}
+      </p>
 
       {error && (
-        <p style={{ fontSize: "16px", color: colors.immediate, marginTop: "16px", maxWidth: "480px" }}>{error}</p>
+        <Alert tone="danger" title="Sign-in failed" style={{ marginTop: "var(--space-4)", maxWidth: "480px", textAlign: "left" }}>
+          {error}
+        </Alert>
       )}
     </div>
   );

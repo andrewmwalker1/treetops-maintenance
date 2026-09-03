@@ -7,7 +7,7 @@ import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
 // so someone like Hazel can check out a pitch key from her own phone
 // without needing to be stood at the cupboard -- matches CheckoutKit.jsx's
 // relationship to KioskCheckOut.jsx. Styled for the normal app (theme.js,
-// not kioskTheme.js) since this lives inside Layout's ordinary chrome, not
+// not the kiosk) since this lives inside Layout's ordinary chrome, not
 // a full-screen kiosk takeover.
 const listButtonStyle = {
   ...buttonStyle.secondary,
@@ -168,7 +168,11 @@ export default function CheckOutKey() {
           <input type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason for taking this key" style={fieldStyle} />
         </div>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         <button style={{ ...buttonStyle.primary, width: "100%", opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
           {submitting ? "Checking out…" : "Check out"}
@@ -184,9 +188,8 @@ export default function CheckOutKey() {
       </button>
       <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Check out a key</h1>
       <KeySelector
+        size="normal"
         tags={availableTags}
-        resultStyle={listButtonStyle}
-        fieldStyle={fieldStyle}
         onPick={(tag) => {
           if (openTagIds.has(tag.id)) {
             setError("This key is already checked out.");

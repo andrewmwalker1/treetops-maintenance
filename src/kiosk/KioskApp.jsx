@@ -6,8 +6,8 @@ import KioskJobs from "./KioskJobs.jsx";
 import KioskCheckOut from "./KioskCheckOut.jsx";
 import KioskCheckIn from "./KioskCheckIn.jsx";
 import KioskSafety from "./KioskSafety.jsx";
-import { kioskPageStyle } from "./kioskTheme.js";
 import { colors, fonts } from "../lib/theme.js";
+import { SkeletonList } from "../ui/index.js";
 
 // Idle sign-out: staff don't have to re-tap between quick consecutive
 // actions, but a forgotten sign-out on a shared kiosk doesn't stay open
@@ -38,14 +38,14 @@ export default function KioskApp() {
 
   if (!activeSite) {
     return (
-      <div style={{ ...kioskPageStyle, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p>Loading…</p>
+      <div className="tt-kiosk-page" style={{ padding: "var(--space-7)" }}>
+        <SkeletonList rows={3} height={88} />
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} style={kioskPageStyle}>
+    <div ref={containerRef} className="tt-kiosk-page">
       <Routes>
         <Route path="/kiosk" element={<KioskMenu />} />
         <Route path="/kiosk/jobs" element={<KioskJobs />} />
@@ -64,7 +64,7 @@ export default function KioskApp() {
           bottom: "4px",
           right: "10px",
           fontFamily: fonts.mono,
-          fontSize: "10px",
+          fontSize: "var(--text-xs)",
           color: colors.inkSoft,
           opacity: 0.65,
           pointerEvents: "none",

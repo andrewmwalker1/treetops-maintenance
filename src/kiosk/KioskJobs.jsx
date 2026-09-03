@@ -10,7 +10,7 @@ import { capturePhoto } from "../platform/camera.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
 import { colors, fonts, statusColor, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
-import { kioskButtonStyle, kioskSecondaryButtonStyle, kioskCardStyle } from "./kioskTheme.js";
+import { Alert, Button, Card, Chip, EmptyState, Field, IconArrowLeft, IconFilter, PageHeader, SkeletonList, Textarea } from "../ui/index.js";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -40,23 +40,26 @@ function JobRow({ job, terminology = {}, onClick }) {
     : null;
 
   return (
-    <button
+    <Card
+      as="button"
+      type="button"
+      interactive
+      pad="lg"
       onClick={onClick}
       style={{
-        ...kioskCardStyle,
         display: "flex",
-        gap: "12px",
+        gap: "var(--space-3)",
         width: "100%",
         textAlign: "left",
-        marginBottom: "14px",
-        cursor: "pointer",
+        marginBottom: "var(--space-4)",
         font: "inherit",
+        color: "inherit",
       }}
     >
       <div style={priorityBarStyle(job.priority)} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "flex-start" }}>
-          <span ref={descRef} style={{ fontWeight: 700, fontSize: "18px" }}>{job.description}</span>
+          <span ref={descRef} style={{ fontWeight: 700, fontSize: "var(--text-md)" }}>{job.description}</span>
           {wrapped ? (
             <span
               title={job.job_status?.name}
@@ -67,7 +70,7 @@ function JobRow({ job, terminology = {}, onClick }) {
           )}
         </div>
         {(location || job.assignee || job.assignee_group || job.assignee_contractor || job.due_date) && (
-          <div style={{ fontSize: "14px", color: colors.inkSoft, marginTop: "6px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ fontSize: "var(--text-base)", color: colors.inkSoft, marginTop: "var(--space-2)", display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
             {location && <span>{location}</span>}
             {job.assignee && <span>{job.assignee.display_name}</span>}
             {job.assignee_group && <span>{job.assignee_group.name}</span>}
@@ -76,29 +79,10 @@ function JobRow({ job, terminology = {}, onClick }) {
           </div>
         )}
       </div>
-    </button>
+    </Card>
   );
 }
 
-function FilterChip({ active, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        border: `2px solid ${active ? colors.mossDark : colors.lineStrong}`,
-        background: active ? colors.mossDark : "transparent",
-        color: active ? colors.onDark : colors.inkSoft,
-        borderRadius: "999px",
-        padding: "8px 16px",
-        fontFamily: fonts.body,
-        fontSize: "15px",
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
-}
 
 export default function KioskJobs() {
   const navigate = useNavigate();
@@ -277,48 +261,47 @@ export default function KioskJobs() {
   if (selectedJob) {
     const isCompleted = selectedJob.job_status?.is_completed;
     return (
-      <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px", marginBottom: "20px" }} onClick={() => setSelectedJob(null)}>
-          ← Back
-        </button>
+      <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+        <Button onClick={() => setSelectedJob(null)} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
+          Back
+        </Button>
 
-        <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
-          <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
+        <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
+          <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "flex-start" }}>
             <div style={priorityBarStyle(selectedJob.priority)} />
-            <div style={{ flex: 1 }}>
-              <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "22px", margin: "0 0 8px" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "var(--text-lg)", margin: "0 0 var(--space-2)" }}>
                 {selectedJob.description}
               </h1>
               <span style={statusPillStyle(selectedJob.job_status?.name)}>{selectedJob.job_status?.name}</span>
               {selectedJob.due_date && (
-                <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "14px" }}>Due {selectedJob.due_date}</p>
+                <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "var(--text-base)" }}>Due {selectedJob.due_date}</p>
               )}
             </div>
           </div>
-        </div>
+        </Card>
 
         {activityTypes.length > 0 && (
-          <div style={{ ...kioskCardStyle, marginBottom: "20px", border: `2px solid ${colors.immediate}` }}>
-            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.immediate, marginTop: 0 }}>⚠ Safety</h2>
+          <Alert tone="danger" title="Safety" style={{ marginBottom: "var(--space-5)" }}>
             {activityTypes.map((t) => (
-              <div key={t.id} style={{ marginBottom: "10px" }}>
-                <div style={{ fontWeight: 700, fontSize: "16px" }}>{t.name}</div>
+              <div key={t.id} style={{ marginBottom: "var(--space-3)" }}>
+                <div style={{ fontWeight: 700 }}>{t.name}</div>
                 {(documentsByActivityType[t.id] || []).length === 0 && (
-                  <p style={{ color: colors.inkSoft, fontSize: "14px", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
+                  <p style={{ color: colors.inkSoft, fontSize: "var(--text-base)", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
                 )}
                 {(documentsByActivityType[t.id] || []).map((doc) => (
                   <SafetyDocumentLink key={doc.id} doc={doc} />
                 ))}
               </div>
             ))}
-          </div>
+          </Alert>
         )}
 
-        <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Checklist</h2>
-          {subtasks.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "16px" }}>No checklist items.</p>}
+        <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
+          <PageHeader title="Checklist" level={2} />
+          {subtasks.length === 0 && <p style={{ color: colors.inkSoft }}>No checklist items.</p>}
           {subtasks.map((s) => (
-            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 0", fontSize: "16px", cursor: "pointer" }}>
+            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", padding: "var(--space-3) 0", fontSize: "var(--text-md)", cursor: "pointer" }}>
               <input
                 type="checkbox"
                 checked={s.is_checked}
@@ -330,33 +313,37 @@ export default function KioskJobs() {
               </span>
             </label>
           ))}
-        </div>
+        </Card>
 
-        {error && <p style={{ color: colors.immediate }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         {(photos.length > 0 || !isCompleted) && (
-          <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
-            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Photos</h2>
+          <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
+            <PageHeader title="Photos" level={2} />
             {selectedJob.requires_photo && photos.length === 0 && (
-              <p style={{ color: colors.immediate, fontSize: "14px", marginTop: 0 }}>Photo required before this job can be completed.</p>
+              <Alert tone="warn">Photo required before this job can be completed.</Alert>
             )}
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
               {photos.map((p) => (
                 <PhotoThumb key={p.id} path={p.storage_path} size={72} />
               ))}
             </div>
             {!isCompleted && (
-              <button type="button" style={kioskSecondaryButtonStyle} onClick={handleAddPhoto} disabled={uploadingPhoto}>
+              <Button size="kiosk" onClick={handleAddPhoto} loading={uploadingPhoto}>
                 {uploadingPhoto ? "Uploading…" : "Add photo"}
-              </button>
+              </Button>
             )}
-          </div>
+          </Card>
         )}
 
         {!isCompleted && (
-          <div style={{ ...kioskCardStyle, marginBottom: "20px" }}>
-            <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Progress update</h2>
-            <p style={{ fontSize: "36px", fontWeight: 700, color: colors.mossDark, textAlign: "center", margin: "0 0 8px" }}>
+          <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
+            <PageHeader title="Progress update" level={2} />
+            <p style={{ fontSize: "var(--text-2xl)", fontWeight: 700, color: colors.mossDark, textAlign: "center", margin: "0 0 var(--space-2)" }}>
               {progressPercent}%
             </p>
             <input
@@ -365,55 +352,47 @@ export default function KioskJobs() {
               max="100"
               step="5"
               value={progressPercent}
+              aria-label="Progress percentage"
               onChange={(e) => {
                 setProgressPercent(Number(e.target.value));
                 setProgressLogged(false);
               }}
               style={{ width: "100%", height: "32px" }}
             />
-            <button
-              type="button"
-              style={{ ...kioskSecondaryButtonStyle, width: "100%", marginTop: "12px" }}
-              onClick={handleLogProgress}
-              disabled={loggingProgress}
-            >
+            <Button size="kiosk" loading={loggingProgress} onClick={handleLogProgress} style={{ marginTop: "var(--space-3)" }}>
               {loggingProgress ? "Logging…" : progressLogged ? "Logged ✓" : "Log update"}
-            </button>
-          </div>
+            </Button>
+          </Card>
         )}
 
         {!isCompleted && (
           <>
-            <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: colors.inkSoft, marginBottom: "8px" }}>
-              Comment (optional)
-            </label>
-            <textarea
-              value={completeComment}
-              onChange={(e) => setCompleteComment(e.target.value)}
-              rows={3}
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "14px",
-                borderRadius: "12px",
-                border: `1px solid ${colors.lineStrong}`,
-                fontFamily: fonts.body,
-                fontSize: "16px",
-                marginBottom: "20px",
-              }}
-            />
+            <Field label="Comment (optional)" style={{ marginBottom: "var(--space-5)" }}>
+              {({ id }) => (
+                <Textarea
+                  id={id}
+                  value={completeComment}
+                  onChange={(e) => setCompleteComment(e.target.value)}
+                  rows={3}
+                  className="tt-input--kiosk"
+                />
+              )}
+            </Field>
             {outstandingPhotoItems.length > 0 && (
-              <p style={{ color: colors.immediate, fontSize: "14px", textAlign: "center", marginBottom: "8px" }}>
-                {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.
-              </p>
+              <Alert tone="warn">
+                {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need
+                {outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.
+              </Alert>
             )}
-            <button
-              style={{ ...kioskButtonStyle, opacity: outstandingPhotoItems.length > 0 ? 0.5 : 1 }}
+            <Button
+              variant="primary"
+              size="kiosk"
               onClick={handleComplete}
-              disabled={completing || outstandingPhotoItems.length > 0}
+              loading={completing}
+              disabled={outstandingPhotoItems.length > 0}
             >
               {completing ? "Completing…" : "Mark job complete"}
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -421,29 +400,49 @@ export default function KioskJobs() {
   }
 
   return (
-    <div style={{ padding: "24px", maxWidth: "640px", margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
-        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px" }} onClick={() => navigate("/kiosk")}>
-          ← Menu
-        </button>
-        <button style={{ ...kioskSecondaryButtonStyle, width: "auto", padding: "10px 20px", fontSize: "16px" }} onClick={() => setShowFilters((v) => !v)}>
+    <div style={{ padding: "var(--space-6)", maxWidth: "640px", margin: "0 auto" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: "var(--space-3)",
+          marginBottom: "var(--space-5)",
+        }}
+      >
+        <Button onClick={() => navigate("/kiosk")} icon={<IconArrowLeft size={16} />}>
+          Menu
+        </Button>
+        <Button onClick={() => setShowFilters((v) => !v)} icon={<IconFilter size={16} />} aria-expanded={showFilters}>
           Filters{activeStatusId ? " •" : ""}
-        </button>
+        </Button>
       </div>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "26px", marginTop: 0 }}>Your jobs</h1>
+      <PageHeader title="Your jobs" />
 
       {showFilters && (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
-          <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="Open" />
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
+          <Chip active={activeStatusId === null} onClick={() => setActiveStatusId(null)}>
+            Open
+          </Chip>
           {statuses.map((s) => (
-            <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
+            <Chip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)}>
+              {s.name}
+            </Chip>
           ))}
         </div>
       )}
 
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
-      {!loading && jobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs to show.</p>}
+      {loading && <SkeletonList rows={4} height={96} />}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
+      {!loading && jobs.length === 0 && (
+        <EmptyState title="No jobs to show">
+          {activeStatusId ? "Nothing matches that filter." : "Nothing is outstanding for you right now."}
+        </EmptyState>
+      )}
 
       {jobs.map((job) => (
         <JobRow key={job.id} job={job} terminology={terminology} onClick={() => openJob(job)} />
