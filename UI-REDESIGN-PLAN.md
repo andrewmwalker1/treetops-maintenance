@@ -847,3 +847,20 @@ neither control had any of them before this fix. No signed-in screen was
 exercised — this banner only renders behind `can_manage_users` while
 actively viewing as someone else, which needs a real login and a
 deliberate action to reach.
+
+---
+
+## 8f. `check-styles.mjs` flipped to blocking (2026-09-03)
+
+The condition [8c](#8c-phase-6--guardrails-2026-09-03) set for this —
+"once it has run clean on a few pushes" — was met: three real code
+pushes since Phase 6 landed (1, 29, then 19 changed `.jsx` files, the
+latter two being the empty-state sweep and the `ViewAsControl.jsx` fix
+themselves) all ran clean, and [8e](#8e-viewascontroljsx-fix-2026-09-03)'s
+full-history run found zero violations anywhere in the repo. `continue-on-error: true`
+removed from the "Check styles" step in `deploy.yml`; a violation now
+fails the build.
+
+Still undecided, carried over from 8c: whether to widen the script to
+catch other literal-value patterns (px spacing, `rgba()` colours) now
+that it's load-bearing, or leave that as diminishing returns.
