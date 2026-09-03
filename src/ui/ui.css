@@ -1,0 +1,848 @@
+/* Styles for the shared primitives in src/ui/.
+   Every value comes from src/styles/tokens.css -- no literals here.
+
+   These are real CSS classes rather than inline style objects for one
+   reason: hover, focus, active and disabled states. An inline style cannot
+   express any of them, which is why the app had none before this file. */
+
+/* ===================== Button ===================== */
+.tt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--control-h);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.tt-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.tt-btn:disabled,
+.tt-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* A button mid-save is disabled, but it is not *unavailable* -- it keeps
+   its variant colour so it reads as "working", not "you can't use this".
+   Only genuinely disabled buttons grey out. */
+.tt-btn--loading:disabled,
+.tt-btn--loading[aria-disabled="true"] {
+  cursor: progress;
+}
+
+.tt-btn--primary {
+  background: var(--c-moss);
+  border-color: var(--c-moss);
+  color: var(--c-on-dark);
+}
+.tt-btn--primary:hover:not(:disabled) {
+  background: var(--c-moss-dark);
+  border-color: var(--c-moss-dark);
+}
+.tt-btn--primary:disabled {
+  background: var(--c-disabled-bg);
+  border-color: var(--c-disabled-bg);
+  color: var(--c-disabled-ink);
+}
+
+.tt-btn--secondary {
+  background: var(--c-paper);
+  border-color: var(--c-line-strong);
+  color: var(--c-moss-dark);
+}
+.tt-btn--secondary:hover:not(:disabled) {
+  background: var(--c-surface-hover);
+  border-color: var(--c-moss);
+}
+.tt-btn--secondary:disabled {
+  color: var(--c-disabled-ink);
+  border-color: var(--c-line);
+  background: var(--c-paper);
+}
+
+.tt-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--c-moss-dark);
+}
+.tt-btn--ghost:hover:not(:disabled) {
+  background: var(--c-surface-hover);
+}
+.tt-btn--ghost:disabled {
+  color: var(--c-disabled-ink);
+}
+
+.tt-btn--danger {
+  background: var(--c-danger-surface);
+  border-color: var(--c-danger-border);
+  color: var(--c-danger-ink);
+}
+.tt-btn--danger:hover:not(:disabled) {
+  background: var(--c-danger-ink);
+  border-color: var(--c-danger-ink);
+  color: var(--c-on-dark);
+}
+.tt-btn--danger:disabled {
+  color: var(--c-disabled-ink);
+  background: var(--c-paper);
+  border-color: var(--c-line);
+}
+
+/* Sizes. `sm` is for dense row actions; `lg` for the kiosk screens, where
+   the button IS the interface. */
+.tt-btn--sm {
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+.tt-btn--lg {
+  min-height: var(--control-h-lg);
+  padding: 0 var(--space-6);
+  font-size: var(--text-md);
+  border-radius: var(--radius-md);
+}
+.tt-btn--block {
+  width: 100%;
+}
+
+.tt-btn__spinner {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  opacity: 0.85;
+  animation: tt-spin 0.7s linear infinite;
+}
+@keyframes tt-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tt-btn__icon {
+  display: inline-flex;
+  flex: none;
+}
+
+/* ===================== IconButton ===================== */
+.tt-iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h);
+  height: var(--control-h);
+  flex: none;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-ink-soft);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.tt-iconbtn:hover:not(:disabled) {
+  background: var(--c-surface-hover);
+  color: var(--c-moss-dark);
+}
+.tt-iconbtn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-iconbtn--sm {
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
+}
+
+/* ===================== Inputs ===================== */
+.tt-input {
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
+}
+.tt-input:hover:not(:disabled):not(:focus) {
+  border-color: var(--c-ink-soft);
+}
+.tt-input:focus {
+  outline: none;
+  border-color: var(--c-moss);
+  box-shadow: var(--focus-ring-inset);
+}
+.tt-input:disabled {
+  background: var(--c-surface-sunken);
+  color: var(--c-disabled-ink);
+  cursor: not-allowed;
+}
+.tt-input--invalid,
+.tt-input[aria-invalid="true"] {
+  border-color: var(--c-priority-immediate);
+}
+.tt-input--invalid:focus,
+.tt-input[aria-invalid="true"]:focus {
+  border-color: var(--c-priority-immediate);
+  box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.13);
+}
+textarea.tt-input {
+  min-height: calc(var(--control-h) * 2);
+  line-height: var(--leading-normal);
+}
+/* Native select keeps its own arrow; just make room so text never sits
+   underneath it. */
+select.tt-input {
+  padding-right: var(--space-6);
+}
+
+/* ===================== Field ===================== */
+.tt-field {
+  display: block;
+}
+.tt-field__label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--c-ink);
+}
+.tt-field__required {
+  color: var(--c-priority-immediate);
+  font-weight: 400;
+}
+.tt-field__hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--c-ink-soft);
+}
+.tt-field__error {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--c-danger-ink);
+}
+.tt-fieldset {
+  display: grid;
+  gap: var(--space-4);
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* ===================== Card ===================== */
+.tt-card {
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+}
+.tt-card--pad {
+  padding: var(--space-4);
+}
+.tt-card--pad-sm {
+  padding: var(--space-3);
+}
+.tt-card--pad-lg {
+  padding: var(--space-5);
+}
+/* Only cards that are themselves a link or a button get the lift. */
+.tt-card--interactive {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease),
+    transform var(--dur-fast) var(--ease);
+}
+.tt-card--interactive:hover {
+  border-color: var(--c-line-strong);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-1px);
+}
+.tt-card--interactive:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ===================== Pill / Chip ===================== */
+.tt-pill {
+  display: inline-block;
+  padding: 3px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.tt-pill--solid {
+  color: var(--c-on-dark);
+}
+.tt-pill--info {
+  background: var(--c-info-surface);
+  border-color: var(--c-info-border);
+  color: var(--c-info-ink);
+}
+.tt-pill--warn {
+  background: var(--c-warn-surface);
+  border-color: var(--c-warn-border);
+  color: var(--c-warn-ink);
+}
+.tt-pill--danger {
+  background: var(--c-danger-surface);
+  border-color: var(--c-danger-border);
+  color: var(--c-danger-ink);
+}
+.tt-pill--ok {
+  background: var(--c-ok-surface);
+  border-color: var(--c-ok-border);
+  color: var(--c-ok-ink);
+}
+.tt-pill--neutral {
+  background: var(--c-surface-sunken);
+  border-color: var(--c-line);
+  color: var(--c-ink-soft);
+}
+
+.tt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-sm);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-full);
+  background: var(--c-paper);
+  color: var(--c-ink-soft);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  cursor: pointer;
+  flex: none;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    color var(--dur-fast) var(--ease);
+}
+.tt-chip:hover:not(:disabled) {
+  border-color: var(--c-moss);
+  color: var(--c-moss-dark);
+}
+.tt-chip:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-chip--active {
+  background: var(--c-moss-dark);
+  border-color: var(--c-moss-dark);
+  color: var(--c-on-dark);
+  font-weight: 600;
+}
+.tt-chip--active:hover {
+  background: var(--c-moss);
+  border-color: var(--c-moss);
+  color: var(--c-on-dark);
+}
+.tt-chip__count {
+  background: var(--c-moss);
+  color: var(--c-on-dark);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  padding: 1px 6px;
+}
+.tt-chip--active .tt-chip__count {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* ===================== PageHeader / Toolbar ===================== */
+.tt-pageheader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.tt-pageheader__title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--c-moss-dark);
+  margin: 0;
+  line-height: var(--leading-tight);
+}
+.tt-pageheader__title--sub {
+  font-size: var(--text-lg);
+}
+.tt-pageheader__subtitle {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--c-ink-soft);
+}
+.tt-pageheader__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.tt-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.tt-toolbar__spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===================== Table ===================== */
+.tt-tablewrap {
+  overflow-x: auto;
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+}
+.tt-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.tt-table th,
+.tt-table td {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+.tt-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-paper);
+  border-bottom: 1px solid var(--c-line-strong);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+  white-space: nowrap;
+}
+.tt-table tbody tr + tr td {
+  border-top: 1px solid var(--c-line);
+}
+.tt-table tbody tr:hover td {
+  background: var(--c-surface-hover);
+}
+.tt-table td.tt-num,
+.tt-table th.tt-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* A wide matrix (roles against permissions) needs its first column pinned
+   or it becomes unusable the moment it scrolls sideways. */
+.tt-table--stickyfirst td:first-child,
+.tt-table--stickyfirst th:first-child {
+  position: sticky;
+  left: 0;
+  background: var(--c-paper);
+  z-index: 2;
+  border-right: 1px solid var(--c-line);
+}
+.tt-table--stickyfirst thead th:first-child {
+  z-index: 3;
+}
+
+/* ===================== Alert ===================== */
+.tt-alert {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+.tt-alert__icon {
+  flex: none;
+  margin-top: 1px;
+}
+.tt-alert__body {
+  min-width: 0;
+}
+.tt-alert__title {
+  font-weight: 600;
+  margin: 0 0 2px;
+}
+.tt-alert p {
+  margin: 0;
+}
+.tt-alert--info {
+  background: var(--c-info-surface);
+  border-color: var(--c-info-border);
+  color: var(--c-info-ink);
+}
+.tt-alert--warn {
+  background: var(--c-warn-surface);
+  border-color: var(--c-warn-border);
+  color: var(--c-warn-ink);
+}
+.tt-alert--danger {
+  background: var(--c-danger-surface);
+  border-color: var(--c-danger-border);
+  color: var(--c-danger-ink);
+}
+.tt-alert--ok {
+  background: var(--c-ok-surface);
+  border-color: var(--c-ok-border);
+  color: var(--c-ok-ink);
+}
+
+/* ===================== EmptyState ===================== */
+.tt-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-3);
+  padding: var(--space-7) var(--space-4);
+  background: var(--c-paper);
+  border: 1px dashed var(--c-line-strong);
+  border-radius: var(--radius-md);
+  color: var(--c-ink-soft);
+}
+.tt-empty__icon {
+  color: var(--c-line-strong);
+}
+.tt-empty__title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  color: var(--c-ink);
+  margin: 0;
+}
+.tt-empty__body {
+  margin: 0;
+  font-size: var(--text-sm);
+  max-width: 46ch;
+}
+
+/* ===================== Skeleton ===================== */
+.tt-skeleton {
+  background: linear-gradient(90deg, var(--c-surface-sunken) 25%, var(--c-line) 37%, var(--c-surface-sunken) 63%);
+  background-size: 400% 100%;
+  border-radius: var(--radius-sm);
+  animation: tt-shimmer 1.4s ease infinite;
+}
+@keyframes tt-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+.tt-skeleton-stack {
+  display: grid;
+  gap: var(--space-2);
+}
+
+/* ===================== Modal ===================== */
+.tt-modal__scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: var(--c-scrim);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  overflow-y: auto;
+}
+.tt-modal {
+  width: 100%;
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  padding: var(--space-5);
+}
+.tt-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.tt-modal__title {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--c-moss-dark);
+  margin: 0;
+}
+.tt-modal__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+}
+
+/* ===================== Menu (popover) ===================== */
+.tt-menu__anchor {
+  position: relative;
+  display: inline-flex;
+}
+.tt-menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  z-index: 60;
+  min-width: 220px;
+  padding: var(--space-1);
+  background: var(--c-paper);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-overlay);
+  text-align: left;
+}
+.tt-menu--right {
+  right: 0;
+}
+.tt-menu--left {
+  left: 0;
+}
+.tt-menu__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+}
+.tt-menu__head {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--c-line);
+  margin-bottom: var(--space-1);
+}
+.tt-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+}
+.tt-menu__item:hover:not(:disabled) {
+  background: var(--c-surface-hover);
+}
+.tt-menu__item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-menu__item--danger {
+  color: var(--c-danger-ink);
+}
+.tt-menu__item--danger:hover:not(:disabled) {
+  background: var(--c-danger-surface);
+}
+.tt-menu__sep {
+  height: 1px;
+  background: var(--c-line);
+  margin: var(--space-1);
+}
+.tt-menu__meta {
+  font-size: var(--text-xs);
+  color: var(--c-ink-soft);
+}
+
+/* ===================== Switch ===================== */
+.tt-switch {
+  position: relative;
+  width: 36px;
+  height: 21px;
+  flex: none;
+  border: none;
+  padding: 0;
+  border-radius: var(--radius-full);
+  background: var(--c-line-strong);
+  cursor: pointer;
+  transition: background var(--dur) var(--ease);
+}
+.tt-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--c-on-dark);
+  transition: transform var(--dur) var(--ease);
+}
+.tt-switch[aria-checked="true"] {
+  background: var(--c-moss);
+}
+.tt-switch[aria-checked="true"]::after {
+  transform: translateX(15px);
+}
+.tt-switch:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* ===================== ActionList / ActionGrid ===================== */
+/* One component behind every "pick what you want to do" screen: the Keys
+   and Meters hub pages, and the kiosk and key-station menus. Those were
+   four separate implementations with four different type sizes. */
+.tt-actions {
+  display: grid;
+  gap: var(--space-3);
+}
+.tt-actions--grid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+.tt-action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--control-h);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--c-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease),
+    box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.tt-action:hover {
+  border-color: var(--c-moss);
+  background: var(--c-surface-hover);
+}
+.tt-action:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.tt-action:active {
+  transform: translateY(1px);
+}
+.tt-action--primary {
+  background: var(--c-moss);
+  border-color: var(--c-moss);
+  color: var(--c-on-dark);
+}
+.tt-action--primary:hover {
+  background: var(--c-moss-dark);
+  border-color: var(--c-moss-dark);
+}
+.tt-action--danger {
+  background: var(--c-danger-surface);
+  border-color: var(--c-danger-border);
+  color: var(--c-danger-ink);
+}
+.tt-action--danger:hover {
+  background: var(--c-danger-ink);
+  border-color: var(--c-danger-ink);
+  color: var(--c-on-dark);
+}
+.tt-action__icon {
+  flex: none;
+  display: inline-flex;
+}
+.tt-action__label {
+  min-width: 0;
+}
+.tt-action__desc {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 400;
+  opacity: 0.75;
+  margin-top: 2px;
+}
+/* Kiosk scale: a walk-up touchscreen, so the target IS the interface. */
+.tt-actions--kiosk .tt-action {
+  min-height: 88px;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  font-size: var(--text-lg);
+  border-width: 2px;
+}
+.tt-actions--kiosk .tt-action__desc {
+  font-size: var(--text-sm);
+}
+
+/* ===================== Section label ===================== */
+.tt-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--c-ink-soft);
+  margin: 0 0 var(--space-2);
+}
+
+/* ===================== Visually hidden ===================== */
+.tt-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Declared after the per-variant :disabled rules above so a loading button
+   keeps its own colour rather than the disabled grey. */
+.tt-btn--primary.tt-btn--loading:disabled {
+  background: var(--c-moss);
+  border-color: var(--c-moss);
+  color: var(--c-on-dark);
+}
+.tt-btn--secondary.tt-btn--loading:disabled {
+  background: var(--c-paper);
+  border-color: var(--c-line-strong);
+  color: var(--c-moss-dark);
+}
+.tt-btn--danger.tt-btn--loading:disabled {
+  background: var(--c-danger-surface);
+  border-color: var(--c-danger-border);
+  color: var(--c-danger-ink);
+}

@@ -49,11 +49,23 @@ function LazyRoute({ Component }) {
   );
 }
 
+// Specimen page for src/ui, at /ui-gallery. Lazy so it is only ever
+// fetched on request, and gated on import.meta.env.DEV below so it is not
+// reachable in a production build at all.
+const Gallery = lazy(() => import("./ui/Gallery.jsx"));
+
 function AppShell() {
   const { session, loading, deactivated, canAccessDesktop, signOut } = useAuth();
   const location = useLocation();
   const isKiosk = location.pathname.startsWith("/kiosk");
   const isKeyStation = location.pathname.startsWith("/keys");
+
+  // Ahead of every auth check below: the gallery renders pure presentation
+  // with no data, and needing a signed-in session to look at a button
+  // would defeat the point of having it.
+  if (import.meta.env.DEV && location.pathname === "/ui-gallery") {
+    return <LazyRoute Component={Gallery} />;
+  }
 
   // A session minted by an RFID scan carries login_context in its JWT
   // app_metadata: "kiosk" for the workshop terminal, "key_station" for the

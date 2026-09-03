@@ -167,25 +167,42 @@ export const cardStyle = {
   borderRadius: radius.md,
 };
 
+// Kept in step with `.tt-btn--primary` / `.tt-btn--secondary` in
+// src/ui/ui.css, so the ~40 screens still spreading these read as the same
+// control as the ones already converted to <Button>. They differ in one
+// way only, and it is the way that matters: these cannot carry a hover or
+// focus state. Prefer <Button> in new code, and convert on sight.
+//
+// `inline-flex` rather than the old default: many of these are spread onto
+// a <Link>, which is inline, so `minHeight` would otherwise do nothing.
+const buttonBase = {
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: space[2],
+  minHeight: "var(--control-h)",
+  padding: `0 ${space[4]}`,
+  borderRadius: radius.sm,
+  fontFamily: fonts.body,
+  fontSize: text.sm,
+  fontWeight: 600,
+  lineHeight: 1,
+  textDecoration: "none",
+  whiteSpace: "nowrap",
+  cursor: "pointer",
+};
+
 export const buttonStyle = {
   primary: {
+    ...buttonBase,
     background: colors.moss,
     color: colors.onDark,
-    border: "none",
-    borderRadius: radius.full,
-    padding: "10px 20px",
-    fontFamily: fonts.body,
-    fontWeight: 600,
-    cursor: "pointer",
+    border: `1px solid ${colors.moss}`,
   },
   secondary: {
-    background: "transparent",
+    ...buttonBase,
+    background: colors.paper,
     color: colors.mossDark,
     border: `1px solid ${colors.lineStrong}`,
-    borderRadius: radius.full,
-    padding: "10px 20px",
-    fontFamily: fonts.body,
-    fontWeight: 600,
-    cursor: "pointer",
   },
 };
