@@ -805,3 +805,45 @@ commit for real (not simulated), reports clean across all 29 changed
 files. `/ui-gallery` loads with no console errors. No signed-in screen
 was exercised — same caveat as every phase before this one; most of what
 changed here lives behind Admin, which needs a real login to see.
+
+---
+
+## 8e. `ViewAsControl.jsx` fix (2026-09-03)
+
+Applied on branch `ui-viewas-fix`, one commit. Closes the last item
+flagged back in 8b/8c — Andy was offered the options (a dedicated CSS
+class; a new global `Button` variant; recolour the banner to fit an
+existing variant; or leave it as a documented exception) and picked the
+dedicated-class route for both the banner's "Return to my view" button
+and its "View as…" select, which had the same problem and hadn't been
+flagged only because `check-styles.mjs` doesn't check selects.
+
+Neither became the shared `Button`/`Select` component. The button sits on
+the banner's own moss-dark surface, which none of `Button`'s four
+variants are built for, and reusing one via a `style` override would have
+permanently pinned that override over the CSS `:hover` rule — an inline
+style always wins over a stylesheet rule regardless of state — silently
+breaking the very thing this fix exists to add. The select needs to stay
+a quiet, transparent pill matching the avatar/statuschip pills either
+side of it in the header; `.tt-input` is a solid bordered box built for a
+form field and would have been a visible regression in the header if used
+as-is. Both got a small dedicated class pair in `Layout.css` instead —
+the same file every other piece of header chrome (avatar, statuschip, nav
+links, tab bar) already lives in — with real rest/hover/active/focus
+states neither had before, and the select's literal `fontSize: "13px"`
+is now a token.
+
+**Verification.** Production build. `check-styles.mjs` run against this
+commit finds zero issues in the one changed file — and, run against the
+entire repository history back to the initial scaffold commit, now finds
+zero issues anywhere, full stop. That was the one real violation it had
+found since Phase 6 first ran it. Computed-style checks in the browser
+confirmed both controls render pixel-identical to before (moss-dark
+banner, white/moss-dark inverted pill button, transparent bordered
+select) and that all five new interaction rules
+(`:hover`/`:focus-visible`/`:active` on the button, `:hover`/
+`:focus-visible` on the select) are present and resolve to real values —
+neither control had any of them before this fix. No signed-in screen was
+exercised — this banner only renders behind `can_manage_users` while
+actively viewing as someone else, which needs a real login and a
+deliberate action to reach.
