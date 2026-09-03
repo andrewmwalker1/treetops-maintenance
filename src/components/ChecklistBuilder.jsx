@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { colors, fonts, buttonStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import { Button, IconButton, Input } from "../ui/index.js";
 
 // Reusable ordered-list editor for checklist items — used for job
 // templates (admin) and for building/editing a job's actual checklist.
@@ -47,54 +48,52 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false, ca
 
   return (
     <div>
-      {items.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No checklist items.</p>}
+      {items.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>No checklist items.</p>}
       {items.map((item, i) => (
-        <div key={i} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0" }}>
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0" }}>
           {readOnly ? (
-            <span style={{ flex: 1, fontSize: "14px" }}>{item.label}</span>
+            <span style={{ flex: 1, fontSize: "var(--text-base)" }}>{item.label}</span>
           ) : (
-            <input
-              value={item.label}
-              onChange={(e) => editItem(i, e.target.value)}
-              style={{
-                flex: 1,
-                padding: "6px 10px",
-                borderRadius: "6px",
-                border: `1px solid ${colors.lineStrong}`,
-                fontFamily: fonts.body,
-                fontSize: "14px",
-              }}
-            />
+            <Input value={item.label} onChange={(e) => editItem(i, e.target.value)} aria-label={`Checklist item ${i + 1}`} style={{ flex: 1 }} />
           )}
           {canRequirePhoto && (
-            <button
-              type="button"
+            <IconButton
+              size="sm"
               onClick={() => toggleRequiresPhoto(i)}
               disabled={readOnly}
-              title={item.requiresPhoto ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
-              style={{
-                ...iconButtonStyle,
-                background: item.requiresPhoto ? colors.mossDark : "transparent",
-                color: item.requiresPhoto ? colors.onDark : colors.inkSoft,
-                borderColor: item.requiresPhoto ? colors.mossDark : colors.lineStrong,
-              }}
+              aria-pressed={item.requiresPhoto}
+              label={item.requiresPhoto ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
+              // The pressed state is the whole point of this control, so it
+              // gets a filled treatment rather than the icon button's
+              // default quiet one.
+              style={
+                item.requiresPhoto
+                  ? { background: colors.mossDark, color: colors.onDark, borderColor: colors.mossDark }
+                  : undefined
+              }
             >
               📷
-            </button>
+            </IconButton>
           )}
           {!readOnly && (
             <>
-              <button type="button" onClick={() => moveItem(i, -1)} disabled={i === 0} style={iconButtonStyle}>↑</button>
-              <button type="button" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1} style={iconButtonStyle}>↓</button>
-              <button type="button" onClick={() => removeItem(i)} style={{ ...iconButtonStyle, color: colors.immediate }}>✕</button>
+              <IconButton size="sm" label="Move up" onClick={() => moveItem(i, -1)} disabled={i === 0}>
+                ↑
+              </IconButton>
+              <IconButton size="sm" label="Move down" onClick={() => moveItem(i, 1)} disabled={i === items.length - 1}>
+                ↓
+              </IconButton>
+              <IconButton size="sm" label="Remove item" onClick={() => removeItem(i)} style={{ color: colors.immediate }}>
+                ✕
+              </IconButton>
             </>
           )}
         </div>
       ))}
 
       {!readOnly && (
-        <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-          <input
+        <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+          <Input
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
             onKeyDown={(e) => {
@@ -104,29 +103,12 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false, ca
               }
             }}
             placeholder="Add an item…"
-            style={{
-              flex: 1,
-              padding: "8px 12px",
-              borderRadius: "8px",
-              border: `1px solid ${colors.lineStrong}`,
-              fontFamily: fonts.body,
-              fontSize: "14px",
-            }}
+            aria-label="Add a checklist item"
+            style={{ flex: 1 }}
           />
-          <button type="button" onClick={addItem} style={buttonStyle.secondary}>Add</button>
+          <Button onClick={addItem}>Add</Button>
         </div>
       )}
     </div>
   );
 }
-
-const iconButtonStyle = {
-  background: "transparent",
-  border: `1px solid ${colors.lineStrong}`,
-  borderRadius: "6px",
-  width: "28px",
-  height: "28px",
-  cursor: "pointer",
-  color: colors.inkSoft,
-  fontSize: "13px",
-};

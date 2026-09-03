@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { colors, fonts, cardStyle, priorityBarStyle, priorityColor, statusPillStyle } from "../lib/theme.js";
+import { colors, fonts, priorityBarStyle, priorityColor, statusPillStyle } from "../lib/theme.js";
+import { Card } from "../ui/index.js";
 
 export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect }) {
   const location = job.pitch
@@ -14,14 +15,15 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
   const isOverdue = Boolean(job.due_date) && !job.job_status?.is_completed && job.due_date < new Date().toISOString().slice(0, 10);
 
   return (
-    <Link
+    <Card
+      as={Link}
       to={`/jobs/${job.id}`}
+      pad="sm"
+      interactive
       style={{
-        ...cardStyle,
         display: "flex",
-        gap: "12px",
-        padding: "14px 16px",
-        marginBottom: "10px",
+        gap: "var(--space-3)",
+        marginBottom: "var(--space-2)",
         textDecoration: "none",
         color: colors.ink,
         ...(isOverdue ? { borderTop: `3px solid ${priorityColor.immediate}` } : null),
@@ -38,22 +40,32 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
       )}
       <div style={priorityBarStyle(job.priority)} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "8px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
           <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{job.description}</div>
           <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
         </div>
-        <div style={{ fontSize: "13px", color: colors.inkSoft, marginTop: "4px", display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        <div
+          style={{
+            fontSize: "var(--text-sm)",
+            color: colors.inkSoft,
+            marginTop: "var(--space-1)",
+            display: "flex",
+            gap: "var(--space-2)",
+            flexWrap: "wrap",
+          }}
+        >
           {location && <span>{location}</span>}
           {job.assignee && <span>{job.assignee.display_name}</span>}
           {job.assignee_group && <span>{job.assignee_group.name}</span>}
           {job.assignee_contractor && <span>{job.assignee_contractor.name}</span>}
           {job.due_date && (
             <span style={{ fontFamily: fonts.mono, ...(isOverdue ? { color: priorityColor.immediate, fontWeight: 700 } : null) }}>
-              {isOverdue ? "Overdue since " : "Due "}{job.due_date}
+              {isOverdue ? "Overdue since " : "Due "}
+              {job.due_date}
             </span>
           )}
         </div>
       </div>
-    </Link>
+    </Card>
   );
 }

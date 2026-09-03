@@ -7,7 +7,8 @@ import { queryJobs } from "../lib/jobsQuery.js";
 import { exportJobsCsv } from "../lib/csvExport.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
 import StatDial from "../components/StatDial.jsx";
-import { colors, fonts, cardStyle, buttonStyle, priorityColor } from "../lib/theme.js";
+import { colors, fonts, priorityColor } from "../lib/theme.js";
+import { Alert, Button, Card, PageHeader } from "../ui/index.js";
 
 export default function Dashboard() {
   const { org, profile, activeSite } = useAuth();
@@ -60,18 +61,31 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Dashboard</h1>
-        {permissions.has("can_export_jobs") && (
-          <button onClick={handleExport} disabled={exporting} style={buttonStyle.secondary}>
-            {exporting ? "Exporting…" : "Export CSV"}
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Dashboard"
+        actions={
+          permissions.has("can_export_jobs") ? (
+            <Button onClick={handleExport} loading={exporting}>
+              {exporting ? "Exporting…" : "Export CSV"}
+            </Button>
+          ) : null
+        }
+      />
 
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px", marginBottom: "20px" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+          gap: "var(--space-3)",
+          marginBottom: "var(--space-5)",
+        }}
+      >
         <StatDial label="Open jobs" value={openJobs.length} onClick={() => navigate("/?open=1")} />
         <StatDial
           label="Overdue"
@@ -107,25 +121,35 @@ export default function Dashboard() {
 // keysOutSummary.js, shared with the key station's own menu screen.
 function KeysOutStrip({ checkouts }) {
   return (
-    <div style={{ marginTop: "24px" }}>
-      <h2 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "16px", marginBottom: "10px" }}>Keys currently out</h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
+    <div style={{ marginTop: "var(--space-6)" }}>
+      <PageHeader title="Keys currently out" level={2} />
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "var(--space-3)" }}>
         {KEY_GROUPS.map((g) => {
           const rows = checkouts.filter(g.match);
           return (
-            <div key={g.key} style={{ ...cardStyle, padding: "14px 16px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "8px" }}>
-                <span style={{ fontWeight: 600, fontSize: "14px" }}>{g.label}</span>
-                <span style={{ fontFamily: fonts.mono, fontSize: "13px", color: colors.inkSoft }}>{rows.length}</span>
+            <Card key={g.key} pad="sm">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  marginBottom: "var(--space-2)",
+                }}
+              >
+                <span style={{ fontWeight: 600, fontSize: "var(--text-base)" }}>{g.label}</span>
+                <span style={{ fontFamily: fonts.mono, fontSize: "var(--text-sm)", color: colors.inkSoft }}>{rows.length}</span>
               </div>
-              {rows.length === 0 && <p style={{ margin: 0, fontSize: "13px", color: colors.inkSoft }}>None out.</p>}
+              {rows.length === 0 && <p style={{ margin: 0, fontSize: "var(--text-sm)", color: colors.inkSoft }}>None out.</p>}
               {rows.map((c) => (
-                <div key={c.id} style={{ fontSize: "13px", padding: "4px 0", borderTop: `1px solid ${colors.line}` }}>
+                <div
+                  key={c.id}
+                  style={{ fontSize: "var(--text-sm)", padding: "var(--space-1) 0", borderTop: `1px solid ${colors.line}` }}
+                >
                   <span style={{ fontWeight: 600 }}>{keyLocationLabel(c)}</span> — {keyIssuedToLabel(c)}
                   <span style={{ color: colors.inkSoft }}> · {timeAgo(c.checked_out_at)}</span>
                 </div>
               ))}
-            </div>
+            </Card>
           );
         })}
       </div>

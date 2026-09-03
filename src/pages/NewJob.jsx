@@ -8,22 +8,21 @@ import { capturePhoto } from "../platform/camera.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import { getAssignableTargets } from "../lib/assignableTargets.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
-import Modal from "../components/Modal.jsx";
 import PitchPicker from "../components/PitchPicker.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "15px",
-  marginBottom: "14px",
-};
-
-const labelStyle = { display: "block", fontWeight: 600, marginBottom: "6px", fontSize: "13px", color: colors.inkSoft };
+import { colors } from "../lib/theme.js";
+import {
+  Alert,
+  Button,
+  Card,
+  Field,
+  Fieldset,
+  Input,
+  Modal,
+  ModalFooter,
+  PageHeader,
+  Select,
+  Textarea,
+} from "../ui/index.js";
 
 export default function NewJob() {
   const { profile, org, activeSite, terminology } = useAuth();
@@ -306,152 +305,253 @@ export default function NewJob() {
 
   return (
     <div style={{ maxWidth: "520px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>New job</h1>
-      <form onSubmit={handleSubmit} style={{ ...cardStyle, padding: "20px" }}>
-        <label style={labelStyle}>Job template (optional)</label>
-        <select value={jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={fieldStyle}>
-          <option value="">—</option>
-          {jobTypes.map((jt) => (
-            <option key={jt.id} value={jt.id}>{jt.name}</option>
-          ))}
-        </select>
+      <PageHeader title="New job" />
+      <Card as="form" onSubmit={handleSubmit} pad="lg">
+        <Fieldset>
+          <Field label="Job template (optional)">
+            {({ id }) => (
+              <Select id={id} value={jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)}>
+                <option value="">—</option>
+                {jobTypes.map((jt) => (
+                  <option key={jt.id} value={jt.id}>
+                    {jt.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
 
-        <label style={labelStyle}>Description</label>
-        <textarea required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} style={{ ...fieldStyle, resize: "vertical" }} />
+          <Field label="Description" required>
+            {({ id }) => (
+              <Textarea id={id} required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+            )}
+          </Field>
 
-        <label style={labelStyle}>Activity types (optional)</label>
-        <div style={{ ...fieldStyle, height: "auto", padding: "10px 14px" }}>
-          {activityTypes.length === 0 && <span style={{ color: colors.inkSoft, fontSize: "14px" }}>None set up yet.</span>}
-          {activityTypes.map((a) => (
-            <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
-              <input type="checkbox" checked={activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
-              {a.name}
-            </label>
-          ))}
-        </div>
-
-        <label style={labelStyle}>Checklist</label>
-        <div style={{ ...cardStyle, padding: "12px 14px", marginBottom: "14px" }}>
-          <ChecklistBuilder
-            items={checklistItems}
-            onChange={setChecklistItems}
-            readOnly={!canEditChecklist}
-            canRequirePhoto={canRequireChecklistItemPhoto}
-          />
-          {!canEditChecklist && checklistItems.length === 0 && (
-            <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Pick a job template above to attach its checklist.</p>
-          )}
-          {canManageTemplates && (
-            <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setShowSaveAsModal(true)} style={buttonStyle.secondary}>
-                Save as new template
-              </button>
-              {jobTypeId && (
-                <button type="button" onClick={handleUpdateTemplate} style={buttonStyle.secondary}>
-                  Update "{jobTypes.find((jt) => jt.id === jobTypeId)?.name}" template
-                </button>
+          <Field label="Activity types (optional)">
+            <div
+              style={{
+                border: `1px solid ${colors.lineStrong}`,
+                borderRadius: "var(--radius-sm)",
+                padding: "var(--space-3)",
+              }}
+            >
+              {activityTypes.length === 0 && (
+                <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>None set up yet.</span>
               )}
-            </div>
-          )}
-        </div>
-
-        <label style={labelStyle}>Priority</label>
-        <select value={priority} onChange={(e) => setPriority(e.target.value)} style={fieldStyle}>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="immediate">Immediate</option>
-        </select>
-
-        <label style={labelStyle}>Due date (optional)</label>
-        <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={fieldStyle} />
-
-        <label style={labelStyle}>Assign to</label>
-        <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-          <label><input type="radio" checked={assigneeKind === "person"} onChange={() => { setAssigneeKind("person"); setAssigneeId(""); }} /> Person</label>
-          <label><input type="radio" checked={assigneeKind === "group"} onChange={() => { setAssigneeKind("group"); setAssigneeId(""); }} /> Group</label>
-          <label><input type="radio" checked={assigneeKind === "contractor"} onChange={() => { setAssigneeKind("contractor"); setAssigneeId(""); }} /> Contractor</label>
-        </div>
-        <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} style={fieldStyle}>
-          <option value="">Unassigned</option>
-          {(assigneeKind === "person" ? people : assigneeKind === "group" ? groups : contractors).map((item) => (
-            <option key={item.id} value={item.id}>{item.display_name || item.name}</option>
-          ))}
-        </select>
-
-        <label style={labelStyle}>Location</label>
-        <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
-          <label><input type="radio" checked={locationKind === "pitch"} onChange={() => { setLocationKind("pitch"); setLocationId(""); setAreaName(""); }} /> {terminology.pitch || "Pitch"}</label>
-          <label><input type="radio" checked={locationKind === "area"} onChange={() => { setLocationKind("area"); setLocationId(""); setAreaName(""); }} /> {terminology.area || "Area"}</label>
-          <label><input type="radio" checked={locationKind === "none"} onChange={() => { setLocationKind("none"); setLocationId(""); setAreaName(""); }} /> None</label>
-        </div>
-        {locationKind === "pitch" && (
-          <PitchPicker pitches={pitches} value={locationId} onChange={setLocationId} style={fieldStyle} />
-        )}
-        {locationKind === "area" && (
-          <>
-            <input
-              list="area-suggestions"
-              value={areaName}
-              onChange={(e) => setAreaName(e.target.value)}
-              placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
-              style={fieldStyle}
-            />
-            <datalist id="area-suggestions">
-              {areas.map((a) => (
-                <option key={a.id} value={a.name} />
+              {activityTypes.map((a) => (
+                <label
+                  key={a.id}
+                  style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "3px 0", fontSize: "var(--text-base)" }}
+                >
+                  <input type="checkbox" checked={activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
+                  {a.name}
+                </label>
               ))}
-            </datalist>
-          </>
-        )}
+            </div>
+          </Field>
 
-        {canRequirePhoto && (
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "14px", fontSize: "14px" }}>
-            <input type="checkbox" checked={requiresPhoto} onChange={(e) => setRequiresPhoto(e.target.checked)} />
-            Require a photo before this job can be completed
-          </label>
-        )}
+          <Field label="Checklist">
+            <Card pad="sm">
+              <ChecklistBuilder
+                items={checklistItems}
+                onChange={setChecklistItems}
+                readOnly={!canEditChecklist}
+                canRequirePhoto={canRequireChecklistItemPhoto}
+              />
+              {!canEditChecklist && checklistItems.length === 0 && (
+                <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>
+                  Pick a job template above to attach its checklist.
+                </p>
+              )}
+              {canManageTemplates && (
+                <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)", flexWrap: "wrap" }}>
+                  <Button size="sm" onClick={() => setShowSaveAsModal(true)}>
+                    Save as new template
+                  </Button>
+                  {jobTypeId && (
+                    <Button size="sm" onClick={handleUpdateTemplate}>
+                      Update "{jobTypes.find((jt) => jt.id === jobTypeId)?.name}" template
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
+          </Field>
 
-        <label style={labelStyle}>Photo (optional)</label>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
-          {photoPreviewUrl && (
-            <img src={photoPreviewUrl} alt="" style={{ width: 64, height: 64, objectFit: "cover", borderRadius: 8 }} />
+          <Field label="Priority">
+            {({ id }) => (
+              <Select id={id} value={priority} onChange={(e) => setPriority(e.target.value)}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="immediate">Immediate</option>
+              </Select>
+            )}
+          </Field>
+
+          <Field label="Due date (optional)">
+            {({ id }) => <Input id={id} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />}
+          </Field>
+
+          <Field label="Assign to">
+            <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
+              <label>
+                <input
+                  type="radio"
+                  checked={assigneeKind === "person"}
+                  onChange={() => {
+                    setAssigneeKind("person");
+                    setAssigneeId("");
+                  }}
+                />{" "}
+                Person
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={assigneeKind === "group"}
+                  onChange={() => {
+                    setAssigneeKind("group");
+                    setAssigneeId("");
+                  }}
+                />{" "}
+                Group
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={assigneeKind === "contractor"}
+                  onChange={() => {
+                    setAssigneeKind("contractor");
+                    setAssigneeId("");
+                  }}
+                />{" "}
+                Contractor
+              </label>
+            </div>
+            <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} aria-label="Assign to">
+              <option value="">Unassigned</option>
+              {(assigneeKind === "person" ? people : assigneeKind === "group" ? groups : contractors).map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.display_name || item.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+
+          <Field label="Location">
+            <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
+              <label>
+                <input
+                  type="radio"
+                  checked={locationKind === "pitch"}
+                  onChange={() => {
+                    setLocationKind("pitch");
+                    setLocationId("");
+                    setAreaName("");
+                  }}
+                />{" "}
+                {terminology.pitch || "Pitch"}
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={locationKind === "area"}
+                  onChange={() => {
+                    setLocationKind("area");
+                    setLocationId("");
+                    setAreaName("");
+                  }}
+                />{" "}
+                {terminology.area || "Area"}
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  checked={locationKind === "none"}
+                  onChange={() => {
+                    setLocationKind("none");
+                    setLocationId("");
+                    setAreaName("");
+                  }}
+                />{" "}
+                None
+              </label>
+            </div>
+            {locationKind === "pitch" && <PitchPicker pitches={pitches} value={locationId} onChange={setLocationId} />}
+            {locationKind === "area" && (
+              <>
+                <Input
+                  list="area-suggestions"
+                  value={areaName}
+                  onChange={(e) => setAreaName(e.target.value)}
+                  placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
+                  aria-label={terminology.area || "Area"}
+                />
+                <datalist id="area-suggestions">
+                  {areas.map((a) => (
+                    <option key={a.id} value={a.name} />
+                  ))}
+                </datalist>
+              </>
+            )}
+          </Field>
+
+          {canRequirePhoto && (
+            <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)" }}>
+              <input type="checkbox" checked={requiresPhoto} onChange={(e) => setRequiresPhoto(e.target.checked)} />
+              Require a photo before this job can be completed
+            </label>
           )}
-          <button type="button" onClick={photoFile ? handleRemovePhoto : handleAddPhoto} style={buttonStyle.secondary}>
-            {photoFile ? "Remove photo" : "Add photo"}
-          </button>
-        </div>
-        {photoError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{photoError}</p>}
 
-        {queuedNotice && (
-          <p style={{ color: colors.gold }}>
-            You're offline — this job will save once you're back online.
-            {photoFile && " The photo wasn't queued — add it from the job's detail screen after it syncs."}
-          </p>
-        )}
+          <Field label="Photo (optional)" error={photoError}>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+              {photoPreviewUrl && (
+                <img
+                  src={photoPreviewUrl}
+                  alt=""
+                  style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+                />
+              )}
+              <Button onClick={photoFile ? handleRemovePhoto : handleAddPhoto}>
+                {photoFile ? "Remove photo" : "Add photo"}
+              </Button>
+            </div>
+          </Field>
 
-        {submitError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{submitError}</p>}
+          {queuedNotice && (
+            <Alert tone="warn" title="Saved for later">
+              You are offline — this job will save once you are back online.
+              {photoFile && " The photo was not queued — add it from the job's detail screen after it syncs."}
+            </Alert>
+          )}
 
-        <button type="submit" disabled={submitting} style={{ ...buttonStyle.primary, width: "100%" }}>
-          {submitting ? "Saving…" : "Create job"}
-        </button>
-      </form>
+          {submitError && (
+            <Alert tone="danger" title="Could not create the job">
+              {submitError}
+            </Alert>
+          )}
+
+          <Button type="submit" variant="primary" size="lg" block loading={submitting}>
+            {submitting ? "Saving…" : "Create job"}
+          </Button>
+        </Fieldset>
+      </Card>
 
       {showSaveAsModal && (
         <Modal title="Save as new template" onClose={() => setShowSaveAsModal(false)}>
           <form onSubmit={handleSaveAsTemplate}>
-            <label style={labelStyle}>Template name</label>
-            <input
-              autoFocus
-              required
-              value={newTemplateName}
-              onChange={(e) => setNewTemplateName(e.target.value)}
-              style={fieldStyle}
-            />
-            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setShowSaveAsModal(false)} style={buttonStyle.secondary}>Cancel</button>
-              <button type="submit" disabled={savingTemplate} style={buttonStyle.primary}>{savingTemplate ? "Saving…" : "Save"}</button>
-            </div>
+            <Field label="Template name" required>
+              {({ id }) => (
+                <Input id={id} autoFocus required value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)} />
+              )}
+            </Field>
+            <ModalFooter>
+              <Button onClick={() => setShowSaveAsModal(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" loading={savingTemplate}>
+                {savingTemplate ? "Saving…" : "Save"}
+              </Button>
+            </ModalFooter>
           </form>
         </Modal>
       )}

@@ -166,6 +166,10 @@
   outline: none;
   box-shadow: var(--focus-ring);
 }
+.tt-iconbtn:disabled {
+  color: var(--c-disabled-ink);
+  cursor: not-allowed;
+}
 .tt-iconbtn--sm {
   width: var(--control-h-sm);
   height: var(--control-h-sm);
@@ -471,6 +475,30 @@ select.tt-input {
 }
 .tt-table--stickyfirst thead th:first-child {
   z-index: 3;
+}
+/* Sortable column header. The header cell already carries the label
+   styling, so this only has to stay invisible and be a real button -- the
+   old version was a th with an onClick, which no keyboard could reach. */
+.tt-sortbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.tt-sortbtn:hover {
+  color: var(--c-moss-dark);
+}
+.tt-sortbtn:focus-visible {
+  outline: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
 }
 
 /* ===================== Alert ===================== */

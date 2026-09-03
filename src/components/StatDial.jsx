@@ -1,4 +1,5 @@
-import { colors, fonts, cardStyle } from "../lib/theme.js";
+import { colors, fonts } from "../lib/theme.js";
+import { Card } from "../ui/index.js";
 
 // Gauge geometry: 270° sweep with a 90° gap centred at the bottom, drawn
 // clockwise starting at 135° (lower-left) through 12 o'clock to 405°/45°
@@ -38,13 +39,18 @@ export default function StatDial({ label, value, color = colors.mossDark, onClic
   const needle = polarPoint(DIAL_CX, DIAL_CY, DIAL_R - 6, valueAngle);
 
   return (
-    <div
-      onClick={clickable ? onClick : undefined}
+    // Clickable dials become real buttons rather than a div with an
+    // onClick, so they can be tabbed to and fired with the keyboard --
+    // and so the interactive card's hover/focus states apply.
+    <Card
+      as={clickable ? "button" : "div"}
+      {...(clickable ? { type: "button", onClick, interactive: true } : {})}
+      pad="sm"
       style={{
-        ...cardStyle,
-        padding: "12px 12px 14px",
+        width: "100%",
         textAlign: "center",
-        cursor: clickable ? "pointer" : "default",
+        font: "inherit",
+        color: "inherit",
       }}
     >
       {/* Colours go through `style`, not the stroke/fill *attributes*: the
@@ -71,8 +77,8 @@ export default function StatDial({ label, value, color = colors.mossDark, onClic
         <line x1={DIAL_CX} y1={DIAL_CY} x2={needle.x} y2={needle.y} style={{ stroke: colors.ink }} strokeWidth="2" strokeLinecap="round" />
         <circle cx={DIAL_CX} cy={DIAL_CY} r="3" style={{ fill: colors.ink }} />
       </svg>
-      <div style={{ fontFamily: fonts.mono, fontSize: "20px", fontWeight: 700, color, marginTop: "-10px" }}>{value}</div>
-      <div style={{ fontSize: "12.5px", color: colors.inkSoft, textTransform: "capitalize", marginTop: "1px" }}>{label}</div>
-    </div>
+      <div style={{ fontFamily: fonts.mono, fontSize: "var(--text-lg)", fontWeight: 700, color, marginTop: "-10px" }}>{value}</div>
+      <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, textTransform: "capitalize", marginTop: "1px" }}>{label}</div>
+    </Card>
   );
 }

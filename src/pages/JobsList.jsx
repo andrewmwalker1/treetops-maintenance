@@ -7,12 +7,28 @@ import { supabase } from "../lib/supabaseClient.js";
 import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import { openPrintWindow, writeAndPrintJobBundles, writeAndPrintJobsChecklist } from "../lib/printJobCards.jsx";
 import JobCard from "../components/JobCard.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import {
+  Alert,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  IconFilter,
+  IconPlus,
+  Input,
+  Modal,
+  ModalFooter,
+  PageHeader,
+  SectionLabel,
+  Select,
+  SkeletonList,
+} from "../ui/index.js";
 
 // Dashboard stat tiles link here with a query param (?priority=medium,
 // ?overdue=1, ?open=1) so "click a count, see those jobs" works without
 // the two pages' filtering logic drifting apart. Kept separate from the
-// status FilterChips below since it's additive, not a replacement --
+// status chips below since it's additive, not a replacement --
 // e.g. arriving via "Overdue" and then picking a status chip narrows
 // further rather than conflicting.
 function quickFilterFromParams(searchParams) {
@@ -30,8 +46,6 @@ function quickFilterLabel(quickFilter) {
 }
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
-
-const filterLabelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "8px" };
 
 // Shared by visibleJobs' filtering and the filter-summary text below --
 // same "kind:id" encoding (person/group/contractor) either way, so the
@@ -105,8 +119,8 @@ export default function JobsList() {
     } else {
       // Default "All" view (and the Dashboard's "open"/"overdue"/"priority"
       // quick filters) only ever means open + in-progress -- Completed and
-      // Cancelled each have their own status chip already, so "All" isn't
-      // literally every job or it'd bury the active work under history.
+      // Cancelled each have their own status chip already, so "All" is not
+      // literally every job or it would bury the active work under history.
       const openStatusIds = statuses.filter((s) => !s.is_completed).map((s) => s.id);
       if (openStatusIds.length) filters.statusIds = openStatusIds;
     }
@@ -285,7 +299,7 @@ export default function JobsList() {
     writeAndPrintJobsChecklist(printWindow, selected, terminology);
   }
 
-  if (!activeSite) return <p style={{ color: colors.inkSoft }}>Loading your site…</p>;
+  if (!activeSite) return <SkeletonList rows={3} />;
 
   return (
     <div>
@@ -295,251 +309,247 @@ export default function JobsList() {
           relative to the nearest scrolling ancestor, not the viewport. The
           background match is what stops job cards from visibly scrolling
           up underneath it as this bar stays put.
-          top/marginTop/paddingTop all use main's own 20px padding
-          (Layout.jsx) -- sticky parks itself just inside a scroll
-          container's padding by spec, leaving that padding strip as
-          ordinary scrollable space non-sticky content (job cards) keeps
-          sliding through. Pulling the sticky box up by main's padding
-          amount and re-adding that space as its own padding covers that
-          strip with this element's own background instead.
-          All three read --page-pad, the same token <main> uses for its
-          vertical padding (src/components/Layout.css), so the two can no
-          longer drift apart -- they were a pair of hand-matched 20px
-          literals in two different files before. */}
+          top/marginTop/paddingTop all read --page-pad, the same token
+          <main> uses for its vertical padding (src/components/Layout.css) --
+          sticky parks itself just inside a scroll container's padding by
+          spec, leaving that padding strip as ordinary scrollable space that
+          job cards keep sliding through. Pulling the sticky box up by that
+          amount and re-adding it as its own padding covers the strip with
+          this element's background instead. */}
       <div
         style={{
           position: "sticky",
           top: "calc(-1 * var(--page-pad))",
           marginTop: "calc(-1 * var(--page-pad))",
           paddingTop: "var(--page-pad)",
-          paddingBottom: "4px",
+          paddingBottom: "var(--space-1)",
           background: colors.bg,
           zIndex: 5,
         }}
       >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px", marginBottom: "16px" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, margin: 0 }}>Jobs</h1>
-        <div style={{ display: "flex", gap: "10px" }}>
-          <Link to="/checkout-kit" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
-            Checkout kit
-          </Link>
-          <Link to="/checkin-kit" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
-            Check in kit
-          </Link>
-          <Link to="/jobs/new" style={{ ...buttonStyle.primary, textDecoration: "none" }}>
-            + New job
-          </Link>
-        </div>
-      </div>
+        <PageHeader
+          title="Jobs"
+          actions={
+            <>
+              <Button as={Link} to="/checkout-kit">
+                Checkout kit
+              </Button>
+              <Button as={Link} to="/checkin-kit">
+                Check in kit
+              </Button>
+              <Button as={Link} to="/jobs/new" variant="primary" icon={<IconPlus size={15} />}>
+                New job
+              </Button>
+            </>
+          }
+        />
 
-      {selectedIds.size > 0 && (
-        <div
-          style={{
-            ...cardStyle,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            padding: "10px 16px",
-            marginBottom: "12px",
-            fontFamily: fonts.body,
-            fontSize: "13px",
-            color: colors.mossDark,
-          }}
-        >
-          <span>{selectedIds.size} job{selectedIds.size === 1 ? "" : "s"} selected</span>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button
-              type="button"
-              onClick={() => setSelectedIds(new Set())}
-              style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px" }}
-            >
-              Clear
-            </button>
-            <button type="button" onClick={handlePrintChecklist} style={buttonStyle.secondary}>
-              Print checklist
-            </button>
-            <button type="button" onClick={handlePrintSelected} disabled={printing} style={buttonStyle.primary}>
-              {printing ? "Preparing…" : "Print selected"}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {quickFilter && (
-        <div
-          style={{
-            ...cardStyle,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "12px",
-            padding: "8px 16px",
-            marginBottom: "12px",
-            fontFamily: fonts.body,
-            fontSize: "13px",
-            color: colors.mossDark,
-          }}
-        >
-          <span style={{ textTransform: "capitalize" }}>Showing: {quickFilterLabel(quickFilter)}</span>
-          <button
-            onClick={() => setSearchParams({})}
+        {selectedIds.size > 0 && (
+          <Card
+            pad="sm"
             style={{
-              border: "none",
-              background: "none",
-              color: colors.mossDark,
-              textDecoration: "underline",
-              cursor: "pointer",
-              fontFamily: fonts.body,
-              fontSize: "13px",
-              padding: 0,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexWrap: "wrap",
+              gap: "var(--space-3)",
+              marginBottom: "var(--space-3)",
             }}
           >
-            Clear
-          </button>
-        </div>
-      )}
+            <span style={{ fontSize: "var(--text-sm)", color: colors.mossDark }}>
+              {selectedIds.size} job{selectedIds.size === 1 ? "" : "s"} selected
+            </span>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>
+                Clear
+              </Button>
+              <Button size="sm" onClick={handlePrintChecklist}>
+                Print checklist
+              </Button>
+              <Button size="sm" variant="primary" loading={printing} onClick={handlePrintSelected}>
+                {printing ? "Preparing…" : "Print selected"}
+              </Button>
+            </div>
+          </Card>
+        )}
 
-      {/* Status/priority/assignee used to be two always-visible chip strips
-          plus a dropdown, permanently eating most of a mobile viewport's
-          height before any job was visible. Collapsed into one Filter
-          button (its popup holds all three) beside the search box, with
-          the active selection condensed to one line underneath -- same
-          filtering, far less sticky-header real estate. */}
-      <div style={{ display: "flex", gap: "8px", marginBottom: filterSummary ? "4px" : "16px" }}>
-        <button
-          type="button"
-          onClick={() => setShowFilterPanel(true)}
-          style={{ ...buttonStyle.secondary, flexShrink: 0, whiteSpace: "nowrap" }}
-        >
-          Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-        </button>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search jobs, people, or groups…"
-          style={{
-            flex: 1,
-            minWidth: 0,
-            boxSizing: "border-box",
-            padding: "10px 14px",
-            borderRadius: "10px",
-            border: `1px solid ${colors.lineStrong}`,
-            fontFamily: fonts.body,
-          }}
-        />
-      </div>
-
-      {filterSummary && (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px", fontSize: "13px", color: colors.inkSoft }}>
-          <span>{filterSummary}</span>
-          <button
-            type="button"
-            onClick={clearAllFilters}
-            aria-label="Clear filters"
-            style={{ border: "none", background: "none", color: colors.immediate, cursor: "pointer", fontSize: "16px", lineHeight: 1, padding: 0 }}
+        {quickFilter && (
+          <Card
+            pad="sm"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "var(--space-3)",
+              marginBottom: "var(--space-3)",
+            }}
           >
-            ×
-          </button>
+            <span style={{ textTransform: "capitalize", fontSize: "var(--text-sm)", color: colors.mossDark }}>
+              Showing: {quickFilterLabel(quickFilter)}
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setSearchParams({})}>
+              Clear
+            </Button>
+          </Card>
+        )}
+
+        {/* Status/priority/assignee used to be two always-visible chip strips
+            plus a dropdown, permanently eating most of a mobile viewport's
+            height before any job was visible. Collapsed into one Filter
+            button (its popup holds all three) beside the search box, with
+            the active selection condensed to one line underneath -- same
+            filtering, far less sticky-header real estate. */}
+        <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: filterSummary ? "var(--space-1)" : "var(--space-4)" }}>
+          <Button onClick={() => setShowFilterPanel(true)} icon={<IconFilter size={15} />} style={{ flexShrink: 0 }}>
+            Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+          </Button>
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search jobs, people, or groups…"
+            aria-label="Search jobs"
+            style={{ flex: 1, minWidth: 0 }}
+          />
         </div>
-      )}
+
+        {filterSummary && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+              marginBottom: "var(--space-4)",
+              fontSize: "var(--text-sm)",
+              color: colors.inkSoft,
+            }}
+          >
+            <span>{filterSummary}</span>
+            <Button size="sm" variant="ghost" onClick={clearAllFilters}>
+              Clear filters
+            </Button>
+          </div>
+        )}
       </div>
 
       {showFilterPanel && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: colors.scrim,
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "24px 16px",
-            overflowY: "auto",
-            zIndex: 100,
-          }}
-          onClick={() => setShowFilterPanel(false)}
-        >
-          <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Filter jobs</h2>
-              <button type="button" onClick={() => setShowFilterPanel(false)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-            </div>
+        <Modal title="Filter jobs" onClose={() => setShowFilterPanel(false)}>
+          <SectionLabel>Status</SectionLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+            <Chip active={activeStatusId === null} onClick={() => setActiveStatusId(null)}>
+              All
+            </Chip>
+            {statuses.map((s) => (
+              <Chip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)}>
+                {s.name}
+              </Chip>
+            ))}
+          </div>
 
-            <label style={filterLabelStyle}>Status</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
-              <FilterChip active={activeStatusId === null} onClick={() => setActiveStatusId(null)} label="All" />
-              {statuses.map((s) => (
-                <FilterChip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)} label={s.name} />
-              ))}
-            </div>
+          <SectionLabel>Priority</SectionLabel>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+            <Chip active={activePriority === null} onClick={() => setActivePriority(null)}>
+              All priorities
+            </Chip>
+            {PRIORITIES.map((p) => (
+              <Chip key={p} active={activePriority === p} onClick={() => setActivePriority(p)}>
+                {p.charAt(0).toUpperCase() + p.slice(1)}
+              </Chip>
+            ))}
+          </div>
 
-            <label style={filterLabelStyle}>Priority</label>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "16px" }}>
-              <FilterChip active={activePriority === null} onClick={() => setActivePriority(null)} label="All priorities" />
-              {PRIORITIES.map((p) => (
-                <FilterChip key={p} active={activePriority === p} onClick={() => setActivePriority(p)} label={p.charAt(0).toUpperCase() + p.slice(1)} />
-              ))}
-            </div>
-
-            {/* Only worth showing once the visible jobs actually span more
-                than one assignee -- i.e. exactly when this user's
-                role_visibility (or can_see_all_jobs) surfaces someone
-                else's jobs alongside their own. */}
-            {assigneeOptions.people.length + assigneeOptions.groups.length + assigneeOptions.contractors.length > 1 && (
-              <>
-                <label style={filterLabelStyle}>Assigned to</label>
-                <select
-                  value={assigneeFilter}
-                  onChange={(e) => setAssigneeFilter(e.target.value)}
-                  style={{
-                    width: "100%",
-                    boxSizing: "border-box",
-                    padding: "10px 14px",
-                    borderRadius: "10px",
-                    border: `1px solid ${colors.lineStrong}`,
-                    fontFamily: fonts.body,
-                    marginBottom: "16px",
-                  }}
-                >
-                  <option value="">Everyone</option>
-                  {assigneeOptions.groups.length > 0 && (
-                    <optgroup label="By group">
-                      {assigneeOptions.groups.map((g) => (
-                        <option key={`group:${g.id}`} value={`group:${g.id}`}>{g.name}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                  <optgroup label="By person">
-                    {assigneeOptions.people.map((p) => (
-                      <option key={`person:${p.id}`} value={`person:${p.id}`}>{p.name}</option>
+          {/* Only worth showing once the visible jobs actually span more
+              than one assignee -- i.e. exactly when this user's
+              role_visibility (or can_see_all_jobs) surfaces someone
+              else's jobs alongside their own. */}
+          {assigneeOptions.people.length + assigneeOptions.groups.length + assigneeOptions.contractors.length > 1 && (
+            <div style={{ marginBottom: "var(--space-4)" }}>
+              <SectionLabel>Assigned to</SectionLabel>
+              <Select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} aria-label="Assigned to">
+                <option value="">Everyone</option>
+                {assigneeOptions.groups.length > 0 && (
+                  <optgroup label="By group">
+                    {assigneeOptions.groups.map((g) => (
+                      <option key={`group:${g.id}`} value={`group:${g.id}`}>
+                        {g.name}
+                      </option>
                     ))}
                   </optgroup>
-                  {assigneeOptions.contractors.length > 0 && (
-                    <optgroup label="By contractor">
-                      {assigneeOptions.contractors.map((c) => (
-                        <option key={`contractor:${c.id}`} value={`contractor:${c.id}`}>{c.name}</option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-              </>
-            )}
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="button" onClick={clearAllFilters} style={buttonStyle.secondary}>Clear all</button>
-              <button type="button" onClick={() => setShowFilterPanel(false)} style={buttonStyle.primary}>Done</button>
+                )}
+                <optgroup label="By person">
+                  {assigneeOptions.people.map((p) => (
+                    <option key={`person:${p.id}`} value={`person:${p.id}`}>
+                      {p.name}
+                    </option>
+                  ))}
+                </optgroup>
+                {assigneeOptions.contractors.length > 0 && (
+                  <optgroup label="By contractor">
+                    {assigneeOptions.contractors.map((c) => (
+                      <option key={`contractor:${c.id}`} value={`contractor:${c.id}`}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </Select>
             </div>
-          </div>
-        </div>
+          )}
+
+          <ModalFooter>
+            <Button onClick={clearAllFilters}>Clear all</Button>
+            <Button variant="primary" onClick={() => setShowFilterPanel(false)}>
+              Done
+            </Button>
+          </ModalFooter>
+        </Modal>
       )}
 
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
-      {!loading && !error && visibleJobs.length === 0 && <p style={{ color: colors.inkSoft }}>No jobs match this view.</p>}
+      {loading && <SkeletonList rows={4} height={92} />}
+      {error && (
+        <Alert tone="danger" title="Could not load jobs">
+          {error}
+        </Alert>
+      )}
+      {!loading && !error && visibleJobs.length === 0 && (
+        <EmptyState
+          title="No jobs match this view"
+          action={
+            activeFilterCount > 0 || search ? (
+              <Button
+                variant="primary"
+                onClick={() => {
+                  clearAllFilters();
+                  setSearch("");
+                  setSearchParams({});
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : (
+              <Button as={Link} to="/jobs/new" variant="primary" icon={<IconPlus size={15} />}>
+                New job
+              </Button>
+            )
+          }
+        >
+          {activeFilterCount > 0 || search
+            ? "Try widening the filters or clearing the search."
+            : "Nothing is outstanding right now."}
+        </EmptyState>
+      )}
 
       {visibleJobs.length > 0 && (
-        <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontFamily: fonts.body, fontSize: "13px", color: colors.inkSoft, cursor: "pointer" }}>
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--space-2)",
+            marginBottom: "var(--space-3)",
+            fontSize: "var(--text-sm)",
+            color: colors.inkSoft,
+            cursor: "pointer",
+          }}
+        >
           <input type="checkbox" checked={visibleJobs.every((j) => selectedIds.has(j.id))} onChange={toggleSelectAll} />
           Select all
         </label>
@@ -556,27 +566,5 @@ export default function JobsList() {
         />
       ))}
     </div>
-  );
-}
-
-function FilterChip({ active, onClick, label }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        border: `1px solid ${active ? colors.mossDark : colors.lineStrong}`,
-        background: active ? colors.mossDark : "transparent",
-        color: active ? colors.onDark : colors.inkSoft,
-        borderRadius: "999px",
-        padding: "6px 14px",
-        fontFamily: fonts.body,
-        fontSize: "13px",
-        cursor: "pointer",
-        flexShrink: 0,
-        whiteSpace: "nowrap",
-      }}
-    >
-      {label}
-    </button>
   );
 }

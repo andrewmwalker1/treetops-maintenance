@@ -12,9 +12,25 @@ import { writeJobCompletion } from "../lib/completeJob.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
-import Modal from "../components/Modal.jsx";
 import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
-import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
+import { colors, fonts, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
+import {
+  Alert,
+  Button,
+  Card,
+  Field,
+  IconArrowLeft,
+  IconPrint,
+  IconButton,
+  Input,
+  Modal,
+  ModalFooter,
+  PageHeader,
+  SectionLabel,
+  Select,
+  SkeletonList,
+  Textarea,
+} from "../ui/index.js";
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
 
@@ -899,193 +915,257 @@ export default function JobDetail() {
   }
 
   if (!job) {
-    return error ? <p style={{ color: colors.immediate }}>{error}</p> : <p style={{ color: colors.inkSoft }}>Loading…</p>;
+    return error ? (
+      <Alert tone="danger" title="Could not load this job">
+        {error}
+      </Alert>
+    ) : (
+      <SkeletonList rows={3} />
+    );
   }
 
   return (
     <div style={{ maxWidth: "640px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
-        <button onClick={() => navigate(-1)} style={buttonStyle.secondary}>← Back</button>
-        <div style={{ display: "flex", gap: "8px" }}>
-          <button type="button" onClick={handlePrint} style={buttonStyle.secondary}>Print job card</button>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "var(--space-4)",
+          flexWrap: "wrap",
+          gap: "var(--space-2)",
+        }}
+      >
+        <Button onClick={() => navigate(-1)} icon={<IconArrowLeft size={15} />}>
+          Back
+        </Button>
+        <div style={{ display: "flex", gap: "var(--space-2)" }}>
+          <Button onClick={handlePrint} icon={<IconPrint size={15} />}>
+            Print job card
+          </Button>
           {canDeleteJob && (
-            <button type="button" onClick={handleDeleteJob} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete job</button>
+            <Button variant="danger" onClick={handleDeleteJob}>
+              Delete job
+            </Button>
           )}
         </div>
       </div>
 
-      {error && <p style={{ color: colors.immediate, fontSize: "14px" }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ ...cardStyle, padding: "20px", display: "flex", gap: "14px", marginBottom: "20px" }}>
+      <Card pad="lg" style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-5)" }}>
         <div style={priorityBarStyle(job.priority)} />
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "10px" }}>
-            <input
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-3)" }}>
+            <Input
               value={descriptionDraft}
               onChange={(e) => setDescriptionDraft(e.target.value)}
               onBlur={persistDescription}
+              aria-label="Job description"
+              // The job's title doubles as its edit field, so it keeps the
+              // display face and heading weight rather than looking like an
+              // ordinary form input dropped into the header.
               style={{
                 fontFamily: fonts.display,
-                color: colors.mossDark,
-                margin: 0,
-                fontSize: "22px",
+                fontSize: "var(--text-lg)",
                 fontWeight: 700,
-                border: `1px solid ${colors.lineStrong}`,
-                borderRadius: "10px",
+                color: colors.mossDark,
                 background: colors.bg,
-                padding: "6px 12px",
                 flex: 1,
                 minWidth: 0,
               }}
             />
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
           </div>
-          {job.completed_date && <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "13px" }}>Completed {job.completed_date}</p>}
-
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Due date</label>
-          {canEditJobDetails ? (
-            <input
-              type="date"
-              value={job.due_date || ""}
-              onChange={(e) => handleDueDateChange(e.target.value || null)}
-              style={selectStyle}
-            />
-          ) : (
-            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>{job.due_date || "No due date"}</p>
+          {job.completed_date && (
+            <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "var(--text-sm)" }}>Completed {job.completed_date}</p>
           )}
 
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Status</label>
-          {canEditJobDetails ? (
-            <select value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
-              {statuses.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-          ) : (
-            // Marking a job Completed still works without can_edit_job_details --
-            // that goes through the separate "Complete" button below, not this
-            // dropdown, and the server-side trigger exempts that transition.
-            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>{job.job_status?.name}</p>
-          )}
+          <div style={{ display: "grid", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+            <Field label="Due date">
+              {({ id }) =>
+                canEditJobDetails ? (
+                  <Input id={id} type="date" value={job.due_date || ""} onChange={(e) => handleDueDateChange(e.target.value || null)} />
+                ) : (
+                  <p style={{ margin: 0 }}>{job.due_date || "No due date"}</p>
+                )
+              }
+            </Field>
 
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Priority</label>
-          {canEditJobDetails ? (
-            <select
-              value={job.priority}
-              onChange={(e) => handlePriorityChange(e.target.value)}
-              style={{ ...selectStyle, color: priorityColor[job.priority], fontWeight: 600 }}
-            >
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p} style={{ color: priorityColor[p] }}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <p style={{ fontSize: "14px", margin: "4px 0 14px", color: priorityColor[job.priority], fontWeight: 600 }}>
-              {job.priority.charAt(0).toUpperCase() + job.priority.slice(1)}
-            </p>
-          )}
-
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Location</label>
-          {canEditJobDetails ? (
-            <>
-              <div style={{ display: "flex", gap: "10px", marginBottom: "10px", fontSize: "14px" }}>
-                <label><input type="radio" checked={locationKind === "pitch"} onChange={() => handleLocationKindChange("pitch")} /> {terminology.pitch || "Pitch"}</label>
-                <label><input type="radio" checked={locationKind === "area"} onChange={() => handleLocationKindChange("area")} /> {terminology.area || "Area"}</label>
-                <label><input type="radio" checked={locationKind === "none"} onChange={() => handleLocationKindChange("none")} /> None</label>
-              </div>
-              {locationKind === "pitch" && (
-                <PitchPicker pitches={pitches} value={job.pitch_id || ""} onChange={handlePitchChange} style={selectStyle} />
-              )}
-              {locationKind === "area" && (
-                <>
-                  <input
-                    list="job-detail-area-suggestions"
-                    value={areaDraft}
-                    onChange={(e) => setAreaDraft(e.target.value)}
-                    onBlur={handleAreaBlur}
-                    placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
-                    style={selectStyle}
-                  />
-                  <datalist id="job-detail-area-suggestions">
-                    {areas.map((a) => (
-                      <option key={a.id} value={a.name} />
+            <Field label="Status">
+              {({ id }) =>
+                canEditJobDetails ? (
+                  <Select id={id} value={job.status_id} onChange={(e) => handleStatusChange(e.target.value)}>
+                    {statuses.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
                     ))}
-                  </datalist>
+                  </Select>
+                ) : (
+                  // Marking a job Completed still works without can_edit_job_details --
+                  // that goes through the separate "Complete" button below, not this
+                  // dropdown, and the server-side trigger exempts that transition.
+                  <p style={{ margin: 0 }}>{job.job_status?.name}</p>
+                )
+              }
+            </Field>
+
+            <Field label="Priority">
+              {({ id }) =>
+                canEditJobDetails ? (
+                  <Select
+                    id={id}
+                    value={job.priority}
+                    onChange={(e) => handlePriorityChange(e.target.value)}
+                    style={{ color: priorityColor[job.priority], fontWeight: 600 }}
+                  >
+                    {PRIORITIES.map((p) => (
+                      <option key={p} value={p} style={{ color: priorityColor[p] }}>
+                        {p.charAt(0).toUpperCase() + p.slice(1)}
+                      </option>
+                    ))}
+                  </Select>
+                ) : (
+                  <p style={{ margin: 0, color: priorityColor[job.priority], fontWeight: 600 }}>
+                    {job.priority.charAt(0).toUpperCase() + job.priority.slice(1)}
+                  </p>
+                )
+              }
+            </Field>
+
+            <Field label="Location">
+              {canEditJobDetails ? (
+                <>
+                  <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
+                    <label>
+                      <input type="radio" checked={locationKind === "pitch"} onChange={() => handleLocationKindChange("pitch")} />{" "}
+                      {terminology.pitch || "Pitch"}
+                    </label>
+                    <label>
+                      <input type="radio" checked={locationKind === "area"} onChange={() => handleLocationKindChange("area")} />{" "}
+                      {terminology.area || "Area"}
+                    </label>
+                    <label>
+                      <input type="radio" checked={locationKind === "none"} onChange={() => handleLocationKindChange("none")} /> None
+                    </label>
+                  </div>
+                  {locationKind === "pitch" && <PitchPicker pitches={pitches} value={job.pitch_id || ""} onChange={handlePitchChange} />}
+                  {locationKind === "area" && (
+                    <>
+                      <Input
+                        list="job-detail-area-suggestions"
+                        value={areaDraft}
+                        onChange={(e) => setAreaDraft(e.target.value)}
+                        onBlur={handleAreaBlur}
+                        placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
+                        aria-label={terminology.area || "Area"}
+                      />
+                      <datalist id="job-detail-area-suggestions">
+                        {areas.map((a) => (
+                          <option key={a.id} value={a.name} />
+                        ))}
+                      </datalist>
+                    </>
+                  )}
                 </>
+              ) : (
+                <p style={{ margin: 0 }}>
+                  {job.pitch ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}` : job.area ? job.area.name : "None"}
+                </p>
               )}
-            </>
-          ) : (
-            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>
-              {job.pitch ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}` : job.area ? job.area.name : "None"}
-            </p>
-          )}
+            </Field>
 
-          {job.equipment_id && (
-            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>
-              <span style={{ fontSize: "13px", fontWeight: 600, color: colors.inkSoft }}>Equipment: </span>
-              <span
-                onClick={() => navigate(`/equipment/${job.equipment_id}`)}
-                style={{ color: colors.moss, fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
-              >
-                {job.equipment?.name || "View machine"}
-              </span>
-            </p>
-          )}
+            {job.equipment_id && (
+              <Field label="Equipment">
+                <Button variant="ghost" size="sm" onClick={() => navigate(`/equipment/${job.equipment_id}`)} style={{ padding: 0 }}>
+                  {job.equipment?.name || "View machine"}
+                </Button>
+              </Field>
+            )}
 
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Photo required to complete</label>
-          {canRequireJobPhoto ? (
-            <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", margin: "4px 0 14px", cursor: "pointer" }}>
-              <input type="checkbox" checked={job.requires_photo} onChange={(e) => handleRequiresPhotoChange(e.target.checked)} />
-              Require a photo before this job can be completed
-            </label>
-          ) : (
-            <p style={{ fontSize: "14px", margin: "4px 0 14px" }}>{job.requires_photo ? "Yes" : "No"}</p>
-          )}
+            <Field label="Photo required to complete">
+              {canRequireJobPhoto ? (
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", cursor: "pointer" }}>
+                  <input type="checkbox" checked={job.requires_photo} onChange={(e) => handleRequiresPhotoChange(e.target.checked)} />
+                  Require a photo before this job can be completed
+                </label>
+              ) : (
+                <p style={{ margin: 0 }}>{job.requires_photo ? "Yes" : "No"}</p>
+              )}
+            </Field>
 
-          {permissions.has("can_reallocate_jobs") && (
-            <>
-              <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginTop: "14px" }}>Reassign to</label>
-              <select
-                defaultValue={job.assignee_profile_id ? `person:${job.assignee_profile_id}` : job.assignee_group_id ? `group:${job.assignee_group_id}` : job.assignee_contractor_id ? `contractor:${job.assignee_contractor_id}` : ""}
-                onChange={(e) => {
-                  const [kind, val] = e.target.value.split(":");
-                  handleReallocate(kind, val);
-                }}
-                style={selectStyle}
-              >
-                <option value="">Unassigned</option>
-                <optgroup label="People">
-                  {people.map((p) => <option key={p.id} value={`person:${p.id}`}>{p.display_name}</option>)}
-                </optgroup>
-                <optgroup label="Groups">
-                  {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
-                </optgroup>
-                <optgroup label="Contractors">
-                  {contractors.map((c) => <option key={c.id} value={`contractor:${c.id}`}>{c.name}</option>)}
-                </optgroup>
-              </select>
-            </>
-          )}
-          {!permissions.has("can_reallocate_jobs") && (job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name) && (
-            <p style={{ fontSize: "14px", marginTop: "10px" }}>Assigned to {job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name}</p>
-          )}
-          {job.assignee_contractor && permissions.has("can_manage_contractors") && (
-            <button type="button" onClick={openContractorEmailModal} style={{ ...buttonStyle.secondary, marginTop: "10px" }}>
-              Send email to contractor
-            </button>
-          )}
+            {permissions.has("can_reallocate_jobs") && (
+              <Field label="Reassign to">
+                {({ id }) => (
+                  <Select
+                    id={id}
+                    defaultValue={
+                      job.assignee_profile_id
+                        ? `person:${job.assignee_profile_id}`
+                        : job.assignee_group_id
+                        ? `group:${job.assignee_group_id}`
+                        : job.assignee_contractor_id
+                        ? `contractor:${job.assignee_contractor_id}`
+                        : ""
+                    }
+                    onChange={(e) => {
+                      const [kind, val] = e.target.value.split(":");
+                      handleReallocate(kind, val);
+                    }}
+                  >
+                    <option value="">Unassigned</option>
+                    <optgroup label="People">
+                      {people.map((p) => (
+                        <option key={p.id} value={`person:${p.id}`}>
+                          {p.display_name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Groups">
+                      {groups.map((g) => (
+                        <option key={g.id} value={`group:${g.id}`}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Contractors">
+                      {contractors.map((c) => (
+                        <option key={c.id} value={`contractor:${c.id}`}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </Select>
+                )}
+              </Field>
+            )}
+            {!permissions.has("can_reallocate_jobs") &&
+              (job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name) && (
+                <p style={{ margin: 0 }}>
+                  Assigned to {job.assignee?.display_name || job.assignee_group?.name || job.assignee_contractor?.name}
+                </p>
+              )}
+            {job.assignee_contractor && permissions.has("can_manage_contractors") && (
+              <div>
+                <Button onClick={openContractorEmailModal}>Send email to contractor</Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      </Card>
 
       {(activityTypes.length > 0 || (canEditJobDetails && allActivityTypes.length > 0)) && (
         <Section title="⚠ Safety">
           {canEditJobDetails && allActivityTypes.length > 0 && (
-            <div style={{ marginBottom: "14px" }}>
-              <div style={{ fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Activity types</div>
+            <div style={{ marginBottom: "var(--space-4)" }}>
+              <SectionLabel>Activity types</SectionLabel>
               {allActivityTypes.map((t) => (
-                <label key={t.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
+                <label key={t.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "3px 0" }}>
                   <input type="checkbox" checked={activityTypes.some((a) => a.id === t.id)} onChange={() => toggleJobActivityType(t.id)} />
                   {t.name}
                 </label>
@@ -1097,10 +1177,10 @@ export default function JobDetail() {
               documents below, so viewing safety info never requires the
               edit permission, only changing the selection does. */}
           {activityTypes.map((t) => (
-            <div key={t.id} style={{ marginBottom: "10px" }}>
-              <div style={{ fontWeight: 600, fontSize: "14px" }}>{t.name}</div>
+            <div key={t.id} style={{ marginBottom: "var(--space-3)" }}>
+              <div style={{ fontWeight: 600 }}>{t.name}</div>
               {(documentsByActivityType[t.id] || []).length === 0 && (
-                <p style={{ color: colors.inkSoft, fontSize: "13px", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
+                <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
               )}
               {(documentsByActivityType[t.id] || []).map((doc) => (
                 <SafetyDocumentLink key={doc.id} doc={doc} />
@@ -1117,19 +1197,14 @@ export default function JobDetail() {
             const canEdit = permissions.has("can_edit_job_checklist");
 
             const label = canEdit ? (
-              <input
+              <Input
                 value={s.label}
                 onChange={(e) => editSubtaskLabelLocal(i, e.target.value)}
                 onBlur={() => persistSubtaskLabel(subtasks[i])}
+                aria-label={`Checklist item ${i + 1}`}
                 style={{
                   flex: 1,
                   minWidth: isMobile ? "80px" : "120px",
-                  boxSizing: "border-box",
-                  padding: "4px 8px",
-                  borderRadius: "6px",
-                  border: `1px solid ${colors.lineStrong}`,
-                  fontFamily: fonts.body,
-                  fontSize: "14px",
                   textDecoration: s.is_checked ? "line-through" : "none",
                   color: s.is_checked ? colors.inkSoft : colors.ink,
                 }}
@@ -1145,34 +1220,24 @@ export default function JobDetail() {
             const checkControls = s.requires_photo ? (
               <>
                 {!s.is_checked && (
-                  <button
-                    type="button"
+                  <IconButton
+                    size="sm"
                     onClick={() => handleChecklistPhotoCapture(s)}
                     disabled={uploadingSubtaskId === s.id}
-                    title="Add photo"
-                    aria-label="Add photo"
-                    style={checklistIconStyle}
+                    label="Add photo"
                   >
                     {uploadingSubtaskId === s.id ? "…" : "📷"}
-                  </button>
+                  </IconButton>
                 )}
                 {itemPhotos.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setViewPhotosSubtaskId(s.id)}
-                    style={{ ...buttonStyle.secondary, padding: "4px 10px", fontSize: "13px" }}
-                  >
+                  <Button size="sm" onClick={() => setViewPhotosSubtaskId(s.id)}>
                     🖼 View photos ({itemPhotos.length})
-                  </button>
+                  </Button>
                 )}
                 {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
-                  <button
-                    type="button"
-                    onClick={() => handleCheckOffWithoutPhoto(s)}
-                    style={{ background: "none", border: "none", color: colors.inkSoft, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "12px", padding: 0 }}
-                  >
+                  <Button size="sm" variant="ghost" onClick={() => handleCheckOffWithoutPhoto(s)}>
                     Check off without photo
-                  </button>
+                  </Button>
                 )}
                 {(s.is_checked || itemPhotos.length > 0) && (
                   <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
@@ -1185,23 +1250,29 @@ export default function JobDetail() {
             const editIcons = canEdit && (
               <>
                 {canRequireChecklistItemPhoto && (
-                  <button
-                    type="button"
+                  <IconButton
+                    size="sm"
                     onClick={() => toggleSubtaskRequiresPhoto(s)}
-                    title={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
-                    style={{
-                      ...checklistIconStyle,
-                      background: s.requires_photo ? colors.mossDark : "transparent",
-                      color: s.requires_photo ? colors.onDark : colors.inkSoft,
-                      border: `1px solid ${s.requires_photo ? colors.mossDark : colors.lineStrong}`,
-                    }}
+                    aria-pressed={s.requires_photo}
+                    label={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
+                    style={
+                      s.requires_photo
+                        ? { background: colors.mossDark, color: colors.onDark, borderColor: colors.mossDark }
+                        : undefined
+                    }
                   >
                     📷
-                  </button>
+                  </IconButton>
                 )}
-                <button type="button" onClick={() => moveSubtask(i, -1)} disabled={i === 0} style={checklistIconStyle}>↑</button>
-                <button type="button" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1} style={checklistIconStyle}>↓</button>
-                <button type="button" onClick={() => removeSubtask(s.id)} style={{ ...checklistIconStyle, color: colors.immediate }}>✕</button>
+                <IconButton size="sm" label="Move up" onClick={() => moveSubtask(i, -1)} disabled={i === 0}>
+                  ↑
+                </IconButton>
+                <IconButton size="sm" label="Move down" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1}>
+                  ↓
+                </IconButton>
+                <IconButton size="sm" label="Remove item" onClick={() => removeSubtask(s.id)} style={{ color: colors.immediate }}>
+                  ✕
+                </IconButton>
               </>
             );
 
@@ -1210,33 +1281,53 @@ export default function JobDetail() {
             // just wrap wherever flexbox happened to break, splitting a
             // truncated-looking label from a stray row of icon buttons
             // underneath. The photo/checkbox controls are compact icon
-            // buttons now (see checklistIconStyle above), so those stay on
+            // buttons now (IconButton, size="sm"), so those stay on
             // the same line as the label; only the reorder/remove icons
             // (only shown at all with edit permission) drop to a second
             // line, and only when there's edit permission to show them.
             if (isMobile) {
               return (
-                <div key={s.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+                <div key={s.id} style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
                     {label}
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>{checkControls}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{checkControls}</div>
                   </div>
                   {editIcons && (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "6px", marginTop: "6px" }}>{editIcons}</div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "flex-end",
+                        gap: "var(--space-2)",
+                        marginTop: "var(--space-2)",
+                      }}
+                    >
+                      {editIcons}
+                    </div>
                   )}
                 </div>
               );
             }
 
             return (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "4px 0", flexWrap: "wrap" }}>
+              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", flexWrap: "wrap" }}>
                 {label}
                 {/* Controls live in a fixed-width right-hand column, flush
                     against the row's right edge (label's flex:1 pushes it
                     there), so checkboxes and "Add photo" buttons line up in
                     one column down the list instead of the item text
                     starting at a different x on every row. */}
-                <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    width: "160px",
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "flex-end",
+                    gap: "var(--space-2)",
+                    flexWrap: "wrap",
+                  }}
+                >
                   {checkControls}
                 </div>
                 {editIcons}
@@ -1244,39 +1335,48 @@ export default function JobDetail() {
             );
           })}
           {permissions.has("can_edit_job_checklist") && (
-            <form onSubmit={addSubtask} style={{ display: "flex", gap: "8px", marginTop: "10px", alignItems: "center", flexWrap: "wrap" }}>
-              <input
+            <form
+              onSubmit={addSubtask}
+              style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}
+            >
+              <Input
                 value={newChecklistItem}
                 onChange={(e) => setNewChecklistItem(e.target.value)}
                 placeholder="Add an item…"
-                style={{ ...selectStyle, flex: 1, marginBottom: 0 }}
+                aria-label="Add a checklist item"
+                style={{ flex: 1 }}
               />
               {canRequireChecklistItemPhoto && (
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", color: colors.inkSoft, whiteSpace: "nowrap" }}>
-                  <input type="checkbox" checked={newChecklistItemRequiresPhoto} onChange={(e) => setNewChecklistItemRequiresPhoto(e.target.checked)} />
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    fontSize: "var(--text-sm)",
+                    color: colors.inkSoft,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={newChecklistItemRequiresPhoto}
+                    onChange={(e) => setNewChecklistItemRequiresPhoto(e.target.checked)}
+                  />
                   📷 Requires photo
                 </label>
               )}
-              <button type="submit" style={buttonStyle.secondary}>Add</button>
+              <Button type="submit">Add</Button>
             </form>
           )}
           {permissions.has("can_edit_job_checklist") && (
-            <div style={{ marginTop: "10px" }}>
-              <button type="button" onClick={() => setShowRecallModal(true)} style={buttonStyle.secondary}>
-                Recall checklist…
-              </button>
+            <div style={{ marginTop: "var(--space-3)" }}>
+              <Button onClick={() => setShowRecallModal(true)}>Recall checklist…</Button>
             </div>
           )}
           {canManageTemplates && (
-            <div style={{ display: "flex", gap: "8px", marginTop: "14px", flexWrap: "wrap" }}>
-              <button type="button" onClick={() => setShowSaveAsModal(true)} style={buttonStyle.secondary}>
-                Save as new template
-              </button>
-              {job.job_type && (
-                <button type="button" onClick={handleUpdateTemplate} style={buttonStyle.secondary}>
-                  Update "{job.job_type.name}" template
-                </button>
-              )}
+            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)", flexWrap: "wrap" }}>
+              <Button onClick={() => setShowSaveAsModal(true)}>Save as new template</Button>
+              {job.job_type && <Button onClick={handleUpdateTemplate}>Update "{job.job_type.name}" template</Button>}
             </div>
           )}
         </Section>
@@ -1284,24 +1384,24 @@ export default function JobDetail() {
 
       <Section title="Photos">
         {job.requires_photo && photos.length === 0 && (
-          <p style={{ color: colors.immediate, fontSize: "13px", marginTop: 0 }}>Photo required before this job can be completed.</p>
+          <Alert tone="warn">Photo required before this job can be completed.</Alert>
         )}
         {/* Checklist-item photos live under their own item ("View photos"
             button, above) -- this grid is only general job photos, not
             tied to a specific item, so the two don't duplicate each other. */}
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
           {photos.filter((p) => !p.job_subtask_id).map((p) => (
             <PhotoThumb key={p.id} path={p.storage_path} />
           ))}
         </div>
-        <button onClick={handleAddPhoto} disabled={uploading} style={buttonStyle.secondary}>
+        <Button onClick={handleAddPhoto} loading={uploading}>
           {uploading ? "Uploading…" : "Add photo"}
-        </button>
+        </Button>
       </Section>
 
       {!job.job_status?.is_completed && (
         <Section title="Progress update">
-          <p style={{ fontSize: "28px", fontWeight: 700, color: colors.mossDark, textAlign: "center", margin: "0 0 8px" }}>
+          <p style={{ fontSize: "var(--text-2xl)", fontWeight: 700, color: colors.mossDark, textAlign: "center", margin: "0 0 var(--space-2)" }}>
             {progressPercent}%
           </p>
           <input
@@ -1310,31 +1410,35 @@ export default function JobDetail() {
             max="100"
             step="5"
             value={progressPercent}
+            aria-label="Progress percentage"
             onChange={(e) => {
               setProgressPercent(Number(e.target.value));
               setProgressLogged(false);
             }}
             style={{ width: "100%" }}
           />
-          <button
-            type="button"
-            onClick={handleLogProgress}
-            disabled={loggingProgress}
-            style={{ ...buttonStyle.secondary, width: "100%", marginTop: "12px" }}
-          >
+          <Button block loading={loggingProgress} onClick={handleLogProgress} style={{ marginTop: "var(--space-3)" }}>
             {loggingProgress ? "Logging…" : progressLogged ? "Logged ✓" : "Log update"}
-          </button>
+          </Button>
         </Section>
       )}
 
       <Section title="Activity">
-        <form onSubmit={handleAddComment} style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-          <input value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Add a comment…" style={{ ...selectStyle, flex: 1, marginBottom: 0 }} />
-          <button type="submit" style={buttonStyle.primary}>Post</button>
+        <form onSubmit={handleAddComment} style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+          <Input
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="Add a comment…"
+            aria-label="Add a comment"
+            style={{ flex: 1 }}
+          />
+          <Button type="submit" variant="primary">
+            Post
+          </Button>
         </form>
         {activity.map((a) => (
-          <div key={a.id} style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-            <div style={{ fontSize: "13px", color: colors.inkSoft }}>
+          <div key={a.id} style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
+            <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
               <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> ·{" "}
               {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type === "progress_update" ? "progress update" : a.event_type === "status_change" ? "status change" : a.event_type} ·{" "}
               {new Date(a.created_at).toLocaleString()}
@@ -1362,8 +1466,8 @@ export default function JobDetail() {
             oldest event, so it belongs after the (newest-first) list above,
             at the bottom. created_by is null only for schedule-generated
             jobs (see 01-schema.sql). */}
-        <div style={{ padding: "8px 0" }}>
-          <div style={{ fontSize: "13px", color: colors.inkSoft }}>
+        <div style={{ padding: "var(--space-2) 0" }}>
+          <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
             <strong style={{ color: colors.ink }}>{job.creator?.display_name || "Schedule"}</strong> ·{" "}
             {job.creator ? "created" : "created automatically"} ·{" "}
             {new Date(job.created_at).toLocaleString()}
@@ -1374,317 +1478,349 @@ export default function JobDetail() {
       {!job.job_status?.is_completed && (
         <>
           {outstandingPhotoItems.length > 0 && (
-            <p style={{ color: colors.immediate, fontSize: "13px", textAlign: "center", marginBottom: "8px" }}>
-              {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.
-            </p>
+            <Alert tone="warn">
+              {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need
+              {outstandingPhotoItems.length === 1 ? "s" : ""} a photo before this job can be completed.
+            </Alert>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="lg"
+            block
             onClick={openCompleteModal}
             disabled={outstandingPhotoItems.length > 0}
             title={outstandingPhotoItems.length > 0 ? "Check off all photo-required checklist items first" : undefined}
-            style={{
-              ...buttonStyle.primary,
-              width: "100%",
-              opacity: outstandingPhotoItems.length > 0 ? 0.5 : 1,
-              cursor: outstandingPhotoItems.length > 0 ? "not-allowed" : "pointer",
-            }}
           >
             ✓ Complete
-          </button>
+          </Button>
         </>
       )}
 
       {showCompleteModal && (
         <Modal title="Complete job" onClose={() => setShowCompleteModal(false)}>
-          <label style={modalLabelStyle}>Completed date</label>
-          <input
-            type="date"
-            value={completeDate}
-            onChange={(e) => setCompleteDate(e.target.value)}
-            style={selectStyle}
-          />
+          <div style={{ display: "grid", gap: "var(--space-4)" }}>
+            <Field label="Completed date">
+              {({ id }) => <Input id={id} type="date" value={completeDate} onChange={(e) => setCompleteDate(e.target.value)} />}
+            </Field>
 
-          <label style={modalLabelStyle}>Comment (optional)</label>
-          <textarea
-            value={completeComment}
-            onChange={(e) => setCompleteComment(e.target.value)}
-            rows={3}
-            style={{ ...selectStyle, resize: "vertical" }}
-          />
+            <Field label="Comment (optional)">
+              {({ id }) => (
+                <Textarea id={id} value={completeComment} onChange={(e) => setCompleteComment(e.target.value)} rows={3} />
+              )}
+            </Field>
 
-          <label style={modalLabelStyle}>{job.requires_photo ? "Photos (required)" : "Photos (optional)"}</label>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
-            {photos.map((p) => (
-              <PhotoThumb key={p.id} path={p.storage_path} />
-            ))}
-          </div>
-          <button type="button" onClick={handleAddPhoto} disabled={uploading} style={{ ...buttonStyle.secondary, marginBottom: "16px" }}>
-            {uploading ? "Uploading…" : "Add photo"}
-          </button>
+            <Field label={job.requires_photo ? "Photos (required)" : "Photos (optional)"}>
+              <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
+                {photos.map((p) => (
+                  <PhotoThumb key={p.id} path={p.storage_path} />
+                ))}
+              </div>
+              <Button onClick={handleAddPhoto} loading={uploading}>
+                {uploading ? "Uploading…" : "Add photo"}
+              </Button>
+            </Field>
 
-          {outstandingPhotoItems.length > 0 && (
-            <p style={{ color: colors.immediate, fontSize: "13px" }}>
-              {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need{outstandingPhotoItems.length === 1 ? "s" : ""} a photo — go back to the checklist and add {outstandingPhotoItems.length === 1 ? "it" : "them"} before completing.
-            </p>
-          )}
+            {outstandingPhotoItems.length > 0 && (
+              <Alert tone="warn">
+                {outstandingPhotoItems.length} checklist item{outstandingPhotoItems.length === 1 ? "" : "s"} still need
+                {outstandingPhotoItems.length === 1 ? "s" : ""} a photo — go back to the checklist and add{" "}
+                {outstandingPhotoItems.length === 1 ? "it" : "them"} before completing.
+              </Alert>
+            )}
 
-          {job.equipment_id && serviceTiers.length > 0 && (
-            <div style={{ borderTop: `1px solid ${colors.line}`, marginTop: "4px", paddingTop: "14px" }}>
-              <label style={modalLabelStyle}>
-                Service on <strong>{job.equipment?.name || "this machine"}</strong> — when's the next one due?
-              </label>
-              {serviceTiers.map((t) =>
-                t.is_recurring ? (
-                  <div key={t.id} style={{ marginBottom: "10px" }}>
-                    <label style={{ ...modalLabelStyle, fontWeight: 400 }}>{t.name}</label>
-                    {t.trigger_type === "hours" ? (
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        value={tierNextDueDraft[t.id] ?? ""}
-                        onChange={(e) => setTierNextDueDraft((d) => ({ ...d, [t.id]: e.target.value }))}
-                        placeholder="Hours"
-                        style={selectStyle}
-                      />
-                    ) : (
-                      <input
-                        type="date"
-                        value={tierNextDueDraft[t.id] ?? ""}
-                        onChange={(e) => setTierNextDueDraft((d) => ({ ...d, [t.id]: e.target.value }))}
-                        style={selectStyle}
+            {job.equipment_id && serviceTiers.length > 0 && (
+              <div style={{ borderTop: `1px solid ${colors.line}`, paddingTop: "var(--space-4)" }}>
+                <SectionLabel>
+                  Service on {job.equipment?.name || "this machine"} — when is the next one due?
+                </SectionLabel>
+                {serviceTiers.map((t) =>
+                  t.is_recurring ? (
+                    <Field key={t.id} label={t.name} style={{ marginBottom: "var(--space-3)" }}>
+                      {({ id }) =>
+                        t.trigger_type === "hours" ? (
+                          <Input
+                            id={id}
+                            type="number"
+                            inputMode="decimal"
+                            value={tierNextDueDraft[t.id] ?? ""}
+                            onChange={(e) => setTierNextDueDraft((d) => ({ ...d, [t.id]: e.target.value }))}
+                            placeholder="Hours"
+                          />
+                        ) : (
+                          <Input
+                            id={id}
+                            type="date"
+                            value={tierNextDueDraft[t.id] ?? ""}
+                            onChange={(e) => setTierNextDueDraft((d) => ({ ...d, [t.id]: e.target.value }))}
+                          />
+                        )
+                      }
+                    </Field>
+                  ) : (
+                    <p key={t.id} style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
+                      {t.name} — done, this one is a one-off and will not come round again.
+                    </p>
+                  )
+                )}
+              </div>
+            )}
+
+            {job.equipment_id && serviceTiers.length === 0 && (
+              <div style={{ borderTop: `1px solid ${colors.line}`, paddingTop: "var(--space-4)", display: "grid", gap: "var(--space-4)" }}>
+                <SectionLabel>This job is linked to {job.equipment?.name || "a machine"} — what is the outcome?</SectionLabel>
+                <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <input type="radio" checked={equipmentOutcome === "available"} onChange={() => setEquipmentOutcome("available")} /> Mark
+                    available again
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <input type="radio" checked={equipmentOutcome === "monitor"} onChange={() => setEquipmentOutcome("monitor")} /> Monitor
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+                    <input type="radio" checked={equipmentOutcome === "decommission"} onChange={() => setEquipmentOutcome("decommission")} />{" "}
+                    Decommission
+                  </label>
+                </div>
+
+                {equipmentOutcome === "monitor" && (
+                  <Field
+                    label="What should the team watch for?"
+                    hint="Goes back into service, but flagged for whoever checks it out next — not marked as fixed."
+                  >
+                    {({ id, "aria-describedby": describedBy }) => (
+                      <Textarea
+                        id={id}
+                        aria-describedby={describedBy}
+                        value={equipmentMonitorNote}
+                        onChange={(e) => setEquipmentMonitorNote(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. Rear tyres worn — check tread before longer jobs"
                       />
                     )}
-                  </div>
-                ) : (
-                  <p key={t.id} style={{ color: colors.inkSoft, fontSize: "13px" }}>
-                    {t.name} — done, this one's a one-off and won't come round again.
-                  </p>
-                )
-              )}
-            </div>
-          )}
+                  </Field>
+                )}
 
-          {job.equipment_id && serviceTiers.length === 0 && (
-            <div style={{ borderTop: `1px solid ${colors.line}`, marginTop: "4px", paddingTop: "14px" }}>
-              <label style={modalLabelStyle}>
-                This job is linked to <strong>{job.equipment?.name || "a machine"}</strong> — what's the outcome?
-              </label>
-              <div style={{ display: "flex", gap: "16px", marginBottom: "10px", flexWrap: "wrap" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
-                  <input type="radio" checked={equipmentOutcome === "available"} onChange={() => setEquipmentOutcome("available")} /> Mark available again
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
-                  <input type="radio" checked={equipmentOutcome === "monitor"} onChange={() => setEquipmentOutcome("monitor")} /> Monitor
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "14px" }}>
-                  <input type="radio" checked={equipmentOutcome === "decommission"} onChange={() => setEquipmentOutcome("decommission")} /> Decommission
-                </label>
+                {equipmentOutcome === "available" ? (
+                  <>
+                    <Field label="Repair note (optional)">
+                      {({ id }) => (
+                        <Textarea
+                          id={id}
+                          value={equipmentRepairNote}
+                          onChange={(e) => setEquipmentRepairNote(e.target.value)}
+                          rows={2}
+                        />
+                      )}
+                    </Field>
+                    <div style={{ display: "flex", gap: "var(--space-3)" }}>
+                      <Field label="Cost (optional)" style={{ flex: 1 }}>
+                        {({ id }) => (
+                          <Input
+                            id={id}
+                            type="number"
+                            step="0.01"
+                            value={equipmentRepairCost}
+                            onChange={(e) => setEquipmentRepairCost(e.target.value)}
+                          />
+                        )}
+                      </Field>
+                      <Field label="Vendor (optional)" style={{ flex: 1 }}>
+                        {({ id }) => (
+                          <Input id={id} value={equipmentRepairVendor} onChange={(e) => setEquipmentRepairVendor(e.target.value)} />
+                        )}
+                      </Field>
+                    </div>
+                  </>
+                ) : equipmentOutcome === "decommission" ? (
+                  <>
+                    <Field label="Reason">
+                      {({ id }) => (
+                        <Select
+                          id={id}
+                          value={equipmentDecommissionReason}
+                          onChange={(e) => setEquipmentDecommissionReason(e.target.value)}
+                        >
+                          <option value="scrapped">Scrapped</option>
+                          <option value="sold">Sold</option>
+                          <option value="other">Other</option>
+                        </Select>
+                      )}
+                    </Field>
+                    <Field label="Notes (optional)">
+                      {({ id }) => (
+                        <Textarea
+                          id={id}
+                          value={equipmentDecommissionNotes}
+                          onChange={(e) => setEquipmentDecommissionNotes(e.target.value)}
+                          rows={2}
+                        />
+                      )}
+                    </Field>
+                  </>
+                ) : null}
               </div>
+            )}
+          </div>
 
-              {equipmentOutcome === "monitor" && (
-                <>
-                  <p style={{ color: colors.inkSoft, fontSize: "13px", marginTop: 0 }}>
-                    Goes back into service, but flagged for whoever checks it out next — not marked as fixed.
-                  </p>
-                  <label style={modalLabelStyle}>What should the team watch for?</label>
-                  <textarea
-                    value={equipmentMonitorNote}
-                    onChange={(e) => setEquipmentMonitorNote(e.target.value)}
-                    rows={2}
-                    placeholder="e.g. Rear tyres worn — check tread before longer jobs"
-                    style={{ ...selectStyle, resize: "vertical" }}
-                  />
-                </>
-              )}
-
-              {equipmentOutcome === "available" ? (
-                <>
-                  <label style={modalLabelStyle}>Repair note (optional)</label>
-                  <textarea
-                    value={equipmentRepairNote}
-                    onChange={(e) => setEquipmentRepairNote(e.target.value)}
-                    rows={2}
-                    style={{ ...selectStyle, resize: "vertical" }}
-                  />
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={modalLabelStyle}>Cost (optional)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        value={equipmentRepairCost}
-                        onChange={(e) => setEquipmentRepairCost(e.target.value)}
-                        style={selectStyle}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={modalLabelStyle}>Vendor (optional)</label>
-                      <input
-                        value={equipmentRepairVendor}
-                        onChange={(e) => setEquipmentRepairVendor(e.target.value)}
-                        style={selectStyle}
-                      />
-                    </div>
-                  </div>
-                </>
-              ) : equipmentOutcome === "decommission" ? (
-                <>
-                  <label style={modalLabelStyle}>Reason</label>
-                  <select
-                    value={equipmentDecommissionReason}
-                    onChange={(e) => setEquipmentDecommissionReason(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="scrapped">Scrapped</option>
-                    <option value="sold">Sold</option>
-                    <option value="other">Other</option>
-                  </select>
-                  <label style={modalLabelStyle}>Notes (optional)</label>
-                  <textarea
-                    value={equipmentDecommissionNotes}
-                    onChange={(e) => setEquipmentDecommissionNotes(e.target.value)}
-                    rows={2}
-                    style={{ ...selectStyle, resize: "vertical" }}
-                  />
-                </>
-              ) : null}
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => setShowCompleteModal(false)} style={buttonStyle.secondary}>Cancel</button>
-            <button
-              type="button"
+          <ModalFooter>
+            <Button onClick={() => setShowCompleteModal(false)}>Cancel</Button>
+            <Button
+              variant="primary"
               onClick={confirmComplete}
               disabled={outstandingPhotoItems.length > 0 || (job.equipment_id && equipmentOutcome === "monitor" && !equipmentMonitorNote.trim())}
-              style={buttonStyle.primary}
             >
               Mark complete
-            </button>
-          </div>
+            </Button>
+          </ModalFooter>
         </Modal>
       )}
 
       {showContractorEmailModal && (
         <Modal title={`Email ${job.assignee_contractor?.name || "contractor"}`} onClose={() => setShowContractorEmailModal(false)} maxWidth="560px">
-          <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+          <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
             To: {job.assignee_contractor?.name}
             {job.assignee_contractor?.main_email ? ` <${job.assignee_contractor.main_email}>` : " — no email address on file"}
           </p>
 
-          <label style={modalLabelStyle}>Subject</label>
-          <input value={contractorEmailSubject} onChange={(e) => setContractorEmailSubject(e.target.value)} style={selectStyle} />
+          <div style={{ display: "grid", gap: "var(--space-4)" }}>
+            <Field label="Subject">
+              {({ id }) => (
+                <Input id={id} value={contractorEmailSubject} onChange={(e) => setContractorEmailSubject(e.target.value)} />
+              )}
+            </Field>
 
-          <label style={modalLabelStyle}>Message</label>
-          <textarea
-            value={contractorEmailBody}
-            onChange={(e) => setContractorEmailBody(e.target.value)}
-            rows={11}
-            style={{ ...selectStyle, resize: "vertical" }}
-          />
+            <Field label="Message">
+              {({ id }) => (
+                <Textarea id={id} value={contractorEmailBody} onChange={(e) => setContractorEmailBody(e.target.value)} rows={11} />
+              )}
+            </Field>
 
-          <label style={modalLabelStyle}>CC</label>
-          <input
-            value={contractorEmailCc}
-            onChange={(e) => setContractorEmailCc(e.target.value)}
-            placeholder="name@example.com"
-            style={selectStyle}
-          />
-
-          <label style={modalLabelStyle}>Photos</label>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "10px" }}>
-            {photos.map((p) => (
-              <div key={p.id} style={{ position: "relative", display: "inline-block" }}>
-                <PhotoThumb path={p.storage_path} size={64} />
-                <input
-                  type="checkbox"
-                  checked={contractorEmailPhotoIds.has(p.id)}
-                  onChange={() => toggleContractorEmailPhoto(p.id)}
-                  style={{ position: "absolute", top: "4px", right: "4px", width: "18px", height: "18px", cursor: "pointer" }}
+            <Field label="CC">
+              {({ id }) => (
+                <Input
+                  id={id}
+                  value={contractorEmailCc}
+                  onChange={(e) => setContractorEmailCc(e.target.value)}
+                  placeholder="name@example.com"
                 />
+              )}
+            </Field>
+
+            <Field label="Photos" error={contractorEmailError}>
+              <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
+                {photos.map((p) => (
+                  <div key={p.id} style={{ position: "relative", display: "inline-block" }}>
+                    <PhotoThumb path={p.storage_path} size={64} />
+                    <input
+                      type="checkbox"
+                      checked={contractorEmailPhotoIds.has(p.id)}
+                      onChange={() => toggleContractorEmailPhoto(p.id)}
+                      aria-label="Attach this photo"
+                      style={{ position: "absolute", top: "4px", right: "4px", width: "18px", height: "18px", cursor: "pointer" }}
+                    />
+                  </div>
+                ))}
+                {photos.length === 0 && (
+                  <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>No photos on this job yet.</p>
+                )}
               </div>
-            ))}
-            {photos.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No photos on this job yet.</p>}
+              <Button onClick={handleContractorEmailAddPhoto} loading={contractorEmailUploading}>
+                {contractorEmailUploading ? "Uploading…" : "Add photo"}
+              </Button>
+            </Field>
           </div>
-          <button type="button" onClick={handleContractorEmailAddPhoto} disabled={contractorEmailUploading} style={{ ...buttonStyle.secondary, marginBottom: "16px" }}>
-            {contractorEmailUploading ? "Uploading…" : "Add photo"}
-          </button>
 
-          {contractorEmailError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{contractorEmailError}</p>}
-
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => setShowContractorEmailModal(false)} style={buttonStyle.secondary}>Cancel</button>
-            <button
-              type="button"
+          <ModalFooter>
+            <Button onClick={() => setShowContractorEmailModal(false)}>Cancel</Button>
+            <Button
+              variant="primary"
               onClick={handleSendContractorEmail}
-              disabled={sendingContractorEmail || !job.assignee_contractor?.main_email || !contractorEmailSubject.trim() || !contractorEmailBody.trim()}
-              style={buttonStyle.primary}
+              loading={sendingContractorEmail}
+              disabled={!job.assignee_contractor?.main_email || !contractorEmailSubject.trim() || !contractorEmailBody.trim()}
             >
               {sendingContractorEmail ? "Sending…" : "Send"}
-            </button>
-          </div>
+            </Button>
+          </ModalFooter>
         </Modal>
       )}
 
       {showSaveAsModal && (
         <Modal title="Save as new template" onClose={() => setShowSaveAsModal(false)}>
           <form onSubmit={handleSaveAsTemplate}>
-            <label style={modalLabelStyle}>Template name</label>
-            <input
-              autoFocus
-              required
-              value={newTemplateName}
-              onChange={(e) => setNewTemplateName(e.target.value)}
-              style={selectStyle}
-            />
-            <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-              <button type="button" onClick={() => setShowSaveAsModal(false)} style={buttonStyle.secondary}>Cancel</button>
-              <button type="submit" disabled={savingTemplate} style={buttonStyle.primary}>{savingTemplate ? "Saving…" : "Save"}</button>
-            </div>
+            <Field label="Template name" required>
+              {({ id }) => (
+                <Input id={id} autoFocus required value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)} />
+              )}
+            </Field>
+            <ModalFooter>
+              <Button onClick={() => setShowSaveAsModal(false)}>Cancel</Button>
+              <Button type="submit" variant="primary" loading={savingTemplate}>
+                {savingTemplate ? "Saving…" : "Save"}
+              </Button>
+            </ModalFooter>
           </form>
         </Modal>
       )}
 
       {showRecallModal && (
-        <Modal title="Recall checklist" onClose={() => { setShowRecallModal(false); setRecallTemplateId(""); }}>
-          <label style={modalLabelStyle}>Template</label>
-          <select value={recallTemplateId} onChange={(e) => setRecallTemplateId(e.target.value)} style={selectStyle}>
-            <option value="">Choose a template…</option>
-            {jobTypes.filter((t) => (t.template_schema || []).length > 0).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({t.template_schema.length} item{t.template_schema.length === 1 ? "" : "s"})
-              </option>
-            ))}
-          </select>
-          {jobTypes.filter((t) => (t.template_schema || []).length > 0).length === 0 && (
-            <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No job templates have a checklist yet.</p>
-          )}
+        <Modal
+          title="Recall checklist"
+          onClose={() => {
+            setShowRecallModal(false);
+            setRecallTemplateId("");
+          }}
+        >
+          <Field
+            label="Template"
+            hint={
+              jobTypes.filter((t) => (t.template_schema || []).length > 0).length === 0
+                ? "No job templates have a checklist yet."
+                : undefined
+            }
+          >
+            {({ id, "aria-describedby": describedBy }) => (
+              <Select id={id} aria-describedby={describedBy} value={recallTemplateId} onChange={(e) => setRecallTemplateId(e.target.value)}>
+                <option value="">Choose a template…</option>
+                {jobTypes
+                  .filter((t) => (t.template_schema || []).length > 0)
+                  .map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.template_schema.length} item{t.template_schema.length === 1 ? "" : "s"})
+                    </option>
+                  ))}
+              </Select>
+            )}
+          </Field>
           {recallTemplateId && subtasks.length > 0 && (
-            <p style={{ fontSize: "13px", color: colors.inkSoft }}>
-              This job already has {subtasks.length} checklist item{subtasks.length === 1 ? "" : "s"}. Append the
-              template's items to the end, or overwrite the existing checklist entirely?
+            <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
+              This job already has {subtasks.length} checklist item{subtasks.length === 1 ? "" : "s"}. Append the template's items to the
+              end, or overwrite the existing checklist entirely?
             </p>
           )}
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end", marginTop: "14px" }}>
-            <button type="button" onClick={() => { setShowRecallModal(false); setRecallTemplateId(""); }} style={buttonStyle.secondary}>
+          <ModalFooter>
+            <Button
+              onClick={() => {
+                setShowRecallModal(false);
+                setRecallTemplateId("");
+              }}
+            >
               Cancel
-            </button>
+            </Button>
             {subtasks.length > 0 ? (
               <>
-                <button type="button" disabled={!recallTemplateId || recalling} onClick={() => handleRecallChecklist("append")} style={buttonStyle.secondary}>
+                <Button disabled={!recallTemplateId} loading={recalling} onClick={() => handleRecallChecklist("append")}>
                   {recalling ? "Working…" : "Append"}
-                </button>
-                <button type="button" disabled={!recallTemplateId || recalling} onClick={() => handleRecallChecklist("overwrite")} style={buttonStyle.primary}>
+                </Button>
+                <Button variant="primary" disabled={!recallTemplateId} loading={recalling} onClick={() => handleRecallChecklist("overwrite")}>
                   {recalling ? "Working…" : "Overwrite"}
-                </button>
+                </Button>
               </>
             ) : (
-              <button type="button" disabled={!recallTemplateId || recalling} onClick={() => handleRecallChecklist("append")} style={buttonStyle.primary}>
+              <Button variant="primary" disabled={!recallTemplateId} loading={recalling} onClick={() => handleRecallChecklist("append")}>
                 {recalling ? "Working…" : "Apply"}
-              </button>
+              </Button>
             )}
-          </div>
+          </ModalFooter>
         </Modal>
       )}
 
@@ -1693,7 +1829,7 @@ export default function JobDetail() {
         const itemPhotos = photos.filter((p) => p.job_subtask_id === viewPhotosSubtaskId);
         return (
           <Modal title={subtask?.label || "Photos"} onClose={() => setViewPhotosSubtaskId(null)}>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
               {itemPhotos.map((p) => (
                 <PhotoThumb key={p.id} path={p.storage_path} size={100} />
               ))}
@@ -1704,64 +1840,43 @@ export default function JobDetail() {
 
       {reopenTargetStatusId && (
         <Modal title="Reopen job" onClose={() => setReopenTargetStatusId(null)}>
-          <p style={{ fontSize: "14px", color: colors.inkSoft, marginTop: 0 }}>
-            This job is {job.job_status?.name}. Say what was found so it's on record — this is required.
-          </p>
-          <label style={modalLabelStyle}>Comment</label>
-          <textarea
-            autoFocus
-            value={reopenComment}
-            onChange={(e) => setReopenComment(e.target.value)}
-            rows={3}
-            style={{ ...selectStyle, resize: "vertical" }}
-          />
-          <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
-            <button type="button" onClick={() => setReopenTargetStatusId(null)} style={buttonStyle.secondary}>Cancel</button>
-            <button type="button" onClick={confirmReopen} style={buttonStyle.primary}>Reopen</button>
-          </div>
+          <Field
+            label="Comment"
+            required
+            hint={`This job is ${job.job_status?.name}. Say what was found so it is on record.`}
+          >
+            {({ id, "aria-describedby": describedBy }) => (
+              <Textarea
+                id={id}
+                aria-describedby={describedBy}
+                autoFocus
+                value={reopenComment}
+                onChange={(e) => setReopenComment(e.target.value)}
+                rows={3}
+              />
+            )}
+          </Field>
+          <ModalFooter>
+            <Button onClick={() => setReopenTargetStatusId(null)}>Cancel</Button>
+            <Button variant="primary" onClick={confirmReopen}>
+              Reopen
+            </Button>
+          </ModalFooter>
         </Modal>
       )}
-
     </div>
   );
 }
 
-const selectStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "14px",
-};
-
-const modalLabelStyle = {
-  display: "block",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: colors.inkSoft,
-  marginBottom: "6px",
-};
-
-const checklistIconStyle = {
-  background: "transparent",
-  border: `1px solid ${colors.lineStrong}`,
-  borderRadius: "6px",
-  width: "28px",
-  height: "28px",
-  cursor: "pointer",
-  color: colors.inkSoft,
-  fontSize: "13px",
-};
-
-
+// The card padding tightens on a phone: the checklist rows inside are the
+// widest thing on this screen, and 18px each side costs them a visible
+// chunk of a 360px viewport.
 function Section({ title, children }) {
   const isMobile = useIsMobile();
   return (
-    <div style={{ ...cardStyle, padding: isMobile ? "18px 10px" : "18px", marginBottom: "16px" }}>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>{title}</h2>
+    <Card pad={false} style={{ padding: isMobile ? "var(--space-5) var(--space-3)" : "var(--space-5)", marginBottom: "var(--space-4)" }}>
+      <PageHeader title={title} level={2} />
       {children}
-    </div>
+    </Card>
   );
 }

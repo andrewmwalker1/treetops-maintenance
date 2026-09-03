@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { colors, fonts, shadow } from "../lib/theme.js";
+import { colors, fonts, radius, shadow } from "../lib/theme.js";
 
 // A searchable, keyboard-navigable dropdown for picking one pitch out of a
 // (100-200+) list -- a plain <select> that long makes finding one tedious.
@@ -110,6 +110,10 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
+        // Carries the shared input styling (and with it the hover/focus
+        // states an inline style cannot express). `style` is still merged
+        // on top for callers that need a width or a margin.
+        className="tt-input"
         style={style}
         autoComplete="off"
         role="combobox"
@@ -124,12 +128,12 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
             left: 0,
             right: 0,
             zIndex: 20,
-            marginTop: "4px",
+            marginTop: "var(--space-1)",
             maxHeight: "260px",
             overflowY: "auto",
             background: colors.paper,
             border: `1px solid ${colors.lineStrong}`,
-            borderRadius: "10px",
+            borderRadius: radius.sm,
             boxShadow: shadow.overlay,
           }}
         >
@@ -146,7 +150,7 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
                 padding: "10px 12px",
                 cursor: "pointer",
                 fontFamily: fonts.body,
-                fontSize: style?.fontSize || "14px",
+                fontSize: style?.fontSize || "var(--text-base)",
                 color: colors.ink,
                 background: i === highlightedIndex ? colors.line : "transparent",
               }}
@@ -155,7 +159,7 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
             </div>
           ))}
           {pitches.length > MAX_RESULTS && matches.length === MAX_RESULTS && (
-            <div style={{ padding: "6px 12px", fontSize: "12px", color: colors.inkSoft, fontStyle: "italic" }}>
+            <div style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", color: colors.inkSoft, fontStyle: "italic" }}>
               Keep typing to narrow it down…
             </div>
           )}

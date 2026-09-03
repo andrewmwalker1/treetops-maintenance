@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
-import { colors, fonts, cardStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import { Button, Card, EmptyState, PageHeader, Pill, SkeletonList } from "../ui/index.js";
 
 const statusColors = {
   in_service: colors.moss,
@@ -44,49 +45,73 @@ export default function EquipmentList() {
 
   return (
     <div>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Equipment</h1>
+      <PageHeader title="Equipment" />
 
       {statusFilter && (
-        <div
+        <Card
+          pad="sm"
           style={{
-            ...cardStyle,
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "12px",
-            padding: "8px 16px",
-            marginBottom: "12px",
-            fontFamily: fonts.body,
-            fontSize: "13px",
-            color: colors.mossDark,
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-3)",
           }}
         >
-          <span style={{ textTransform: "capitalize" }}>Showing: {statusLabels[statusFilter] || statusFilter}</span>
-          <button
-            onClick={() => setSearchParams({})}
-            style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px", padding: 0 }}
-          >
+          <span style={{ fontSize: "var(--text-sm)", color: colors.mossDark }}>
+            Showing: {statusLabels[statusFilter] || statusFilter}
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => setSearchParams({})}>
             Clear
-          </button>
-        </div>
+          </Button>
+        </Card>
       )}
 
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-      {!loading && equipment.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment yet.</p>}
+      {loading && <SkeletonList rows={4} height={70} />}
+      {!loading && equipment.length === 0 && (
+        <EmptyState
+          title={statusFilter ? "No equipment with that status" : "No equipment yet"}
+          action={
+            statusFilter ? (
+              <Button variant="primary" onClick={() => setSearchParams({})}>
+                Show all equipment
+              </Button>
+            ) : null
+          }
+        >
+          {statusFilter ? "Clear the filter to see the rest of the fleet." : "Equipment is added under Settings and admin."}
+        </EmptyState>
+      )}
 
       {equipment.map((eq) => (
-        <Link key={eq.id} to={`/equipment/${eq.id}`} style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", marginBottom: "10px", textDecoration: "none", color: colors.ink }}>
+        <Card
+          key={eq.id}
+          as={Link}
+          to={`/equipment/${eq.id}`}
+          pad="sm"
+          interactive
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: "var(--space-3)",
+            marginBottom: "var(--space-2)",
+            textDecoration: "none",
+            color: colors.ink,
+          }}
+        >
           <div>
-            <div style={{ fontWeight: 600 }}>{eq.name}{eq.equipment_type && <span style={{ fontWeight: 400, color: colors.inkSoft }}> · {eq.equipment_type.name}</span>}</div>
-            <div style={{ fontSize: "13px", color: colors.inkSoft }}>
+            <div style={{ fontWeight: 600 }}>
+              {eq.name}
+              {eq.equipment_type && <span style={{ fontWeight: 400, color: colors.inkSoft }}> · {eq.equipment_type.name}</span>}
+            </div>
+            <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
               {[eq.make, eq.model].filter(Boolean).join(" ")}
               {eq.held_by && `${eq.make || eq.model ? " · " : ""}Held by ${eq.held_by.display_name}`}
             </div>
           </div>
-          <span style={{ display: "inline-block", padding: "3px 12px", borderRadius: "999px", background: statusColors[eq.status], color: colors.onDark, fontSize: "12px", fontWeight: 600 }}>
-            {statusLabels[eq.status]}
-          </span>
-        </Link>
+          <Pill color={statusColors[eq.status]}>{statusLabels[eq.status]}</Pill>
+        </Card>
       ))}
     </div>
   );

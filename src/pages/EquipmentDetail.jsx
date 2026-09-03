@@ -5,7 +5,22 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import {
+  Alert,
+  Button,
+  Card,
+  Chip,
+  EmptyState,
+  Field,
+  IconArrowLeft,
+  Input,
+  PageHeader,
+  Select,
+  SkeletonList,
+  Table,
+  Textarea,
+} from "../ui/index.js";
 
 const statusLabels = { in_service: "In service", monitor: "Monitor", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
 
@@ -368,79 +383,123 @@ export default function EquipmentDetail() {
     loadAll();
   }
 
-  if (!equipment) return <p style={{ color: colors.inkSoft }}>Loading…</p>;
+  if (!equipment) return <SkeletonList rows={3} />;
 
   return (
     <div style={{ maxWidth: "600px" }}>
-      <button onClick={() => navigate(-1)} style={{ ...buttonStyle.secondary, marginBottom: "16px" }}>← Back</button>
-      {error && <p style={{ color: colors.immediate }}>{error}</p>}
+      <Button onClick={() => navigate(-1)} icon={<IconArrowLeft size={15} />} style={{ marginBottom: "var(--space-4)" }}>
+        Back
+      </Button>
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ ...cardStyle, padding: "20px", marginBottom: "20px" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0, marginBottom: "4px" }}>{equipment.name}</h1>
-        <p style={{ color: colors.inkSoft, marginTop: 0, marginBottom: "14px" }}>
-          {[equipment.equipment_type?.name, equipment.make, equipment.model].filter(Boolean).join(" · ") || "No details set"}
-        </p>
+      <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
+        <PageHeader
+          title={equipment.name}
+          subtitle={[equipment.equipment_type?.name, equipment.make, equipment.model].filter(Boolean).join(" · ") || "No details set"}
+        />
         {(equipment.tracks_hours ?? equipment.equipment_type?.tracks_hours_default) && (
-          <p style={{ color: colors.inkSoft, marginTop: 0, marginBottom: "14px", fontSize: "13px" }}>
+          <p style={{ color: colors.inkSoft, marginTop: 0, marginBottom: "var(--space-4)", fontSize: "var(--text-sm)" }}>
             {equipment.last_hours_reading != null
               ? `Last hours reading: ${equipment.last_hours_reading} hrs (${formatDateTime(equipment.last_hours_reading_at)})`
               : "No hours reading on file yet"}
           </p>
         )}
         {canManage ? (
-          <select value={equipment.status} onChange={(e) => handleStatusChange(e.target.value)} style={selectStyle}>
-            {Object.entries(statusLabels).map(([val, label]) => <option key={val} value={val}>{label}</option>)}
-          </select>
+          <Select
+            value={equipment.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            aria-label="Equipment status"
+            style={{ marginBottom: "var(--space-3)" }}
+          >
+            {Object.entries(statusLabels).map(([val, label]) => (
+              <option key={val} value={val}>
+                {label}
+              </option>
+            ))}
+          </Select>
         ) : (
           <p>{statusLabels[equipment.status]}</p>
         )}
 
         {pendingMonitorNote !== null && (
-          <form onSubmit={handleConfirmMonitor} style={{ background: colors.bg, borderRadius: "10px", padding: "12px", marginTop: "-2px" }}>
-            <label style={labelStyle}>What should the team watch for?</label>
-            <textarea
-              value={pendingMonitorNote}
-              onChange={(e) => setPendingMonitorNote(e.target.value)}
-              rows={2}
-              autoFocus
-              placeholder="e.g. Rear tyres worn — check tread before longer jobs"
-              style={{ ...selectStyle, resize: "vertical" }}
-            />
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="button" onClick={() => setPendingMonitorNote(null)} style={buttonStyle.secondary}>Cancel</button>
-              <button type="submit" disabled={!pendingMonitorNote.trim()} style={buttonStyle.primary}>Set to Monitor</button>
+          <form
+            onSubmit={handleConfirmMonitor}
+            style={{ background: colors.bg, borderRadius: "var(--radius-sm)", padding: "var(--space-3)" }}
+          >
+            <Field label="What should the team watch for?">
+              {({ id }) => (
+                <Textarea
+                  id={id}
+                  value={pendingMonitorNote}
+                  onChange={(e) => setPendingMonitorNote(e.target.value)}
+                  rows={2}
+                  autoFocus
+                  placeholder="e.g. Rear tyres worn — check tread before longer jobs"
+                />
+              )}
+            </Field>
+            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+              <Button onClick={() => setPendingMonitorNote(null)}>Cancel</Button>
+              <Button type="submit" variant="primary" disabled={!pendingMonitorNote.trim()}>
+                Set to Monitor
+              </Button>
             </div>
           </form>
         )}
 
         {equipment.status === "monitor" && pendingMonitorNote === null && (
-          <div style={{ background: colors.warnSurface, border: `1px solid ${colors.warnBorder}`, borderRadius: "10px", padding: "12px" }}>
-            <p style={{ color: colors.gold, fontWeight: 600, fontSize: "13px", margin: "0 0 6px" }}>Being monitored</p>
+          <Alert tone="warn" title="Being monitored">
             {canManage ? (
               <form onSubmit={handleUpdateMonitorNote}>
-                <textarea
+                <Textarea
                   value={monitorNoteDraft}
                   onChange={(e) => setMonitorNoteDraft(e.target.value)}
                   rows={2}
-                  style={{ ...selectStyle, resize: "vertical", marginBottom: "8px" }}
+                  aria-label="What the team should watch for"
+                  style={{ marginBottom: "var(--space-2)" }}
                 />
-                <button type="submit" disabled={!monitorNoteDraft.trim() || monitorNoteDraft.trim() === equipment.monitor_note} style={buttonStyle.secondary}>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!monitorNoteDraft.trim() || monitorNoteDraft.trim() === equipment.monitor_note}
+                >
                   Update note
-                </button>
+                </Button>
               </form>
             ) : (
-              <p style={{ fontSize: "14px", margin: 0 }}>{equipment.monitor_note}</p>
+              <p>{equipment.monitor_note}</p>
             )}
-          </div>
+          </Alert>
         )}
-      </div>
+      </Card>
 
       {(tierStates.length > 0 || (canManage && serviceTemplates.length > 0)) && (
         <Section title="Service schedule">
           {tierStates.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: canManage ? "14px" : 0 }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--space-2)",
+                marginBottom: canManage ? "var(--space-4)" : 0,
+              }}
+            >
               {tierStates.map((s) => (
-                <div key={s.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", padding: "4px 0", borderBottom: `1px solid ${colors.line}` }}>
+                <div
+                  key={s.id}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    gap: "var(--space-3)",
+                    fontSize: "var(--text-sm)",
+                    padding: "var(--space-1) 0",
+                    borderBottom: `1px solid ${colors.line}`,
+                  }}
+                >
                   <span>
                     {s.tier?.template?.name ? `${s.tier.template.name} — ` : ""}
                     {s.tier?.name}
@@ -448,41 +507,58 @@ export default function EquipmentDetail() {
                   </span>
                   <span style={{ color: colors.inkSoft }}>
                     {s.tier?.trigger_type === "hours"
-                      ? s.next_due_hours != null ? `Due at ${s.next_due_hours} hrs` : "—"
-                      : s.next_due_date ? `Due ${s.next_due_date}` : "—"}
+                      ? s.next_due_hours != null
+                        ? `Due at ${s.next_due_hours} hrs`
+                        : "—"
+                      : s.next_due_date
+                      ? `Due ${s.next_due_date}`
+                      : "—"}
                   </span>
                 </div>
               ))}
             </div>
           )}
           {canManage && (
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <select value={templateToApply} onChange={(e) => setTemplateToApply(e.target.value)} style={{ ...selectStyle, flex: 1, minWidth: "160px" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+              <Select
+                value={templateToApply}
+                onChange={(e) => setTemplateToApply(e.target.value)}
+                aria-label="Service template to apply"
+                style={{ flex: 1, minWidth: "160px" }}
+              >
                 <option value="">Apply a service template…</option>
                 {serviceTemplates
                   .filter((t) => !appliedTemplateIds.includes(t.id))
                   .map((t) => (
-                    <option key={t.id} value={t.id}>{t.name}</option>
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
                   ))}
-              </select>
-              <button onClick={applyTemplate} disabled={!templateToApply || applyingTemplate} style={buttonStyle.secondary}>
+              </Select>
+              <Button onClick={applyTemplate} disabled={!templateToApply} loading={applyingTemplate}>
                 {applyingTemplate ? "Applying…" : "Apply"}
-              </button>
+              </Button>
             </div>
           )}
         </Section>
       )}
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "16px" }}>
-        <TabButton active={activeTab === "checks"} onClick={() => setActiveTab("checks")} label="Log a check" />
-        <TabButton active={activeTab === "faults"} onClick={() => setActiveTab("faults")} label="Report a fault / repair" />
+      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
+        <Chip active={activeTab === "checks"} onClick={() => setActiveTab("checks")}>
+          Log a check
+        </Chip>
+        <Chip active={activeTab === "faults"} onClick={() => setActiveTab("faults")}>
+          Report a fault / repair
+        </Chip>
       </div>
 
       {activeTab === "checks" && (
         <Section title="Log a check">
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button onClick={() => logCheck(true)} style={buttonStyle.primary}>Log passed check</button>
-            <button onClick={() => logCheck(false)} style={buttonStyle.secondary}>Log failed check</button>
+          <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+            <Button variant="primary" onClick={() => logCheck(true)}>
+              Log passed check
+            </Button>
+            <Button onClick={() => logCheck(false)}>Log failed check</Button>
           </div>
         </Section>
       )}
@@ -491,20 +567,52 @@ export default function EquipmentDetail() {
         <>
           <Section title="Report a fault">
             <form onSubmit={handleReportFault}>
-              <textarea value={faultDescription} onChange={(e) => setFaultDescription(e.target.value)} placeholder="Describe the fault…" rows={2} style={{ ...selectStyle, resize: "vertical" }} />
-              <button type="submit" style={buttonStyle.primary}>Report fault (with photo)</button>
+              <Textarea
+                value={faultDescription}
+                onChange={(e) => setFaultDescription(e.target.value)}
+                placeholder="Describe the fault…"
+                aria-label="Fault description"
+                rows={2}
+                style={{ marginBottom: "var(--space-3)" }}
+              />
+              <Button type="submit" variant="primary">
+                Report fault (with photo)
+              </Button>
             </form>
           </Section>
 
           {canManage && (
             <Section title="Log a repair">
               <form onSubmit={handleLogRepair}>
-                <textarea value={repairNote} onChange={(e) => setRepairNote(e.target.value)} placeholder="What was done…" rows={2} style={{ ...selectStyle, resize: "vertical" }} />
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <input value={repairVendor} onChange={(e) => setRepairVendor(e.target.value)} placeholder="Vendor (optional)" style={{ ...selectStyle, flex: 1 }} />
-                  <input value={repairCost} onChange={(e) => setRepairCost(e.target.value)} placeholder="Cost £ (optional)" type="number" step="0.01" style={{ ...selectStyle, flex: 1 }} />
+                <Textarea
+                  value={repairNote}
+                  onChange={(e) => setRepairNote(e.target.value)}
+                  placeholder="What was done…"
+                  aria-label="What was done"
+                  rows={2}
+                  style={{ marginBottom: "var(--space-2)" }}
+                />
+                <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <Input
+                    value={repairVendor}
+                    onChange={(e) => setRepairVendor(e.target.value)}
+                    placeholder="Vendor (optional)"
+                    aria-label="Vendor"
+                    style={{ flex: 1 }}
+                  />
+                  <Input
+                    value={repairCost}
+                    onChange={(e) => setRepairCost(e.target.value)}
+                    placeholder="Cost £ (optional)"
+                    aria-label="Cost in pounds"
+                    type="number"
+                    step="0.01"
+                    style={{ flex: 1 }}
+                  />
                 </div>
-                <button type="submit" style={buttonStyle.primary}>Log repair</button>
+                <Button type="submit" variant="primary">
+                  Log repair
+                </Button>
               </form>
             </Section>
           )}
@@ -513,72 +621,108 @@ export default function EquipmentDetail() {
 
       <Section title="History">
         {combinedHistory.length === 0 ? (
-          <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>Nothing logged against this machine yet.</p>
+          <EmptyState title="Nothing logged yet">Checks, faults and repairs for this machine will appear here.</EmptyState>
         ) : (
           <>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center", marginBottom: "10px" }}>
-              <input type="date" value={historyFrom} onChange={(e) => setHistoryFrom(e.target.value)} style={{ ...selectStyle, marginBottom: 0, width: "auto" }} title="From date" />
-              <input type="date" value={historyTo} onChange={(e) => setHistoryTo(e.target.value)} style={{ ...selectStyle, marginBottom: 0, width: "auto" }} title="To date" />
+            <div
+              style={{
+                display: "flex",
+                gap: "var(--space-2)",
+                flexWrap: "wrap",
+                alignItems: "center",
+                marginBottom: "var(--space-3)",
+              }}
+            >
+              <Input
+                type="date"
+                value={historyFrom}
+                onChange={(e) => setHistoryFrom(e.target.value)}
+                aria-label="History from date"
+                style={{ width: "auto" }}
+              />
+              <Input
+                type="date"
+                value={historyTo}
+                onChange={(e) => setHistoryTo(e.target.value)}
+                aria-label="History to date"
+                style={{ width: "auto" }}
+              />
               {(historyFrom || historyTo) && (
-                <button
-                  type="button"
-                  onClick={() => { setHistoryFrom(""); setHistoryTo(""); }}
-                  style={{ border: "none", background: "none", color: colors.mossDark, textDecoration: "underline", cursor: "pointer", fontFamily: fonts.body, fontSize: "13px" }}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setHistoryFrom("");
+                    setHistoryTo("");
+                  }}
                 >
                   Show all time
-                </button>
+                </Button>
               )}
             </div>
 
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "12px" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
               {HISTORY_STATUS_CHIPS.map((chip) => (
-                <button
+                <Chip
                   key={chip.key}
-                  type="button"
+                  active={historyStatusFilter === chip.key}
                   onClick={() => setHistoryStatusFilter(chip.key)}
-                  style={{
-                    border: `1px solid ${historyStatusFilter === chip.key ? colors.mossDark : colors.lineStrong}`,
-                    background: historyStatusFilter === chip.key ? colors.mossDark : "transparent",
-                    color: historyStatusFilter === chip.key ? colors.onDark : colors.inkSoft,
-                    borderRadius: "999px",
-                    padding: "6px 14px",
-                    fontFamily: fonts.body,
-                    fontSize: "13px",
-                    cursor: "pointer",
-                  }}
                 >
                   {chip.label}
-                </button>
+                </Chip>
               ))}
             </div>
 
             {filteredSortedHistory.length === 0 ? (
-              <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No entries match this filter.</p>
+              <EmptyState
+                title="No entries match this filter"
+                action={
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      setHistoryStatusFilter("all");
+                      setHistoryFrom("");
+                      setHistoryTo("");
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                }
+              />
             ) : (
-              <div style={{ border: `1px solid ${colors.line}`, borderRadius: "10px", overflowX: "auto", maxHeight: "60vh", overflowY: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      <th style={thStyle} onClick={() => toggleHistorySort("status")}>Status{historySortIndicator("status")}</th>
-                      <th style={thStyle} onClick={() => toggleHistorySort("details")}>Details{historySortIndicator("details")}</th>
-                      <th style={thStyle} onClick={() => toggleHistorySort("person")}>Person{historySortIndicator("person")}</th>
-                      <th style={thStyle} onClick={() => toggleHistorySort("date")}>Date{historySortIndicator("date")}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredSortedHistory.map((row) => (
-                      <tr key={row.id}>
-                        <td style={tdStyle}>
-                          <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>{HISTORY_STATUS[row.status].label}</span>
-                        </td>
-                        <td style={tdStyle}>{row.details || "—"}</td>
-                        <td style={tdStyle}>{row.person || "—"}</td>
-                        <td style={tdStyle}>{formatDateTime(row.date)}</td>
-                      </tr>
+              <Table wrapperProps={{ style: { maxHeight: "60vh", overflowY: "auto" } }}>
+                <thead>
+                  <tr>
+                    {[
+                      ["status", "Status"],
+                      ["details", "Details"],
+                      ["person", "Person"],
+                      ["date", "Date"],
+                    ].map(([field, label]) => (
+                      <th key={field} aria-sort={ariaSort(historySort, field)}>
+                        <button type="button" className="tt-sortbtn" onClick={() => toggleHistorySort(field)}>
+                          {label}
+                          {historySortIndicator(field)}
+                        </button>
+                      </th>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSortedHistory.map((row) => (
+                    <tr key={row.id}>
+                      <td>
+                        <span style={{ color: HISTORY_STATUS[row.status].color, fontWeight: 600 }}>
+                          {HISTORY_STATUS[row.status].label}
+                        </span>
+                      </td>
+                      <td>{row.details || "—"}</td>
+                      <td>{row.person || "—"}</td>
+                      <td className="tt-num">{formatDateTime(row.date)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
             )}
           </>
         )}
@@ -587,67 +731,18 @@ export default function EquipmentDetail() {
   );
 }
 
-function TabButton({ active, onClick, label }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        border: `1px solid ${active ? colors.mossDark : colors.lineStrong}`,
-        background: active ? colors.mossDark : "transparent",
-        color: active ? colors.onDark : colors.inkSoft,
-        borderRadius: "999px",
-        padding: "6px 14px",
-        fontFamily: fonts.body,
-        fontSize: "13px",
-        cursor: "pointer",
-      }}
-    >
-      {label}
-    </button>
-  );
+// Screen readers announce a sortable column's current direction from this,
+// which the old click-handler-on-a-th version had no way to express.
+function ariaSort(sort, field) {
+  if (sort.field !== field) return "none";
+  return sort.direction === "asc" ? "ascending" : "descending";
 }
-
-const selectStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelStyle = {
-  display: "block",
-  fontSize: "13px",
-  fontWeight: 600,
-  color: colors.inkSoft,
-  marginBottom: "6px",
-};
-
-const thStyle = {
-  textAlign: "left",
-  padding: "8px 10px",
-  fontSize: "12px",
-  color: colors.inkSoft,
-  cursor: "pointer",
-  userSelect: "none",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle = {
-  padding: "8px 10px",
-  fontSize: "13px",
-  borderTop: `1px solid ${colors.line}`,
-  verticalAlign: "top",
-};
 
 function Section({ title, children }) {
   return (
-    <div style={{ ...cardStyle, padding: "18px", marginBottom: "16px" }}>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>{title}</h2>
+    <Card pad="lg" style={{ marginBottom: "var(--space-4)" }}>
+      <PageHeader title={title} level={2} />
       {children}
-    </div>
+    </Card>
   );
 }
