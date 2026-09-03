@@ -1732,7 +1732,7 @@ export default function JobDetail() {
                       checked={contractorEmailPhotoIds.has(p.id)}
                       onChange={() => toggleContractorEmailPhoto(p.id)}
                       aria-label="Attach this photo"
-                      style={{ position: "absolute", top: "4px", right: "4px", width: "18px", height: "18px", cursor: "pointer" }}
+                      style={{ position: "absolute", top: "4px", right: "4px", width: "var(--checkbox-size-sm)", height: "var(--checkbox-size-sm)", cursor: "pointer" }}
                     />
                   </div>
                 ))}

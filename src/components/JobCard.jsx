@@ -34,7 +34,7 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
           checked={selected}
           onClick={(e) => e.stopPropagation()}
           onChange={() => onToggleSelect?.(job.id)}
-          style={{ alignSelf: "center", width: "18px", height: "18px", flexShrink: 0, cursor: "pointer" }}
+          style={{ alignSelf: "center", width: "var(--checkbox-size-sm)", height: "var(--checkbox-size-sm)", flexShrink: 0, cursor: "pointer" }}
         />
       )}
       <div style={priorityBarStyle(job.priority)} />

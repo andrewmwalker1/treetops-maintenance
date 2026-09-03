@@ -243,7 +243,7 @@ export default function KioskCheckOut() {
                   type="checkbox"
                   checked={selectedIds.has(u.id)}
                   onChange={() => toggleUnit(u.id)}
-                  style={{ width: "26px", height: "26px", flexShrink: 0 }}
+                  style={{ width: "var(--checkbox-size-kiosk)", height: "var(--checkbox-size-kiosk)", flexShrink: 0 }}
                 />
                 {u.name}
                 {u.status === "monitor" && <Pill tone="warn">Monitor</Pill>}

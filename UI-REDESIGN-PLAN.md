@@ -971,3 +971,58 @@ pixel-identical to before. `/ui-gallery` loads with no console errors.
 No signed-in screen was exercised directly (most of what changed here —
 key-station, kiosk, admin — needs a real login), so the computed-style
 check is what stands in for it, same as prior phases.
+
+---
+
+## 8i. Checkbox-size decision (2026-09-03)
+
+Resolved the question 8h left open. Checked `base.css` first: Phase 5
+(8b) already added a `@media (pointer: coarse)` rule giving any
+*unstyled* checkbox/radio `22px`, specifically because kiosk/key-station
+"hand-size their own" -- so the real question wasn't "invent a scale",
+it was "what do the hand-set ones actually contain, and do they still
+need to."
+
+**Found one pair that no longer needs to exist at all.**
+`KeyStationCheckOut.jsx` and `KeyStationHandover.jsx`'s inline
+`width/height: "22px"` predate that base rule (`git log -S` traces them
+to the original key-station terminal commit, `a9534aa`) and now just
+restate, verbatim, what the base rule already gives any checkbox on
+those guaranteed-touchscreen routes. Deleted both -- not tokenized,
+removed, since a token for a value that duplicates a rule already in
+effect adds nothing.
+
+**Three real tiers remained**, each an exact value shared by more than
+one screen, none touched by rounding (same discipline as 8h's width
+scale): `--checkbox-size-sm` (18px -- `JobCard`, `CheckOutKey`,
+`HandoverKey`, `JobDetail`: plain desktop/in-app screens),
+`--checkbox-size-md` (20px -- `CheckinKit`, `CheckoutKit`: the kit
+checkout flow), `--checkbox-size-kiosk` (26px -- `KioskCheckIn`,
+`KioskCheckOut`: kiosk equipment multi-select, deliberately past the
+22px coarse-pointer default for the least-attended, walk-up-stranger
+context). Added to `tokens.css` and, for parity with `width` in 8h, a
+`checkboxSize` export in `theme.js` -- though every actual call site
+uses the `var(--…)` string directly, matching how the width scale was
+applied.
+
+**Left alone, and why:** `KioskJobs.jsx` has two more square elements
+in the same pixel neighbourhood that turned out not to belong to either
+tier. Its subtask checkbox is `24px` -- close to the kiosk tier's 26px,
+but no second use anywhere shares that exact value, so collapsing it
+into `--checkbox-size-kiosk` would be a real (if small) size change
+nothing has verified, the same reasoning 8h used to leave the true
+one-off `maxWidth`s alone. Its status-dot span (`16px`, `borderRadius:
+"50%"`) isn't a checkbox at all -- a decorative colour indicator that
+happens to share a pixel value with nothing else, left as a documented
+one-off literal.
+
+**Verification.** Production build clean. `check-styles.mjs` reports
+clean against the real diff (`801e763..HEAD`, not the stale
+already-committed-history check a first run against it mistakenly
+re-confirmed). Computed-style check in the browser: `--checkbox-size-sm`
+/`-md`/`-kiosk` all resolve to their exact original pixel values
+(18/20/26px) -- pixel-identical rendering, same as every prior sweep.
+The two deleted overrides couldn't be computed-style-checked the same
+way (they need a real key-station login to render at all), so that one
+rests on the `git log -S` trace plus reading `base.css`'s own rule
+directly, not a rendered screen.

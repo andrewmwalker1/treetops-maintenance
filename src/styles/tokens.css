@@ -132,6 +132,17 @@
   --control-h: 40px;
   --control-h-sm: 32px;
   --control-h-lg: 52px;
+
+  /* Checkbox squares that hand-set their own size rather than falling
+     through to base.css's `@media (pointer: coarse)` default (22px, for
+     anything that doesn't). Three real tiers found in use, each kept at
+     its exact existing value: plain desktop/in-app screens, the kit
+     checkout flow, and kiosk equipment multi-select -- the walk-up-
+     stranger context that deliberately goes past the coarse-pointer
+     default. See UI-REDESIGN-PLAN.md section 8i. */
+  --checkbox-size-sm: 18px;
+  --checkbox-size-md: 20px;
+  --checkbox-size-kiosk: 26px;
   --focus-ring: 0 0 0 2px var(--c-paper), 0 0 0 4px var(--c-moss);
   --focus-ring-inset: 0 0 0 3px rgba(31, 59, 92, 0.16);
   /* Same shape as --focus-ring-inset, danger-tinted -- for a field already

@@ -104,7 +104,7 @@ export default function HandoverKey() {
             type="checkbox"
             checked={fobConfirmed}
             onChange={(e) => setFobConfirmed(e.target.checked)}
-            style={{ width: "18px", height: "18px", marginTop: "var(--space-1)" }}
+            style={{ width: "var(--checkbox-size-sm)", height: "var(--checkbox-size-sm)", marginTop: "var(--space-1)" }}
           />
           I've removed the RFID fob from this key — only the physical key goes to the customer, the fob stays with us.
         </label>

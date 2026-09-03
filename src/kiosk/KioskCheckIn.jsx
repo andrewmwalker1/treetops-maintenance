@@ -134,7 +134,7 @@ export default function KioskCheckIn() {
                 type="checkbox"
                 checked={selectedIds.has(c.id)}
                 onChange={() => toggleSelect(c.id)}
-                style={{ width: "26px", height: "26px", flexShrink: 0 }}
+                style={{ width: "var(--checkbox-size-kiosk)", height: "var(--checkbox-size-kiosk)", flexShrink: 0 }}
               />
               {c.equipment.name}
             </label>

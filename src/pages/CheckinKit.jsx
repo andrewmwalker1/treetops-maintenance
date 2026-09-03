@@ -123,7 +123,7 @@ export default function CheckinKit() {
                 type="checkbox"
                 checked={selectedIds.has(c.id)}
                 onChange={() => toggleSelect(c.id)}
-                style={{ width: "20px", height: "20px", flexShrink: 0 }}
+                style={{ width: "var(--checkbox-size-md)", height: "var(--checkbox-size-md)", flexShrink: 0 }}
               />
               {c.equipment.name}
             </label>

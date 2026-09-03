@@ -105,6 +105,14 @@ export const width = {
   xxl: "var(--width-2xl)",
 };
 
+// Checkbox squares that hand-set their own size. See tokens.css for the
+// three tiers this covers and why each is kept at its exact existing value.
+export const checkboxSize = {
+  sm: "var(--checkbox-size-sm)",
+  md: "var(--checkbox-size-md)",
+  kiosk: "var(--checkbox-size-kiosk)",
+};
+
 export const shadow = {
   card: "var(--shadow-card)",
   overlay: "var(--shadow-overlay)",

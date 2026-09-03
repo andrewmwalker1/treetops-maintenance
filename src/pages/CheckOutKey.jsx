@@ -119,7 +119,7 @@ export default function CheckOutKey() {
 
               {issuedToKind === "guest" && (
                 <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.inkSoft }}>
-                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "18px", height: "18px" }} />
+                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "var(--checkbox-size-sm)", height: "var(--checkbox-size-sm)" }} />
                   Confirmed with the caravan owner
                 </label>
               )}

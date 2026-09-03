@@ -237,7 +237,7 @@ export default function CheckoutKit() {
                   type="checkbox"
                   checked={selectedIds.has(u.id)}
                   onChange={() => toggleUnit(u.id)}
-                  style={{ width: "20px", height: "20px", flexShrink: 0 }}
+                  style={{ width: "var(--checkbox-size-md)", height: "var(--checkbox-size-md)", flexShrink: 0 }}
                 />
                 {u.name}
                 {u.status === "monitor" && <Pill tone="warn">Monitor</Pill>}

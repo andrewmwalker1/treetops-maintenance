@@ -116,7 +116,7 @@ export default function KeyStationCheckOut() {
 
               {issuedToKind === "guest" && (
                 <label style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", color: colors.inkSoft }}>
-                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "22px", height: "22px" }} />
+                  <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} />
                   Confirmed with the caravan owner
                 </label>
               )}
