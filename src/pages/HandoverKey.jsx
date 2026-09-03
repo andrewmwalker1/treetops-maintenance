@@ -2,26 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { usePermissions } from "../lib/permissions.js";
 import { useKeyHandover } from "../lib/useKeyHandover.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
-
-const listButtonStyle = {
-  ...buttonStyle.secondary,
-  width: "100%",
-  textAlign: "left",
-  padding: "14px 16px",
-  fontSize: "15px",
-};
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "15px",
-  marginBottom: "12px",
-};
+import { colors, fonts } from "../lib/theme.js";
+import { Alert, Button, Card, Field, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
 
 // Same key-handover logic as the key-cupboard kiosk (useKeyHandover.js),
 // matching RelocateKey.jsx's relationship to KeyStationRelocate.jsx --
@@ -52,7 +34,7 @@ export default function HandoverKey() {
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
       <div style={{ textAlign: "center", padding: "40px 20px" }}>
-        <p style={{ fontFamily: fonts.body, fontSize: "15px", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
+        <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
           This account doesn't have access to hand over keys.
         </p>
       </div>
@@ -62,9 +44,9 @@ export default function HandoverKey() {
   if (view === "done") {
     return (
       <div style={{ maxWidth: "560px" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Handed over</h1>
-        <p style={{ fontSize: "15px" }}>{locationLabel(selectedTag)} — handed over to {handoverTo.trim()}.</p>
-        <button style={buttonStyle.primary} onClick={() => navigate("/key-register")}>Done</button>
+        <PageHeader title="Handed over" />
+        <p style={{ fontSize: "var(--text-base)" }}>{locationLabel(selectedTag)} — handed over to {handoverTo.trim()}.</p>
+        <Button variant="primary" onClick={() => navigate("/key-register")}>Done</Button>
       </div>
     );
   }
@@ -72,44 +54,48 @@ export default function HandoverKey() {
   if (view === "confirm") {
     return (
       <div style={{ maxWidth: "560px" }}>
-        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToSelect}>
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
+        <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
+          Back
+        </Button>
+        <PageHeader title={locationLabel(selectedTag)} />
 
-        <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-          <p style={{ margin: 0, fontSize: "14px" }}>
+        <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
+          <p style={{ margin: 0, fontSize: "var(--text-base)" }}>
             This key is leaving for good, to the new owner — it'll drop off every checkout/relocate screen and won't come back into the cupboard.
           </p>
           {openTagIds.has(selectedTag.id) && (
-            <p style={{ margin: "8px 0 0", fontSize: "14px" }}>
+            <p style={{ margin: "var(--space-2) 0 0", fontSize: "var(--text-base)" }}>
               This key is currently checked out — completing the handover will automatically check it back in, since it's not coming back.
             </p>
           )}
-        </div>
+        </Card>
 
-        <label style={{ fontWeight: 600, display: "block", marginBottom: "4px", fontSize: "14px" }}>Handed over to</label>
-        <input
-          type="text"
-          required
-          autoFocus
-          value={handoverTo}
-          onChange={(e) => setHandoverTo(e.target.value)}
-          placeholder="Customer name"
-          style={fieldStyle}
-        />
-        <label style={{ fontWeight: 600, display: "block", marginBottom: "4px", fontSize: "14px" }}>Notes (optional)</label>
-        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} style={{ ...fieldStyle, resize: "vertical" }} />
+        <Field label="Handed over to" required style={{ marginBottom: "var(--space-4)" }}>
+          {({ id }) => (
+            <Input
+              id={id}
+              type="text"
+              required
+              autoFocus
+              value={handoverTo}
+              onChange={(e) => setHandoverTo(e.target.value)}
+              placeholder="Customer name"
+            />
+          )}
+        </Field>
+        <Field label="Notes (optional)" style={{ marginBottom: "var(--space-4)" }}>
+          {({ id }) => <Textarea id={id} value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />}
+        </Field>
 
         <label
           style={{
             display: "flex",
             alignItems: "flex-start",
-            gap: "8px",
-            fontSize: "13px",
-            padding: "10px 12px",
-            marginBottom: "14px",
-            borderRadius: "8px",
+            gap: "var(--space-2)",
+            fontSize: "var(--text-sm)",
+            padding: "var(--space-3)",
+            marginBottom: "var(--space-4)",
+            borderRadius: "var(--radius-sm)",
             border: `1px solid ${colors.gold}`,
             background: colors.paper,
           }}
@@ -129,19 +115,19 @@ export default function HandoverKey() {
           </Alert>
         )}
 
-        <button style={{ ...buttonStyle.primary, width: "100%", opacity: canSubmit ? 1 : 0.5 }} onClick={handleSubmit} disabled={!canSubmit || submitting}>
+        <Button variant="primary" block onClick={handleSubmit} loading={submitting} disabled={!canSubmit}>
           {submitting ? "Handing over…" : "Complete handover"}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={() => navigate("/key-register")}>
+      <Button onClick={() => navigate("/key-register")}>
         ← Keys
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Handover a key</h1>
+      </Button>
+      <PageHeader title="Handover a key" />
       <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised, or has no home pitch yet." />
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No keys are currently eligible for handover.</p>}
     </div>

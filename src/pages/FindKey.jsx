@@ -1,26 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useKeyLookup, summarizeKeyEvent } from "../lib/useKeyLookup.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
-
-const listButtonStyle = {
-  ...buttonStyle.secondary,
-  width: "100%",
-  textAlign: "left",
-  padding: "14px 16px",
-  fontSize: "15px",
-};
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "15px",
-  marginBottom: "12px",
-};
+import { colors } from "../lib/theme.js";
+import { Alert, Button, Card, IconArrowLeft, PageHeader, SkeletonList } from "../ui/index.js";
 
 export default function FindKey() {
   const navigate = useNavigate();
@@ -29,40 +11,40 @@ export default function FindKey() {
   if (selectedTag) {
     return (
       <div style={{ maxWidth: "560px" }}>
-        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToSelect}>
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{locationLabel(selectedTag)}</h1>
-        <div style={{ ...cardStyle, padding: "16px" }}>
+        <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
+          Back
+        </Button>
+        <PageHeader title={locationLabel(selectedTag)} />
+        <Card pad="md">
           {error && (
           <Alert tone="danger" title="Something went wrong">
             {error}
           </Alert>
         )}
           {selectedTag.isHistorical ? (
-            <p style={{ fontSize: "15px", margin: 0 }}>
+            <p style={{ fontSize: "var(--text-base)", margin: 0 }}>
               Handed over to {selectedTag.handed_over_to || "—"} on {new Date(selectedTag.created_at).toLocaleDateString("en-GB")}.
               {selectedTag.handed_over_notes && <> {selectedTag.handed_over_notes}</>}
               <br />
-              <span style={{ color: colors.inkSoft, fontSize: "13px" }}>This key is gone — no tag on file for it anymore. Other keys for this pitch, if any, are separate results in the search list.</span>
+              <span style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>This key is gone — no tag on file for it anymore. Other keys for this pitch, if any, are separate results in the search list.</span>
             </p>
           ) : (
             <>
-              {lastEvent === undefined && !error && <p style={{ color: colors.inkSoft }}>Loading…</p>}
-              {lastEvent !== undefined && <p style={{ fontSize: "15px", margin: 0 }}>{summarizeKeyEvent(lastEvent)}</p>}
+              {lastEvent === undefined && !error && <SkeletonList rows={3} />}
+              {lastEvent !== undefined && <p style={{ fontSize: "var(--text-base)", margin: 0 }}>{summarizeKeyEvent(lastEvent)}</p>}
             </>
           )}
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={() => navigate("/key-register")}>
+      <Button onClick={() => navigate("/key-register")}>
         ← Keys
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Find a key</h1>
+      </Button>
+      <PageHeader title="Find a key" />
       <KeySelector size="normal" tags={keyTags} onPick={pickTag} notFoundMessage="That tag isn't recognised." />
     </div>
   );

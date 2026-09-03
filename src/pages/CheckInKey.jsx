@@ -1,29 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useKeyCheckin, issuedToSummary } from "../lib/useKeyCheckin.js";
 import KeySelector, { locationLabel } from "../keys/KeySelector.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import { Alert, Button, Card, IconArrowLeft, PageHeader } from "../ui/index.js";
 
 // Same key check-in logic as the key-cupboard kiosk (useKeyCheckin.js),
 // matching CheckinKit.jsx's relationship to KioskCheckIn.jsx.
-const listButtonStyle = {
-  ...buttonStyle.secondary,
-  width: "100%",
-  textAlign: "left",
-  padding: "14px 16px",
-  fontSize: "15px",
-};
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "10px 14px",
-  borderRadius: "10px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "15px",
-  marginBottom: "12px",
-};
-
 export default function CheckInKey() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,9 +14,9 @@ export default function CheckInKey() {
   if (view === "done") {
     return (
       <div style={{ maxWidth: "560px" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Checked in</h1>
-        <p style={{ fontSize: "15px" }}>{locationLabel(selected)} — logged.</p>
-        <button style={buttonStyle.primary} onClick={() => navigate("/key-register")}>Done</button>
+        <PageHeader title="Checked in" />
+        <p style={{ fontSize: "var(--text-base)" }}>{locationLabel(selected)} — logged.</p>
+        <Button variant="primary" onClick={() => navigate("/key-register")}>Done</Button>
       </div>
     );
   }
@@ -43,18 +25,18 @@ export default function CheckInKey() {
     const c = selected.checkout;
     return (
       <div style={{ maxWidth: "560px" }}>
-        <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={backToSelect}>
-          ← Back
-        </button>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>{locationLabel(selected)}</h1>
+        <Button onClick={backToSelect} icon={<IconArrowLeft size={15} />}>
+          Back
+        </Button>
+        <PageHeader title={locationLabel(selected)} />
 
-        <div style={{ ...cardStyle, padding: "16px", marginBottom: "16px" }}>
-          <p style={{ margin: "4px 0", fontSize: "15px" }}>Out to <strong>{issuedToSummary(c)}</strong></p>
-          <p style={{ margin: "4px 0", fontSize: "15px" }}>Reason: {c.reason}</p>
-          <p style={{ margin: "4px 0", fontSize: "13px", color: colors.inkSoft }}>
+        <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
+          <p style={{ margin: "var(--space-1) 0", fontSize: "var(--text-base)" }}>Out to <strong>{issuedToSummary(c)}</strong></p>
+          <p style={{ margin: "var(--space-1) 0", fontSize: "var(--text-base)" }}>Reason: {c.reason}</p>
+          <p style={{ margin: "var(--space-1) 0", fontSize: "var(--text-sm)", color: colors.inkSoft }}>
             Checked out {new Date(c.checked_out_at).toLocaleString("en-GB")} by {c.checked_out_by_profile?.display_name || "—"}
           </p>
-        </div>
+        </Card>
 
         {error && (
           <Alert tone="danger" title="Something went wrong">
@@ -62,19 +44,19 @@ export default function CheckInKey() {
           </Alert>
         )}
 
-        <button style={{ ...buttonStyle.primary, width: "100%" }} onClick={handleConfirm} disabled={submitting}>
+        <Button variant="primary" block onClick={handleConfirm} disabled={submitting}>
           {submitting ? "Checking in…" : "Confirm check-in"}
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <button style={{ ...buttonStyle.secondary, marginBottom: "16px" }} onClick={() => navigate("/key-register")}>
+      <Button onClick={() => navigate("/key-register")}>
         ← Keys
-      </button>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Check in a key</h1>
+      </Button>
+      <PageHeader title="Check in a key" />
       {error && (
           <Alert tone="danger" title="Something went wrong">
             {error}
