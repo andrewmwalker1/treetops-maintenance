@@ -188,6 +188,23 @@ Pill, PageHeader, EmptyState, Alert…). They carry the hover/focus/active
 states that an inline style cannot express. Don't add new raw
 `<button style={{}}>` or re-declare a local `fieldStyle`.
 
+`theme.js` no longer exports `cardStyle` or `buttonStyle` — every screen
+now builds its controls from `src/ui/`, and those two objects were the
+convenient way to keep making stateless ones. What it still exports is
+what an inline style legitimately needs: a colour, a size, a spacing step.
+
+**Touchscreens**: the workshop kiosk and the key station use the same
+components at `size="kiosk"` (`.tt-btn--kiosk`, `.tt-input--kiosk`,
+`ActionList size="kiosk"`), on a `.tt-kiosk-page` shell. There is no
+separate kiosk theme file any more — `src/kiosk/kioskTheme.js` was one,
+and it silently drifted to 20px radii and 22px type against the app's 14px
+and 15px, which is exactly the failure mode a shared scale exists to stop.
+
+**Print** (`printJobCards.jsx`, `src/components/Printable*`) is the one
+documented exception to "no literal values": it renders into a separate
+document that these custom properties never reach, so it duplicates them
+deliberately. Keep the two in step.
+
 ---
 
 ## 9. Tree Tops Seed Data

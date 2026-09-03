@@ -487,9 +487,7 @@ where the complaint actually lives.
 
 ## 8. What was actually done (2026-09-03)
 
-Phases 1–3 are applied on branch `ui-redesign-phases-1-3`, three commits,
-one per phase. **Not merged to `main` and not deployed** — merging is what
-triggers the GitHub Pages deploy, so that is Andy's call.
+Phases 1–3, three commits, one per phase.
 
 **Decisions taken** (§3's recommendations, all as recommended):
 D1 keep the Admiralty navy · D2 yes to CSS files · D3 no dark mode yet ·
@@ -510,18 +508,67 @@ nav rendered from their real CSS classes.
 
 **Not verified:** the signed-in screens. Supabase was unreachable from the
 build environment, so nothing past the login screen could be exercised
-against real data. Worth a pass on a real session before merging —
-particularly Admin (the routing change), the account menu, and the phone
-tab bar.
+against real data. Worth a pass on a real session — particularly Admin
+(the routing change), the account menu, and the phone tab bar.
 
-### Phase 4 starting notes
+Phases 1–3 were merged to `main` and deployed on 2026-09-03 (run
+33740179500, 43s). The live site serves the token stylesheet with 19
+`:focus` and 22 `:hover` rules, and the corrected navy PWA colours.
 
-- `src/ui/` is ready; `/ui-gallery` shows everything available.
-- `kioskTheme.js` is still used by 20 kiosk and key-station screens. It
-  should disappear into `size="kiosk"` variants as Group B is converted.
-- `theme.js`'s `buttonStyle`/`cardStyle` are the marker for unconverted
-  screens: ~40 files still spread them. When the last one is gone, so are
-  they.
-- The two permission matrices (`RolesPermissionsTab`, `RoleVisibilityTab`)
-  need real design attention, not just the `Table` primitive — the sticky
-  first column is built and waiting (`stickyFirstColumn`).
+---
+
+## 8a. Phase 4 (2026-09-03)
+
+Applied on branch `ui-redesign-phase-4`, four commits, one per group plus
+a docs pass. All three groups are done — nothing is left half-converted.
+
+**The marker is clear.** `theme.js` no longer exports `cardStyle` or
+`buttonStyle`, because nothing imports them; `src/kiosk/kioskTheme.js` is
+deleted for the same reason. Those were the plan's own test for "is this
+screen converted", and they now fail to compile if anyone reaches for them.
+
+**Group A — daily-use screens.** Jobs list, job detail, new job, dashboard,
+both equipment screens, plus `JobCard`, `StatDial`, `ChecklistBuilder` and
+`PitchPicker`. Beyond the swap: skeletons replace "Loading…", empty states
+gained actions ("Clear filters", "New job"), errors became `Alert`,
+`StatDial` became a real button so the dashboard tiles are keyboard
+reachable, and equipment history's sortable headers became real buttons
+with `aria-sort` (they were `<th onClick>`, which no keyboard could reach).
+
+**Group B — the touchscreens.** All 7 kiosk and 9 key-station screens, plus
+the 8 in-app phone twins of the same flows. `KeySelector`'s two style-object
+props collapsed into one `size` prop — those two props are how the key
+station and the in-app Keys pages ended up with differently-shaped rows for
+the same list. `KeyStationCheckOut`'s "who's taking it" and reason presets
+became `Chip`, which actually shows which one is selected; the reason
+presets never did.
+
+**Group C — admin, meters, safety, login.** 30 files. Six hand-rolled
+scrim-and-panel modals became `Modal` (which, unlike the copies, traps Tab,
+closes on Escape, locks the page behind it and restores focus). Five
+hand-rolled filter-chip strips became `Chip`. Seventeen `fieldStyle`
+objects, five `labelStyle`, two `thStyle`/`tdStyle` pairs and two
+`iconButtonStyle` copies are gone.
+
+**The permission matrices** got the design attention this plan asked for:
+first column pinned (`stickyFirstColumn`), and under 900px the grid becomes
+one card per role with the same toggles read down instead of across. The
+breakpoint is a width query, not the phone check — a half-width desktop
+window hits this as surely as a phone does.
+
+**New in the primitives**, all found by needing them: `.tt-btn--kiosk` and
+`.tt-input--kiosk`, `.tt-kiosk-page`, `.tt-sortbtn` (sortable table
+header), an `:disabled` state for `.tt-iconbtn`, and `useMediaQuery` in
+`useIsMobile.js`.
+
+**Verification.** Production build passes after every group. Beyond that,
+three static passes over the whole tree, all clean: no unused imports, no
+JSX tag referring to a component that is not in scope (the failure a
+mechanical conversion actually introduces, and one the build does not
+catch), and no literal px spacing or radius left in an inline style outside
+the print components.
+
+**Not verified, same caveat as before:** no signed-in screen was exercised
+against real data — that needs a real login. Login and `/ui-gallery` were
+checked in the browser; everything past them is verified structurally, not
+visually.

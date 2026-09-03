@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
-import { colors, fonts, text, space, pageStyle } from "../lib/theme.js";
-import { Button, Card, PageHeader } from "../ui/index.js";
+import { colors, fonts, pageStyle } from "../lib/theme.js";
+import { Alert, Button, Card, Input, PageHeader } from "../ui/index.js";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -71,7 +71,7 @@ export default function Login() {
               separate browser tab instead of the app.
             </p>
             <form onSubmit={handleVerifyCode}>
-              <input
+              <Input
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
@@ -80,12 +80,11 @@ export default function Login() {
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 placeholder="12345678"
+                aria-label="8-digit sign-in code"
+                invalid={Boolean(errorMessage)}
+                // A one-off code is read back digit by digit, so it gets the
+                // mono face and letter-spacing rather than the body font.
                 style={{
-                  width: "100%",
-                  boxSizing: "border-box",
-                  padding: "var(--space-3) var(--space-4)",
-                  borderRadius: "var(--radius-sm)",
-                  border: `1px solid ${colors.lineStrong}`,
                   fontFamily: fonts.mono,
                   fontSize: "var(--text-lg)",
                   letterSpacing: "4px",
@@ -93,39 +92,38 @@ export default function Login() {
                   marginBottom: "var(--space-3)",
                 }}
               />
-              <Button variant="primary" block type="submit" disabled={status === "verifying"}>
+              <Button variant="primary" block type="submit" loading={status === "verifying"}>
                 {status === "verifying" ? "Verifying…" : "Verify code"}
               </Button>
-              {errorMessage && <p style={{ color: colors.immediate, fontSize: "var(--text-base)" }}>{errorMessage}</p>}
-              <Button block onClick={handleUseDifferentEmail}>
+              {errorMessage && (
+                <Alert tone="danger" style={{ marginTop: "var(--space-3)" }}>
+                  {errorMessage}
+                </Alert>
+              )}
+              <Button block onClick={handleUseDifferentEmail} style={{ marginTop: "var(--space-3)" }}>
                 Use a different email
               </Button>
             </form>
           </>
         ) : (
           <form onSubmit={handleSendCode}>
-            <input
+            <Input
               type="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@treetopscaravanpark.co.uk"
-              style={{
-                width: "100%",
-                boxSizing: "border-box",
-                padding: "var(--space-3) var(--space-4)",
-                borderRadius: "var(--radius-sm)",
-                border: `1px solid ${colors.lineStrong}`,
-                fontFamily: fonts.body,
-                fontSize: "var(--text-md)",
-                marginBottom: "var(--space-3)",
-              }}
+              aria-label="Work email address"
+              invalid={status === "error"}
+              style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-3)" }}
             />
-            <Button variant="primary" block type="submit" disabled={status === "sending"}>
+            <Button variant="primary" block type="submit" loading={status === "sending"}>
               {status === "sending" ? "Sending…" : "Send sign-in link & code"}
             </Button>
             {status === "error" && (
-              <p style={{ color: colors.immediate, fontSize: "var(--text-base)" }}>{errorMessage}</p>
+              <Alert tone="danger" style={{ marginTop: "var(--space-3)" }}>
+                {errorMessage}
+              </Alert>
             )}
           </form>
         )}
