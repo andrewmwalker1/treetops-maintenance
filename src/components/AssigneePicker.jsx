@@ -3,11 +3,11 @@ import { colors, fonts } from "../lib/theme.js";
 const fieldStyle = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
+  padding: "var(--space-2) var(--space-3)",
+  borderRadius: "var(--radius-sm)",
   border: `1px solid ${colors.lineStrong}`,
   fontFamily: fonts.body,
-  marginBottom: "10px",
+  marginBottom: "var(--space-3)",
 };
 
 // Converts between the three-nullable-FK-columns shape a "who does this"
@@ -43,9 +43,9 @@ export default function AssigneePicker({ kind, id, onChange, people, groups, con
   const labelKey = kind === "person" ? "display_name" : "name";
   return (
     <div>
-      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "8px" }}>
+      <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap", marginBottom: "var(--space-2)" }}>
         {["none", "person", "group", "contractor"].map((k) => (
-          <label key={k} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+          <label key={k} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "13px" }}>
             <input type="radio" checked={kind === k} onChange={() => onChange(k, "")} />
             {k === "none" ? noneLabel : k.charAt(0).toUpperCase() + k.slice(1)}
           </label>

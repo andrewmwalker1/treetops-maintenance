@@ -12,7 +12,8 @@ import {
   refreshMetersCache,
   getAllCachedMeters,
 } from "../../lib/meterReadingsQuery.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors, fonts, text, space } from "../../lib/theme.js";
+import { Button, Card, Input, PageHeader } from "../../ui/index.js";
 
 const SCANNER_ELEMENT_ID = "meter-qr-scanner";
 
@@ -284,12 +285,12 @@ export default function ScanMeter() {
   return (
     <div style={{ maxWidth: "480px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Read a meter</h1>
-        <Link to="/meter-reading/progress" style={{ color: colors.moss, fontSize: "13px" }}>Progress</Link>
+        <PageHeader title="Read a meter" />
+        <Link to="/meter-reading/progress" style={{ color: colors.moss, fontSize: "var(--text-sm)" }}>Progress</Link>
       </div>
 
       {lastSavedNotice && (
-        <p style={{ color: colors.moss, fontSize: "14px" }}>{lastSavedNotice}</p>
+        <p style={{ color: colors.moss, fontSize: "var(--text-base)" }}>{lastSavedNotice}</p>
       )}
 
       {/* Always mounted (never conditionally rendered on `step`) so
@@ -297,95 +298,90 @@ export default function ScanMeter() {
           working/confirm screens -- CSS visibility only, so the running
           camera is paused/resumed rather than torn down and restarted
           between scans. */}
-      <div style={{ ...cardStyle, padding: "16px", display: step === "scan" ? "block" : "none" }}>
+      <Card pad="md" style={{ display: step === "scan" ? "block" : "none" }}>
         <div
           id={SCANNER_ELEMENT_ID}
-          style={{ width: "100%", borderRadius: "12px", overflow: "hidden", display: cameraState === "starting" || cameraState === "active" ? "block" : "none" }}
+          style={{ width: "100%", borderRadius: "var(--radius-md)", overflow: "hidden", display: cameraState === "starting" || cameraState === "active" ? "block" : "none" }}
         />
         {(cameraState === "idle" || cameraState === "error") && (
-          <button type="button" onClick={startCameraScan} style={{ ...buttonStyle.primary, width: "100%" }}>
+          <Button variant="primary" block onClick={startCameraScan}>
             Scan with camera
-          </button>
+          </Button>
         )}
-        {cameraState === "starting" && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>Starting camera…</p>}
+        {cameraState === "starting" && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>Starting camera…</p>}
         {cameraState === "active" && (
-          <p style={{ color: colors.inkSoft, fontSize: "13px", marginTop: "12px" }}>
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", marginTop: "var(--space-3)" }}>
             Point the camera at the QR code on the meter box.
           </p>
         )}
-        {scanError && <p style={{ color: colors.immediate, fontSize: "13px", marginTop: "8px" }}>{scanError}</p>}
-      </div>
+        {scanError && <p style={{ color: colors.immediate, fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>{scanError}</p>}
+      </Card>
 
       {step === "scan" && (
-        <div style={{ ...cardStyle, padding: "16px", marginTop: "12px" }}>
-          <p style={{ color: colors.inkSoft, fontSize: "12px", margin: "0 0 8px" }}>
+        <Card pad="md" style={{ marginTop: "var(--space-3)" }}>
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-xs)", margin: "0 0 var(--space-2)" }}>
             QR missing or damaged? Search by pitch or name instead.
           </p>
-          <input
+          <Input
             type="text"
             placeholder="e.g. PN-C01, or a customer name"
+            aria-label="Search by pitch or customer name"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: "10px", border: `1px solid ${colors.lineStrong}`, fontSize: "14px" }}
           />
           {searchResults.length > 0 && (
-            <div style={{ marginTop: "8px", display: "flex", flexDirection: "column", gap: "4px" }}>
+            <div style={{ marginTop: "var(--space-2)", display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
               {searchResults.map((m) => (
-                <button
+                <Card
                   key={m.id}
+                  as="button"
                   type="button"
+                  interactive
+                  pad="sm"
                   onClick={() => handleSearchResultSelected(m)}
-                  style={{
-                    textAlign: "left",
-                    background: "transparent",
-                    border: `1px solid ${colors.line}`,
-                    borderRadius: "8px",
-                    padding: "8px 10px",
-                    cursor: "pointer",
-                    fontFamily: fonts.body,
-                  }}
+                  style={{ textAlign: "left", width: "100%", font: "inherit", color: "inherit" }}
                 >
-                  <div style={{ fontSize: "14px", fontWeight: 600, color: colors.ink }}>
+                  <div style={{ fontSize: "var(--text-base)", fontWeight: 600, color: colors.ink }}>
                     {m.pitches?.pitch_number_or_name} · {m.meter_type === "electric" ? "Electric" : "Gas"}
                   </div>
                   {m.customer_name && (
-                    <div style={{ fontSize: "12px", color: colors.inkSoft }}>{m.customer_name}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{m.customer_name}</div>
                   )}
-                </button>
+                </Card>
               ))}
             </div>
           )}
           {searchQuery.trim() && searchResults.length === 0 && (
-            <p style={{ color: colors.inkSoft, fontSize: "12px", margin: "8px 0 0" }}>No matches.</p>
+            <p style={{ color: colors.inkSoft, fontSize: "var(--text-xs)", margin: "var(--space-2) 0 0" }}>No matches.</p>
           )}
-        </div>
+        </Card>
       )}
 
       {step === "working" && (
-        <div style={{ ...cardStyle, padding: "24px", textAlign: "center" }}>
+        <Card pad="lg" style={{ textAlign: "center" }}>
           <p style={{ color: colors.inkSoft }}>{workingMessage}</p>
-        </div>
+        </Card>
       )}
 
       {step === "confirm" && meter && (
-        <div style={{ ...cardStyle, padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark }}>
+        <Card pad="md" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <div style={{ fontFamily: fonts.display, fontSize: "var(--text-md)", color: colors.mossDark }}>
             {meter.pitches?.pitch_number_or_name} · {meter.meter_type === "electric" ? "Electric" : "Gas"}
           </div>
 
           {reReadNotice && (
-            <p style={{ color: colors.gold, fontSize: "13px", fontWeight: 600 }}>{reReadNotice}</p>
+            <p style={{ color: colors.gold, fontSize: "var(--text-sm)", fontWeight: 600 }}>{reReadNotice}</p>
           )}
 
           {photo?.previewUrl && (
             <img
               src={photo.previewUrl}
               alt="Meter dial"
-              style={{ width: "100%", maxHeight: "280px", objectFit: "contain", borderRadius: "10px", background: colors.bg }}
+              style={{ width: "100%", maxHeight: "280px", objectFit: "contain", borderRadius: "var(--radius-sm)", background: colors.bg }}
             />
           )}
 
-          <label style={{ fontSize: "13px", color: colors.inkSoft }}>
+          <label style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
             Reading
             <input
               type="number"
@@ -398,33 +394,33 @@ export default function ScanMeter() {
                 width: "100%",
                 boxSizing: "border-box",
                 fontSize: "28px",
-                padding: "10px 14px",
-                borderRadius: "10px",
+                padding: "var(--space-3) var(--space-4)",
+                borderRadius: "var(--radius-sm)",
                 border: `1px solid ${colors.lineStrong}`,
-                marginTop: "4px",
+                marginTop: "var(--space-1)",
               }}
             />
           </label>
           {ocr && !ocr.text && (
-            <p style={{ color: colors.inkSoft, fontSize: "12px", margin: 0 }}>
+            <p style={{ color: colors.inkSoft, fontSize: "var(--text-xs)", margin: 0 }}>
               Couldn't read the dial automatically — enter it by hand.
             </p>
           )}
 
-          <div style={{ fontSize: "13px", color: colors.inkSoft }}>
+          <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
             Last reading: {lastReading != null ? lastReading : "—"}
             {meter.last_read_date ? ` (${new Date(meter.last_read_date).toLocaleDateString("en-GB")})` : ""}
           </div>
           {usage != null && (
-            <div style={{ fontSize: "13px", color: colors.inkSoft }}>Usage this period: {usage}</div>
+            <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>Usage this period: {usage}</div>
           )}
 
           {belowLast && (
-            <div style={{ background: colors.dangerSurface, border: `1px solid ${colors.dangerBorder}`, borderRadius: "10px", padding: "10px" }}>
-              <p style={{ color: colors.immediate, fontWeight: 600, fontSize: "13px", margin: 0 }}>
+            <div style={{ background: colors.dangerSurface, border: `1px solid ${colors.dangerBorder}`, borderRadius: "var(--radius-sm)", padding: "var(--space-3)" }}>
+              <p style={{ color: colors.immediate, fontWeight: 600, fontSize: "var(--text-sm)", margin: 0 }}>
                 New reading is lower than the last recorded reading. Double-check the dial before overriding.
               </p>
-              <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px", marginTop: "8px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", marginTop: "var(--space-2)" }}>
                 <input type="checkbox" checked={overrideWarning} onChange={(e) => setOverrideWarning(e.target.checked)} />
                 Save anyway
               </label>
@@ -434,34 +430,29 @@ export default function ScanMeter() {
                   placeholder="Why? (e.g. meter was replaced)"
                   value={overrideNote}
                   onChange={(e) => setOverrideNote(e.target.value)}
-                  style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "8px 10px", borderRadius: "8px", border: `1px solid ${colors.lineStrong}` }}
+                  style={{ width: "100%", boxSizing: "border-box", marginTop: "var(--space-2)", padding: "var(--space-2) var(--space-3)", borderRadius: "var(--radius-sm)", border: `1px solid ${colors.lineStrong}` }}
                 />
               )}
             </div>
           )}
 
           {location?.denied && (
-            <p style={{ color: colors.inkSoft, fontSize: "12px", margin: 0 }}>
+            <p style={{ color: colors.inkSoft, fontSize: "var(--text-xs)", margin: 0 }}>
               Location wasn't available — the reading will still save.
             </p>
           )}
 
-          {saveError && <p style={{ color: colors.immediate, fontSize: "13px" }}>{saveError}</p>}
+          {saveError && <p style={{ color: colors.immediate, fontSize: "var(--text-sm)" }}>{saveError}</p>}
 
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button type="button" onClick={resetToScan} style={buttonStyle.secondary}>
+          <div style={{ display: "flex", gap: "var(--space-3)" }}>
+            <Button onClick={resetToScan}>
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!canSave || saving}
-              style={{ ...buttonStyle.primary, flex: 1, opacity: !canSave || saving ? 0.6 : 1 }}
-            >
+            </Button>
+            <Button variant="primary" onClick={handleSave} disabled={!canSave || saving}>
               {saving ? "Saving…" : "Save & scan next"}
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       )}
     </div>
   );

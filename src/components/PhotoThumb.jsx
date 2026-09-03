@@ -48,7 +48,7 @@ export default function PhotoThumb({ path, size = 80, url: providedUrl, bucket =
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "24px",
+            padding: "var(--space-6)",
             zIndex: 300,
             cursor: "zoom-out",
           }}

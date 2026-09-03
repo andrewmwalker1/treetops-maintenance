@@ -42,6 +42,22 @@ function detectIsPhoneDevice() {
 // reach: rendering a structurally *different* component tree on a phone
 // (Layout's bottom tab bar vs the desktop nav row, Admin's collapsible
 // group list vs its sidebar) rather than restyling the same one.
+// For the cases where the deciding factor is the viewport width itself
+// rather than "is this a phone" -- the permission matrices, which stop
+// working as a grid somewhere around 900px on a half-width desktop window
+// just as surely as they do on a phone.
+export function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => (typeof window === "undefined" ? false : window.matchMedia(query).matches));
+  useEffect(() => {
+    const mql = window.matchMedia(query);
+    const handler = (e) => setMatches(e.matches);
+    setMatches(mql.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [query]);
+  return matches;
+}
+
 export function useIsMobile() {
   const [isMobile, setIsMobile] = useState(detectIsPhoneDevice);
   useEffect(() => {

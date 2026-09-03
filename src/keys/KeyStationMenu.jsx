@@ -98,9 +98,9 @@ export default function KeyStationMenu() {
         <PageHeader title={detailGroup.label} />
         {detailGroup.rows.map((c) => (
           <Card key={c.id} pad="lg" style={{ marginBottom: "var(--space-3)" }}>
-            <p style={{ margin: "0 0 4px", fontSize: "var(--text-md)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
-            <p style={{ margin: "0 0 4px", fontSize: "var(--text-base)" }}>Out to {keyIssuedToLabel(c)}</p>
-            {c.reason && <p style={{ margin: "0 0 4px", fontSize: "var(--text-base)", color: colors.inkSoft }}>Reason: {c.reason}</p>}
+            <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-md)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
+            <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-base)" }}>Out to {keyIssuedToLabel(c)}</p>
+            {c.reason && <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-base)", color: colors.inkSoft }}>Reason: {c.reason}</p>}
             <p style={{ margin: 0, fontSize: "var(--text-sm)", color: colors.inkSoft }}>
               Checked out by {c.checked_out_by_profile?.display_name || "—"}, {timeAgo(c.checked_out_at)}
             </p>

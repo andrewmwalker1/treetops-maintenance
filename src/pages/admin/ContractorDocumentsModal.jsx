@@ -1,18 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, Modal, PageHeader } from "../../ui/index.js";
 
 function formatDate(dateStr) {
   return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-GB");
@@ -48,7 +37,7 @@ function DocumentRow({ doc, onDelete }) {
     days == null ? "No expiry set" : days < 0 ? `Expired ${formatDate(doc.expiry_date)}` : days <= 7 ? `Expires ${formatDate(doc.expiry_date)} — ${days} day${days === 1 ? "" : "s"} left` : `Expires ${formatDate(doc.expiry_date)}`;
 
   return (
-    <div style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px" }}>
+    <Card pad="sm" style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-3)" }}>
       <div>
         <div style={{ fontWeight: 600 }}>
           {url ? (
@@ -57,11 +46,11 @@ function DocumentRow({ doc, onDelete }) {
             <>{doc.description}{!doc.storage_path && " (no file)"}</>
           )}
         </div>
-        <div style={{ fontSize: "12px", color: expiryColor }}>{expiryLabel}</div>
-        {doc.reminder_triggered_at && <div style={{ fontSize: "11px", color: colors.inkSoft }}>Renewal reminder already sent</div>}
+        <div style={{ fontSize: "var(--text-xs)", color: expiryColor }}>{expiryLabel}</div>
+        {doc.reminder_triggered_at && <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>Renewal reminder already sent</div>}
       </div>
-      <button onClick={() => onDelete(doc)} style={{ ...buttonStyle.secondary, color: colors.immediate, padding: "4px 10px", fontSize: "12px" }}>Delete</button>
-    </div>
+      <Button variant="danger" size="sm" onClick={() => onDelete(doc)}>Delete</Button>
+    </Card>
   );
 }
 
@@ -137,40 +126,35 @@ export default function ContractorDocumentsModal({ contractor, orgId, onClose })
   }
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, background: colors.scrim, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto", zIndex: 110 }}
-      onClick={onClose}
-    >
-      <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "520px" }} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>{contractor.name} — Documents</h2>
-          <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-        </div>
+    <Modal title={`${contractor.name} — Documents`} onClose={onClose} maxWidth="520px">
 
         {documents.map((d) => (
           <DocumentRow key={d.id} doc={d} onDelete={handleDelete} />
         ))}
-        {documents.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px" }}>No documents uploaded yet.</p>}
+        {documents.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>No documents uploaded yet.</p>}
 
-        <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: "18px" }}>Add a document</h3>
+        <PageHeader title="Add a document" level={2} />
         <form onSubmit={handleAdd}>
-          <label style={labelStyle}>Description</label>
-          <input required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Public liability insurance" style={fieldStyle} />
+          <label className="tt-field__label">Description</label>
+          <Input required value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Public liability insurance" style={{ marginBottom: "var(--space-3)" }} />
 
-          <label style={labelStyle}>Expiry date (optional)</label>
-          <input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} style={fieldStyle} />
-          <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "-6px" }}>
+          <label className="tt-field__label">Expiry date (optional)</label>
+          <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} style={{ marginBottom: "var(--space-3)" }} />
+          <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: "calc(-1 * var(--space-2))" }}>
             7 days before this date, a job is raised for the Office group and {contractor.main_email ? "an email is sent to " + contractor.main_email : "no email is sent (no address on file)"} asking for an updated copy.
           </p>
 
-          <label style={labelStyle}>File</label>
-          <input required type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ marginBottom: "10px" }} />
+          <label className="tt-field__label">File</label>
+          <input required type="file" onChange={(e) => setFile(e.target.files?.[0] || null)} style={{ marginBottom: "var(--space-3)" }} />
 
-          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+          {error && (
+            <Alert tone="danger" title="Something went wrong">
+              {error}
+            </Alert>
+          )}
 
-          <button type="submit" disabled={saving} style={buttonStyle.primary}>{saving ? "Uploading…" : "Add document"}</button>
+          <Button variant="primary" type="submit" disabled={saving}>{saving ? "Uploading…" : "Add document"}</Button>
         </form>
-      </div>
-    </div>
+          </Modal>
   );
 }

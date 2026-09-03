@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { fetchActiveMeters } from "../../lib/meterReadingsQuery.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors } from "../../lib/theme.js";
+import { Button, Card, PageHeader } from "../../ui/index.js";
 
 export default function MeterLabels() {
   const { activeSite } = useAuth();
@@ -32,27 +33,27 @@ export default function MeterLabels() {
 
   return (
     <div style={{ maxWidth: "720px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Print QR labels</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+      <PageHeader title="Print QR labels" />
+      <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Generates one QR code per active meter, encoding the pitch + meter type directly (e.g. PN-C01-ELEC) — no
         lookup table needed, so a faded label can be reprinted identically. Plain paper is fine for the pilot.
       </p>
-      <div style={{ ...cardStyle, padding: "18px" }}>
-        <button type="button" onClick={handleGenerate} disabled={generating || meters.length === 0} style={buttonStyle.secondary}>
+      <Card pad="lg">
+        <Button onClick={handleGenerate} disabled={generating || meters.length === 0}>
           {generating ? "Generating…" : `Generate ${meters.length} label${meters.length === 1 ? "" : "s"}`}
-        </button>
+        </Button>
         {labels.length > 0 && (
-          <button type="button" onClick={() => window.print()} style={{ ...buttonStyle.primary, marginLeft: "10px" }}>
+          <Button variant="primary" onClick={() => window.print()}>
             Print
-          </button>
+          </Button>
         )}
-      </div>
+      </Card>
       {labels.length > 0 && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "12px", marginTop: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "var(--space-3)", marginTop: "var(--space-4)" }}>
           {labels.map((l) => (
-            <div key={l.code} style={{ textAlign: "center", border: `1px solid ${colors.line}`, borderRadius: "8px", padding: "8px" }}>
+            <div key={l.code} style={{ textAlign: "center", border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", padding: "var(--space-2)" }}>
               <img src={l.qr} alt={l.code} style={{ width: "100%" }} />
-              <div style={{ fontSize: "12px", marginTop: "4px" }}>{l.label}</div>
+              <div style={{ fontSize: "var(--text-xs)", marginTop: "var(--space-1)" }}>{l.label}</div>
             </div>
           ))}
         </div>

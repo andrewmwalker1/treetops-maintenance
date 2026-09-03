@@ -33,7 +33,7 @@ export default function HandoverKey() {
 
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
-      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+      <div style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
         <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
           This account doesn't have access to hand over keys.
         </p>
@@ -104,7 +104,7 @@ export default function HandoverKey() {
             type="checkbox"
             checked={fobConfirmed}
             onChange={(e) => setFobConfirmed(e.target.checked)}
-            style={{ width: "18px", height: "18px", marginTop: "1px" }}
+            style={{ width: "18px", height: "18px", marginTop: "var(--space-1)" }}
           />
           I've removed the RFID fob from this key — only the physical key goes to the customer, the fob stays with us.
         </label>

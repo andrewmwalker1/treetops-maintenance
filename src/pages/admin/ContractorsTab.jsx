@@ -3,19 +3,8 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import ContractorDocumentsModal from "./ContractorDocumentsModal.jsx";
 import KeyReasonsModal from "./KeyReasonsModal.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, Modal, PageHeader, Textarea } from "../../ui/index.js";
 
 const blank = {
   id: null,
@@ -114,34 +103,34 @@ export default function ContractorsTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Contractors</h2>
-        <button onClick={() => { setError(null); setForm(blank); }} style={buttonStyle.primary}>+ Add contractor</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
+        <PageHeader title="Contractors" level={2} />
+        <Button variant="primary" onClick={() => { setError(null); setForm(blank); }}>+ Add contractor</Button>
       </div>
 
       {contractors.map((c) => (
-        <div key={c.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <Card pad="sm" key={c.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>
               {c.name}
               {c.is_trusted ? " · Trusted (key station)" : ""}
               {keysOutByContractor[c.id] > 0 && (
-                <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "999px", padding: "2px 10px" }}>
+                <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "var(--radius-full)", padding: "var(--space-1) var(--space-3)" }}>
                   {keysOutByContractor[c.id]} key{keysOutByContractor[c.id] === 1 ? "" : "s"} out
                 </span>
               )}
             </div>
-            <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
               {[c.main_email, c.main_phone].filter(Boolean).join(" · ") || "No contact details set"}
             </div>
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button onClick={() => setReasonsFor(c)} style={buttonStyle.secondary}>Key reasons</button>
-            <button onClick={() => setDocsFor(c)} style={buttonStyle.secondary}>Documents</button>
-            <button onClick={() => editItem(c)} style={buttonStyle.secondary}>Edit</button>
-            <button onClick={() => handleDelete(c.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
+            <Button onClick={() => setReasonsFor(c)}>Key reasons</Button>
+            <Button onClick={() => setDocsFor(c)}>Documents</Button>
+            <Button onClick={() => editItem(c)}>Edit</Button>
+            <Button variant="danger" onClick={() => handleDelete(c.id)}>Delete</Button>
           </div>
-        </div>
+        </Card>
       ))}
       {contractors.length === 0 && <p style={{ color: colors.inkSoft }}>No contractors set up yet.</p>}
 
@@ -157,57 +146,42 @@ export default function ContractorsTab() {
       )}
 
       {form && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: colors.scrim,
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "24px 16px",
-            overflowY: "auto",
-            zIndex: 100,
-          }}
-          onClick={() => setForm(null)}
-        >
-          <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>
-                {form.id ? "Edit contractor" : "New contractor"}
-              </h2>
-              <button type="button" onClick={() => setForm(null)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-            </div>
+        <Modal title={form.id ? "Edit contractor" : "New contractor"} onClose={() => setForm(null)}>
+          <Card pad="lg" onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "440px" }}>
             <form onSubmit={handleSave}>
-              <label style={labelStyle}>Company name</label>
-              <input required autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Kevin Parry Heating Ltd" style={fieldStyle} />
+              <label className="tt-field__label">Company name</label>
+              <Input required autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Kevin Parry Heating Ltd" style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Address (optional)</label>
-              <textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} style={{ ...fieldStyle, resize: "vertical" }} />
+              <label className="tt-field__label">Address (optional)</label>
+              <Textarea value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} rows={2} style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Main email (optional)</label>
-              <input type="email" value={form.main_email} onChange={(e) => setForm({ ...form, main_email: e.target.value })} style={fieldStyle} />
+              <label className="tt-field__label">Main email (optional)</label>
+              <Input type="email" value={form.main_email} onChange={(e) => setForm({ ...form, main_email: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Main phone (optional)</label>
-              <input type="tel" value={form.main_phone} onChange={(e) => setForm({ ...form, main_phone: e.target.value })} style={fieldStyle} />
+              <label className="tt-field__label">Main phone (optional)</label>
+              <Input type="tel" value={form.main_phone} onChange={(e) => setForm({ ...form, main_phone: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Notes (optional)</label>
-              <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="e.g. always ring ahead" style={{ ...fieldStyle, resize: "vertical" }} />
+              <label className="tt-field__label">Notes (optional)</label>
+              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="e.g. always ring ahead" style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: colors.inkSoft, marginBottom: "10px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.inkSoft, marginBottom: "var(--space-3)" }}>
                 <input type="checkbox" checked={form.is_trusted} onChange={(e) => setForm({ ...form, is_trusted: e.target.checked })} />
                 Trusted — comes to the key station unaccompanied (needs their own profile + RFID fob set up separately via Users/RFID Fobs)
               </label>
 
-              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+              {error && (
+                <Alert tone="danger" title="Something went wrong">
+                  {error}
+                </Alert>
+              )}
 
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Add contractor"}</button>
-                <button type="button" onClick={() => setForm(null)} style={buttonStyle.secondary}>Cancel</button>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button variant="primary" type="submit">{form.id ? "Save changes" : "Add contractor"}</Button>
+                <Button onClick={() => setForm(null)}>Cancel</Button>
               </div>
             </form>
-          </div>
-        </div>
+          </Card>
+                </Modal>
       )}
     </div>
   );

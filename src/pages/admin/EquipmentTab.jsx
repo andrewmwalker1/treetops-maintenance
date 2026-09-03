@@ -1,19 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, Modal, PageHeader, Select, Textarea } from "../../ui/index.js";
 
 const statusLabels = { in_service: "In service", monitor: "Monitor", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
 
@@ -178,24 +167,24 @@ export default function EquipmentTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "14px", flexWrap: "wrap" }}>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Equipment</h2>
-        <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-          <select value={filterTypeId} onChange={(e) => setFilterTypeId(e.target.value)} style={{ ...fieldStyle, width: "auto", marginBottom: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
+        <PageHeader title="Equipment" level={2} />
+        <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
+          <Select value={filterTypeId} onChange={(e) => setFilterTypeId(e.target.value)}>
             <option value="">All types</option>
             {equipmentTypes.map((t) => (
               <option key={t.id} value={t.id}>{t.name}</option>
             ))}
-          </select>
-          <button onClick={() => { setError(null); setForm(blank); }} style={buttonStyle.primary}>+ Add equipment</button>
+          </Select>
+          <Button variant="primary" onClick={() => { setError(null); setForm(blank); }}>+ Add equipment</Button>
         </div>
       </div>
 
       {visibleEquipment.map((eq) => (
-        <div key={eq.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <Card pad="sm" key={eq.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>{eq.name}{eq.equipment_type && <span style={{ fontWeight: 400, color: colors.inkSoft }}> · {eq.equipment_type.name}</span>}</div>
-            <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
               {[eq.make, eq.model].filter(Boolean).join(" ") || "No make/model set"} · {statusLabels[eq.status]}
               {resolveTracksHours(eq) && (
                 <>
@@ -206,184 +195,127 @@ export default function EquipmentTab() {
               )}
             </div>
             {openCheckouts[eq.id] && (
-              <div style={{ fontSize: "12px", color: colors.clay, marginTop: "4px" }}>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.clay, marginTop: "var(--space-1)" }}>
                 Checked out to {openCheckouts[eq.id].profiles?.display_name || "someone"}
               </div>
             )}
             {eq.status === "decommissioned" && (
-              <div style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "4px" }}>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: "var(--space-1)" }}>
                 Decommissioned ({DECOMMISSION_REASONS.find((r) => r.value === eq.decommission_reason)?.label || eq.decommission_reason}){eq.decommissioned_at && ` · ${eq.decommissioned_at}`}
                 {eq.decommission_notes && ` · ${eq.decommission_notes}`}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
             {openCheckouts[eq.id] && (
-              <button onClick={() => handleForceCheckIn(openCheckouts[eq.id].id)} style={buttonStyle.secondary}>Force check-in</button>
+              <Button onClick={() => handleForceCheckIn(openCheckouts[eq.id].id)}>Force check-in</Button>
             )}
-            <button onClick={() => editItem(eq)} style={buttonStyle.secondary}>Edit</button>
+            <Button onClick={() => editItem(eq)}>Edit</Button>
             {eq.status !== "decommissioned" && (
-              <button
-                onClick={() => openDecommission(eq)}
-                disabled={!!openCheckouts[eq.id]}
-                title={openCheckouts[eq.id] ? "Force this item checked in first" : undefined}
-                style={{ ...buttonStyle.secondary, color: colors.immediate }}
-              >
+              <Button variant="danger" onClick={() => openDecommission(eq)} disabled={!!openCheckouts[eq.id]} title={openCheckouts[eq.id] ? "Force this item checked in first" : undefined}>
                 Decommission
-              </button>
+              </Button>
             )}
           </div>
-        </div>
+        </Card>
       ))}
       {visibleEquipment.length === 0 && <p style={{ color: colors.inkSoft }}>No equipment {filterTypeId ? "of this type" : "yet"}.</p>}
 
       {form && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: colors.scrim,
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "24px 16px",
-            overflowY: "auto",
-            zIndex: 100,
-          }}
-          onClick={() => setForm(null)}
-        >
-          <div
-            style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>
-                {form.id ? "Edit equipment" : "New equipment"}
-              </h2>
-              <button type="button" onClick={() => setForm(null)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-            </div>
+        <Modal title={form.id ? "Edit equipment" : "New equipment"} onClose={() => setForm(null)}>
             <form onSubmit={handleSave}>
-              <label style={labelStyle}>Kit ID</label>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. EST1" style={fieldStyle} />
+              <label className="tt-field__label">Kit ID</label>
+              <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. EST1" style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Equipment type</label>
-              <select value={form.equipment_type_id} onChange={(e) => setForm({ ...form, equipment_type_id: e.target.value })} style={fieldStyle}>
+              <label className="tt-field__label">Equipment type</label>
+              <Select value={form.equipment_type_id} onChange={(e) => setForm({ ...form, equipment_type_id: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                 <option value="">No type set</option>
                 {equipmentTypes.map((t) => (
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
-              </select>
+              </Select>
 
-              <label style={labelStyle}>Hours tracking</label>
-              <select value={form.tracks_hours} onChange={(e) => setForm({ ...form, tracks_hours: e.target.value })} style={fieldStyle}>
+              <label className="tt-field__label">Hours tracking</label>
+              <Select value={form.tracks_hours} onChange={(e) => setForm({ ...form, tracks_hours: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                 <option value="">
                   Inherit from type ({(equipmentTypes.find((t) => t.id === form.equipment_type_id)?.tracks_hours_default) ? "on" : "off"})
                 </option>
                 <option value="true">On for this machine</option>
                 <option value="false">Off for this machine</option>
-              </select>
+              </Select>
 
-              <label style={labelStyle}>Require an hours reading at checkout</label>
-              <select value={form.hours_required} onChange={(e) => setForm({ ...form, hours_required: e.target.value })} style={fieldStyle}>
+              <label className="tt-field__label">Require an hours reading at checkout</label>
+              <Select value={form.hours_required} onChange={(e) => setForm({ ...form, hours_required: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                 <option value="">
                   Inherit from type ({(equipmentTypes.find((t) => t.id === form.equipment_type_id)?.hours_required_default) ? "required" : "optional"})
                 </option>
                 <option value="true">Required for this machine</option>
                 <option value="false">Optional for this machine</option>
-              </select>
-              <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "-4px", marginBottom: "10px" }}>
+              </Select>
+              <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: "calc(-1 * var(--space-1))", marginBottom: "var(--space-3)" }}>
                 Only matters if hours tracking above ends up on for this machine.
               </p>
 
-              <label style={labelStyle}>Make</label>
-              <input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="e.g. Stihl" style={fieldStyle} />
+              <label className="tt-field__label">Make</label>
+              <Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="e.g. Stihl" style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Model</label>
-              <input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="e.g. FS 131" style={fieldStyle} />
+              <label className="tt-field__label">Model</label>
+              <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="e.g. FS 131" style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Serial number (optional)</label>
-              <input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} style={fieldStyle} />
+              <label className="tt-field__label">Serial number (optional)</label>
+              <Input value={form.serial_number} onChange={(e) => setForm({ ...form, serial_number: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Other ID number (optional)</label>
-              <input value={form.other_id_number} onChange={(e) => setForm({ ...form, other_id_number: e.target.value })} style={fieldStyle} />
+              <label className="tt-field__label">Other ID number (optional)</label>
+              <Input value={form.other_id_number} onChange={(e) => setForm({ ...form, other_id_number: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Date added (optional)</label>
-              <input type="date" value={form.date_added} onChange={(e) => setForm({ ...form, date_added: e.target.value })} style={fieldStyle} />
+              <label className="tt-field__label">Date added (optional)</label>
+              <Input type="date" value={form.date_added} onChange={(e) => setForm({ ...form, date_added: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+              {error && (
+                <Alert tone="danger" title="Something went wrong">
+                  {error}
+                </Alert>
+              )}
 
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Add equipment"}</button>
-                <button type="button" onClick={() => setForm(null)} style={buttonStyle.secondary}>Cancel</button>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button variant="primary" type="submit">{form.id ? "Save changes" : "Add equipment"}</Button>
+                <Button onClick={() => setForm(null)}>Cancel</Button>
               </div>
             </form>
-          </div>
-        </div>
+                  </Modal>
       )}
 
       {decommissionForm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: colors.scrim,
-            display: "flex",
-            alignItems: "flex-start",
-            justifyContent: "center",
-            padding: "24px 16px",
-            overflowY: "auto",
-            zIndex: 100,
-          }}
-          onClick={() => setDecommissionForm(null)}
-        >
-          <div
-            style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "440px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Decommission equipment</h2>
-              <button type="button" onClick={() => setDecommissionForm(null)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-            </div>
-            <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+        <Modal title="Decommission equipment" onClose={() => setDecommissionForm(null)}>
+            <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
               This takes the machine out of service for good — it'll stop being offered to team members checking out equipment.
             </p>
             <form onSubmit={handleDecommission}>
-              <label style={labelStyle}>What happened</label>
-              <select
-                value={decommissionForm.reason}
-                onChange={(e) => setDecommissionForm({ ...decommissionForm, reason: e.target.value })}
-                style={fieldStyle}
-              >
+              <label className="tt-field__label">What happened</label>
+              <Select value={decommissionForm.reason} onChange={(e) => setDecommissionForm({ ...decommissionForm, reason: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                 {DECOMMISSION_REASONS.map((r) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
                 ))}
-              </select>
+              </Select>
 
-              <label style={labelStyle}>Notes (optional)</label>
-              <textarea
-                value={decommissionForm.notes}
-                onChange={(e) => setDecommissionForm({ ...decommissionForm, notes: e.target.value })}
-                rows={3}
-                style={{ ...fieldStyle, resize: "vertical" }}
-              />
+              <label className="tt-field__label">Notes (optional)</label>
+              <Textarea value={decommissionForm.notes} onChange={(e) => setDecommissionForm({ ...decommissionForm, notes: e.target.value })} rows={3} style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Date</label>
-              <input
-                type="date"
-                value={decommissionForm.date}
-                onChange={(e) => setDecommissionForm({ ...decommissionForm, date: e.target.value })}
-                style={fieldStyle}
-              />
+              <label className="tt-field__label">Date</label>
+              <Input type="date" value={decommissionForm.date} onChange={(e) => setDecommissionForm({ ...decommissionForm, date: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+              {error && (
+                <Alert tone="danger" title="Something went wrong">
+                  {error}
+                </Alert>
+              )}
 
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" style={{ ...buttonStyle.primary, background: colors.immediate }}>Decommission</button>
-                <button type="button" onClick={() => setDecommissionForm(null)} style={buttonStyle.secondary}>Cancel</button>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button variant="primary" type="submit">Decommission</Button>
+                <Button onClick={() => setDecommissionForm(null)}>Cancel</Button>
               </div>
             </form>
-          </div>
-        </div>
+                  </Modal>
       )}
     </div>
   );

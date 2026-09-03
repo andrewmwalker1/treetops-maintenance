@@ -1,19 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, PageHeader } from "../../ui/index.js";
 
 export default function GroupsTab() {
   const { org } = useAuth();
@@ -130,55 +119,63 @@ export default function GroupsTab() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Groups</h2>
-        {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+        <PageHeader title="Groups" level={2} />
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
         {groups.map((g) => (
-          <div key={g.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Card pad="sm" key={g.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 600 }}>{g.name}</div>
-              <div style={{ fontSize: "12px", color: colors.inkSoft }}>{(members[g.id]?.size || 0)} member(s)</div>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{(members[g.id]?.size || 0)} member(s)</div>
             </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => startEdit(g)} style={buttonStyle.secondary}>Edit</button>
-              <button onClick={() => handleDelete(g.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button onClick={() => startEdit(g)}>Edit</Button>
+              <Button variant="danger" onClick={() => handleDelete(g.id)}>Delete</Button>
             </div>
-          </div>
+          </Card>
         ))}
         {groups.length === 0 && <p style={{ color: colors.inkSoft }}>No groups set up yet.</p>}
         {editingId === null && (
-          <button onClick={startNew} style={{ ...buttonStyle.primary, marginTop: "8px" }}>+ Add group</button>
+          <Button variant="primary" onClick={startNew}>+ Add group</Button>
         )}
       </div>
 
       {editingId !== null && (
         <div>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>{editingId === "new" ? "New group" : "Edit group"}</h2>
-          <form onSubmit={handleSave} style={{ ...cardStyle, padding: "16px" }}>
-            <label style={labelStyle}>Group name</label>
-            <input required autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} style={fieldStyle} />
+          <PageHeader title={editingId === "new" ? "New group" : "Edit group"} level={2} />
+          <Card as="form" pad="md" onSubmit={handleSave}>
+            <label className="tt-field__label">Group name</label>
+            <Input required autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} style={{ marginBottom: "var(--space-3)" }} />
 
-            <label style={labelStyle}>Members</label>
-            <div style={{ ...cardStyle, padding: "10px 14px", marginBottom: "14px", maxHeight: "260px", overflowY: "auto" }}>
-              {people.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: 0 }}>No users yet.</p>}
+            <label className="tt-field__label">Members</label>
+            <Card pad="sm" style={{ marginBottom: "var(--space-4)", maxHeight: "260px", overflowY: "auto" }}>
+              {people.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>No users yet.</p>}
               {people.map((p) => (
-                <label key={p.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
+                <label key={p.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", fontSize: "var(--text-base)" }}>
                   <input type="checkbox" checked={memberDraft.has(p.id)} onChange={() => toggleMember(p.id)} />
                   {p.display_name}
                 </label>
               ))}
-            </div>
+            </Card>
 
-            {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+            {error && (
+              <Alert tone="danger" title="Something went wrong">
+                {error}
+              </Alert>
+            )}
 
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="submit" disabled={saving} style={buttonStyle.primary}>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button variant="primary" type="submit" disabled={saving}>
                 {saving ? "Saving…" : editingId === "new" ? "Create group" : "Save changes"}
-              </button>
-              <button type="button" onClick={() => setEditingId(null)} style={buttonStyle.secondary}>Cancel</button>
+              </Button>
+              <Button onClick={() => setEditingId(null)}>Cancel</Button>
             </div>
-          </form>
+          </Card>
         </div>
       )}
     </div>

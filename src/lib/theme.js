@@ -1,13 +1,15 @@
 // Design tokens, as JS values for inline `style={{}}` objects.
 //
 // Every value below is a `var(--…)` reference into src/styles/tokens.css,
-// which is now the single source of truth (BUILD-BRIEF.md section 8). The
-// export names and shapes are unchanged from before that stylesheet
-// existed, deliberately: the app carries ~1,400 inline style objects that
-// spread `cardStyle`/`buttonStyle` or read `colors.x`, and all of them keep
-// working untouched. New code should prefer the components in src/ui/,
-// which style themselves with real CSS classes and so can express hover,
-// focus and active states -- something an inline style cannot do at all.
+// which is the single source of truth (BUILD-BRIEF.md section 8).
+//
+// What is left here is what an inline style still legitimately needs: a
+// colour, a size, a spacing step. The `cardStyle` and `buttonStyle` objects
+// that used to live at the bottom are gone -- every screen now builds its
+// controls from src/ui/, which style themselves with real CSS classes and
+// so can express hover, focus, active and disabled states. An inline style
+// cannot express any of them, which is exactly why those two objects had to
+// go rather than be kept "for convenience".
 //
 // Two callers need literal values rather than `var()`:
 //   - anything setting an SVG *presentation attribute* (stroke="…",
@@ -159,50 +161,4 @@ export const pageStyle = {
   background: colors.bg,
   color: colors.ink,
   fontFamily: fonts.body,
-};
-
-export const cardStyle = {
-  background: colors.paper,
-  border: `1px solid ${colors.line}`,
-  borderRadius: radius.md,
-};
-
-// Kept in step with `.tt-btn--primary` / `.tt-btn--secondary` in
-// src/ui/ui.css, so the ~40 screens still spreading these read as the same
-// control as the ones already converted to <Button>. They differ in one
-// way only, and it is the way that matters: these cannot carry a hover or
-// focus state. Prefer <Button> in new code, and convert on sight.
-//
-// `inline-flex` rather than the old default: many of these are spread onto
-// a <Link>, which is inline, so `minHeight` would otherwise do nothing.
-const buttonBase = {
-  display: "inline-flex",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: space[2],
-  minHeight: "var(--control-h)",
-  padding: `0 ${space[4]}`,
-  borderRadius: radius.sm,
-  fontFamily: fonts.body,
-  fontSize: text.sm,
-  fontWeight: 600,
-  lineHeight: 1,
-  textDecoration: "none",
-  whiteSpace: "nowrap",
-  cursor: "pointer",
-};
-
-export const buttonStyle = {
-  primary: {
-    ...buttonBase,
-    background: colors.moss,
-    color: colors.onDark,
-    border: `1px solid ${colors.moss}`,
-  },
-  secondary: {
-    ...buttonBase,
-    background: colors.paper,
-    color: colors.mossDark,
-    border: `1px solid ${colors.lineStrong}`,
-  },
 };

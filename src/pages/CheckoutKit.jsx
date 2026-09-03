@@ -179,18 +179,14 @@ export default function CheckoutKit() {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      padding: "8px 0",
+                      padding: "var(--space-2) 0",
                       borderBottom: `1px solid ${colors.line}`,
                     }}
                   >
                     <span style={{ fontSize: "var(--text-base)" }}>{u.name}</span>
-                    <button
-                      onClick={() => setReportingIssueFor(u.id)}
-                      disabled={busy}
-                      style={{ background: "none", border: "none", color: colors.immediate, fontSize: "var(--text-sm)", textDecoration: "underline", cursor: "pointer" }}
-                    >
+                    <Button variant="danger" size="sm" onClick={() => setReportingIssueFor(u.id)} disabled={busy}>
                       Report issue
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </Card>
@@ -224,7 +220,7 @@ export default function CheckoutKit() {
         </Button>
         <PageHeader title={selectedType.name} />
         {multi && units.length > 0 && (
-          <p style={{ color: colors.inkSoft, fontSize: "var(--text-base)", marginTop: "-4px" }}>Tick everything you need, then continue.</p>
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-base)", marginTop: "calc(-1 * var(--space-1))" }}>Tick everything you need, then continue.</p>
         )}
         {units.length === 0 && (
           <EmptyState title="Nothing available right now">Every unit of this type is checked out or out of service.</EmptyState>

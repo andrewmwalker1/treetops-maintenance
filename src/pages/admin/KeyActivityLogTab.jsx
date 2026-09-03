@@ -3,30 +3,8 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { queryKeyCheckouts } from "../../lib/keyCheckoutsQuery.js";
 import { formatKeyLocation } from "../../keys/KeySelector.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "13px",
-};
-
-const thStyle = {
-  textAlign: "left",
-  padding: "8px 10px",
-  fontSize: "12px",
-  color: colors.inkSoft,
-  whiteSpace: "nowrap",
-};
-
-const tdStyle = {
-  padding: "8px 10px",
-  fontSize: "13px",
-  borderTop: `1px solid ${colors.line}`,
-  verticalAlign: "top",
-};
+import { colors } from "../../lib/theme.js";
+import { Alert, Button, Card, Chip, Input, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
 
 const STATUS_CHIPS = [
   { key: "all", label: "All" },
@@ -109,34 +87,25 @@ export default function KeyActivityLogTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Key activity log</h2>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <PageHeader title="Key activity log" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         Every key check-out and check-in.
       </p>
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
         {STATUS_CHIPS.map((s) => (
-          <button
+          <Chip
             key={s.key}
+            active={status === s.key}
             onClick={() => setStatus(s.key)}
-            style={{
-              border: `1px solid ${status === s.key ? colors.mossDark : colors.lineStrong}`,
-              background: status === s.key ? colors.mossDark : "transparent",
-              color: status === s.key ? colors.onDark : colors.inkSoft,
-              borderRadius: "999px",
-              padding: "6px 14px",
-              fontFamily: fonts.body,
-              fontSize: "13px",
-              cursor: "pointer",
-            }}
           >
             {s.label}
-          </button>
+          </Chip>
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
-        <select value={location} onChange={(e) => setLocation(e.target.value)} style={fieldStyle}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
+        <Select value={location} onChange={(e) => setLocation(e.target.value)}>
           <option value="">All locations</option>
           {pitches.map((p) => (
             <option key={p.id} value={`pitch:${p.id}`}>{p.pitch_number_or_name}</option>
@@ -144,68 +113,72 @@ export default function KeyActivityLogTab() {
           {specialLocations.map((s) => (
             <option key={s.id} value={`special:${s.id}`}>{s.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select value={profileId} onChange={(e) => setProfileId(e.target.value)} style={fieldStyle}>
+        <Select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
           <option value="">Everyone</option>
           {people.map((p) => (
             <option key={p.id} value={p.id}>{p.display_name}</option>
           ))}
-        </select>
+        </Select>
 
-        <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} style={fieldStyle} title="From date" />
-        <input type="date" value={to} onChange={(e) => setTo(e.target.value)} style={fieldStyle} title="To date" />
+        <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} title="From date" />
+        <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} title="To date" />
       </div>
 
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
+      {loading && <SkeletonList rows={3} />}
       {!loading && checkouts.length === 0 && <p style={{ color: colors.inkSoft }}>No activity matches this view.</p>}
 
       {!loading && checkouts.length > 0 && (
-        <div style={{ ...cardStyle, overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <Card pad="md" style={{ overflowX: "auto" }}>
+          <Table>
             <thead>
               <tr>
-                <th style={thStyle}>Pitch / location</th>
-                <th style={thStyle}>Issued to</th>
-                <th style={thStyle}>Reason</th>
-                <th style={thStyle}>Checked out</th>
-                <th style={thStyle}>Checked in</th>
-                <th style={thStyle} />
+                <th>Pitch / location</th>
+                <th>Issued to</th>
+                <th>Reason</th>
+                <th>Checked out</th>
+                <th>Checked in</th>
+                <th />
               </tr>
             </thead>
             <tbody>
               {checkouts.map((c) => (
                 <tr key={c.id}>
-                  <td style={tdStyle}>{locationLabel(c)}</td>
-                  <td style={tdStyle}>{issuedToLabel(c)}</td>
-                  <td style={tdStyle}>{c.reason}</td>
-                  <td style={tdStyle}>
+                  <td>{locationLabel(c)}</td>
+                  <td>{issuedToLabel(c)}</td>
+                  <td>{c.reason}</td>
+                  <td>
                     {formatDateTime(c.checked_out_at)}
-                    <div style={{ fontSize: "11px", color: colors.inkSoft }}>by {c.checked_out_by_profile?.display_name || "—"}</div>
+                    <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>by {c.checked_out_by_profile?.display_name || "—"}</div>
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     {c.checked_in_at ? (
                       <>
                         {formatDateTime(c.checked_in_at)}
-                        <div style={{ fontSize: "11px", color: colors.inkSoft }}>by {c.checked_in_by_profile?.display_name || "—"}</div>
+                        <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>by {c.checked_in_by_profile?.display_name || "—"}</div>
                       </>
                     ) : (
                       <span style={{ color: colors.clay, fontWeight: 600 }}>Still out</span>
                     )}
                   </td>
-                  <td style={tdStyle}>
+                  <td>
                     {!c.checked_in_at && (
-                      <button onClick={() => handleForceCheckIn(c.id)} style={{ ...buttonStyle.secondary, padding: "4px 12px", fontSize: "12px" }}>
+                      <Button size="sm" onClick={() => handleForceCheckIn(c.id)}>
                         Force check-in
-                      </button>
+                      </Button>
                     )}
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+          </Table>
+        </Card>
       )}
     </div>
   );

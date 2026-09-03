@@ -77,8 +77,8 @@ export default function StatDial({ label, value, color = colors.mossDark, onClic
         <line x1={DIAL_CX} y1={DIAL_CY} x2={needle.x} y2={needle.y} style={{ stroke: colors.ink }} strokeWidth="2" strokeLinecap="round" />
         <circle cx={DIAL_CX} cy={DIAL_CY} r="3" style={{ fill: colors.ink }} />
       </svg>
-      <div style={{ fontFamily: fonts.mono, fontSize: "var(--text-lg)", fontWeight: 700, color, marginTop: "-10px" }}>{value}</div>
-      <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, textTransform: "capitalize", marginTop: "1px" }}>{label}</div>
+      <div style={{ fontFamily: fonts.mono, fontSize: "var(--text-lg)", fontWeight: 700, color, marginTop: "calc(-1 * var(--space-3))" }}>{value}</div>
+      <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, textTransform: "capitalize", marginTop: "var(--space-1)" }}>{label}</div>
     </Card>
   );
 }

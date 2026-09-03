@@ -4,12 +4,12 @@ import { colors, fonts } from "../lib/theme.js";
 const searchStyle = {
   width: "100%",
   boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
+  padding: "var(--space-2) var(--space-3)",
+  borderRadius: "var(--radius-sm)",
   border: `1px solid ${colors.lineStrong}`,
   fontFamily: fonts.body,
   fontSize: "13px",
-  marginBottom: "8px",
+  marginBottom: "var(--space-2)",
 };
 
 const typeLabel = { risk_assessment: "Risk assessments", method_statement: "Method statements" };
@@ -38,16 +38,16 @@ export default function DocumentPicker({ documents, selectedIds, onToggle }) {
   return (
     <div>
       <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search documents…" style={searchStyle} />
-      <p style={{ fontSize: "12px", color: colors.inkSoft, margin: "0 0 6px" }}>{selectedIds.length} selected</p>
-      <div style={{ maxHeight: "220px", overflowY: "auto", border: `1px solid ${colors.line}`, borderRadius: "8px", padding: "2px 10px" }}>
+      <p style={{ fontSize: "12px", color: colors.inkSoft, margin: "0 0 var(--space-2)" }}>{selectedIds.length} selected</p>
+      <div style={{ maxHeight: "220px", overflowY: "auto", border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", padding: "var(--space-1) var(--space-3)" }}>
         {groups.map(([type, docs]) =>
           docs.length === 0 ? null : (
-            <div key={type} style={{ marginBottom: "4px" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, color: colors.inkSoft, textTransform: "uppercase", margin: "8px 0 2px" }}>
+            <div key={type} style={{ marginBottom: "var(--space-1)" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: colors.inkSoft, textTransform: "uppercase", margin: "var(--space-2) 0 var(--space-1)" }}>
                 {typeLabel[type] || type}
               </div>
               {docs.map((d) => (
-                <label key={d.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
+                <label key={d.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "14px", padding: "var(--space-1) 0" }}>
                   <input type="checkbox" checked={selectedIds.includes(d.id)} onChange={() => onToggle(d.id)} />
                   {d.title}
                 </label>
@@ -55,7 +55,7 @@ export default function DocumentPicker({ documents, selectedIds, onToggle }) {
             </div>
           )
         )}
-        {visible.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: "8px 0" }}>No documents match "{query}".</p>}
+        {visible.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "13px", margin: "var(--space-2) 0" }}>No documents match "{query}".</p>}
       </div>
     </div>
   );

@@ -18,7 +18,7 @@ export default function ForceCheckInKey() {
 
   if (permissions.size > 0 && !permissions.has("can_manage_keys")) {
     return (
-      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+      <div style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
         <p style={{ fontFamily: fonts.body, fontSize: "var(--text-base)", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
           This account doesn't have access to force a key check-in.
         </p>

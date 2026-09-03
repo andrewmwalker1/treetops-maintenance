@@ -1,10 +1,18 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { useMediaQuery } from "../../lib/useIsMobile.js";
+import { colors } from "../../lib/theme.js";
+import { Alert, Button, Card, IconButton, Input, PageHeader, SectionLabel, Switch, Table } from "../../ui/index.js";
+
+// A permissions-against-roles grid stops being readable long before a
+// phone -- somewhere around here on a half-width desktop window too, which
+// is why this is a width query and not the phone check.
+const MATRIX_BREAKPOINT = "(max-width: 900px)";
 
 export default function RolesPermissionsTab() {
   const { org } = useAuth();
+  const narrow = useMediaQuery(MATRIX_BREAKPOINT);
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   const [grants, setGrants] = useState(new Set()); // "roleId:permissionKey"
@@ -96,101 +104,142 @@ export default function RolesPermissionsTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Roles &amp; permissions</h2>
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+      <PageHeader title="Roles & permissions" level={2} />
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
-      <form onSubmit={addRole} style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
-        <input
+      <form onSubmit={addRole} style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+        <Input
           value={newRoleName}
           onChange={(e) => setNewRoleName(e.target.value)}
           placeholder="New role name…"
-          style={{
-            padding: "8px 12px",
-            borderRadius: "8px",
-            border: `1px solid ${colors.lineStrong}`,
-            fontFamily: fonts.body,
-            fontSize: "14px",
-          }}
+          aria-label="New role name"
+          style={{ maxWidth: "260px" }}
         />
-        <button type="submit" style={buttonStyle.secondary}>Add role</button>
+        <Button type="submit">Add role</Button>
       </form>
 
-      <div style={{ ...cardStyle, padding: "16px", overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: "6px 10px", fontSize: "12px", color: colors.inkSoft }}>Permission</th>
-              {roles.map((r) => (
-                <th key={r.id} style={{ padding: "6px 10px", fontSize: "12px", color: colors.inkSoft, fontWeight: 600 }}>
-                  {renamingId === r.id ? (
-                    <input
-                      autoFocus
-                      value={renameValue}
-                      onChange={(e) => setRenameValue(e.target.value)}
-                      onBlur={() => saveRename(r.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveRename(r.id);
-                        if (e.key === "Escape") setRenamingId(null);
-                      }}
-                      style={{
-                        width: "100px",
-                        padding: "4px 6px",
-                        borderRadius: "6px",
-                        border: `1px solid ${colors.lineStrong}`,
-                        fontFamily: fonts.body,
-                        fontSize: "12px",
-                        fontWeight: 600,
-                      }}
-                    />
-                  ) : (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
-                      <span
-                        onClick={() => startRename(r)}
-                        title="Click to rename"
-                        style={{ cursor: "pointer" }}
-                      >
-                        {r.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => deleteRole(r)}
-                        aria-label={`Delete ${r.name}`}
-                        title="Delete role"
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: colors.inkSoft,
-                          cursor: "pointer",
-                          fontSize: "13px",
-                          padding: 0,
-                          lineHeight: 1,
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  )}
-                </th>
+      {/* Below the breakpoint the grid becomes one card per role: the same
+          toggles, read down the permission list instead of across a row of
+          unlabelled ticks scrolling off the side. Above it, the first
+          column pins so the permission name stays visible while the role
+          columns scroll. */}
+      {narrow
+        ? roles.map((r) => (
+            <Card key={r.id} pad="md" style={{ marginBottom: "var(--space-3)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "var(--space-2)" }}>
+                {renamingId === r.id ? (
+                  <Input
+                    autoFocus
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onBlur={() => saveRename(r.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveRename(r.id);
+                      if (e.key === "Escape") setRenamingId(null);
+                    }}
+                    aria-label={`Rename ${r.name}`}
+                  />
+                ) : (
+                  <Button variant="ghost" onClick={() => startRename(r)} style={{ padding: 0, fontSize: "var(--text-lg)" }}>
+                    {r.name}
+                  </Button>
+                )}
+                <IconButton label={`Delete ${r.name}`} onClick={() => deleteRole(r)}>
+                  ×
+                </IconButton>
+              </div>
+              <SectionLabel>Permissions</SectionLabel>
+              {permissions.map((p) => (
+                <label
+                  key={p.key}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "var(--space-3)",
+                    padding: "var(--space-2) 0",
+                    borderTop: `1px solid ${colors.line}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>
+                    <span style={{ fontWeight: 600 }}>{p.key}</span>
+                    <span style={{ display: "block", color: colors.inkSoft, fontSize: "var(--text-xs)" }}>{p.description}</span>
+                  </span>
+                  <Switch
+                    checked={grants.has(`${r.id}:${p.key}`)}
+                    onChange={() => toggle(r.id, p.key)}
+                    label={`${r.name}: ${p.key}`}
+                  />
+                </label>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {permissions.map((p) => (
-              <tr key={p.key} style={{ borderTop: `1px solid ${colors.line}` }}>
-                <td style={{ padding: "8px 10px", fontSize: "13px" }}>
-                  <div style={{ fontWeight: 600 }}>{p.key}</div>
-                  <div style={{ color: colors.inkSoft, fontSize: "12px" }}>{p.description}</div>
-                </td>
-                {roles.map((r) => (
-                  <td key={r.id} style={{ textAlign: "center", padding: "8px 10px" }}>
-                    <input type="checkbox" checked={grants.has(`${r.id}:${p.key}`)} onChange={() => toggle(r.id, p.key)} />
-                  </td>
+            </Card>
+          ))
+        : roles.length > 0 && (
+            <Table stickyFirstColumn>
+              <thead>
+                <tr>
+                  <th>Permission</th>
+                  {roles.map((r) => (
+                    <th key={r.id} style={{ textAlign: "center" }}>
+                      {renamingId === r.id ? (
+                        <Input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={() => saveRename(r.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveRename(r.id);
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          aria-label={`Rename ${r.name}`}
+                          style={{ width: "110px" }}
+                        />
+                      ) : (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "var(--space-1)" }}>
+                          <button
+                            type="button"
+                            className="tt-sortbtn"
+                            onClick={() => startRename(r)}
+                            title="Click to rename"
+                          >
+                            {r.name}
+                          </button>
+                          <IconButton size="sm" label={`Delete ${r.name}`} onClick={() => deleteRole(r)}>
+                            ×
+                          </IconButton>
+                        </div>
+                      )}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {permissions.map((p) => (
+                  <tr key={p.key}>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{p.key}</div>
+                      <div style={{ color: colors.inkSoft, fontSize: "var(--text-xs)" }}>{p.description}</div>
+                    </td>
+                    {roles.map((r) => (
+                      <td key={r.id} style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={grants.has(`${r.id}:${p.key}`)}
+                          onChange={() => toggle(r.id, p.key)}
+                          aria-label={`${r.name}: ${p.key}`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </tbody>
+            </Table>
+          )}
     </div>
   );
 }

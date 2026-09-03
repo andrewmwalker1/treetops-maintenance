@@ -92,10 +92,10 @@ export default function KeysHome() {
         <PageHeader title={detailGroup.label} subtitle={`${detailGroup.rows.length} out`} />
         {detailGroup.rows.map((c) => (
           <Card key={c.id} style={{ marginBottom: "var(--space-2)" }}>
-            <p style={{ margin: "0 0 4px", fontSize: "var(--text-base)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
-            <p style={{ margin: "0 0 4px", fontSize: "var(--text-sm)" }}>Out to {keyIssuedToLabel(c)}</p>
+            <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-base)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
+            <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-sm)" }}>Out to {keyIssuedToLabel(c)}</p>
             {c.reason && (
-              <p style={{ margin: "0 0 4px", fontSize: "var(--text-sm)", color: colors.inkSoft }}>Reason: {c.reason}</p>
+              <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-sm)", color: colors.inkSoft }}>Reason: {c.reason}</p>
             )}
             <p style={{ margin: 0, fontSize: "var(--text-xs)", color: colors.inkSoft }}>
               Checked out by {c.checked_out_by_profile?.display_name || "—"}, {timeAgo(c.checked_out_at)}

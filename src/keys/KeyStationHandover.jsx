@@ -106,7 +106,7 @@ export default function KeyStationHandover() {
             type="checkbox"
             checked={fobConfirmed}
             onChange={(e) => setFobConfirmed(e.target.checked)}
-            style={{ width: "22px", height: "22px", marginTop: "1px" }}
+            style={{ width: "22px", height: "22px", marginTop: "var(--space-1)" }}
           />
           I've removed the RFID fob from this key — only the physical key goes to the customer, the fob stays with us.
         </label>

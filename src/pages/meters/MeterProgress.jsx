@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { fetchProgress, fetchOutstandingMeters } from "../../lib/meterReadingsQuery.js";
-import { colors, fonts, cardStyle } from "../../lib/theme.js";
+import { colors, fonts, space } from "../../lib/theme.js";
+import { Card, PageHeader, SkeletonList } from "../../ui/index.js";
 
 export default function MeterProgress() {
   const { activeSite } = useAuth();
@@ -29,34 +30,29 @@ export default function MeterProgress() {
 
   return (
     <div style={{ maxWidth: "520px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Round progress</h1>
+      <PageHeader title="Round progress" />
 
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
+      {loading && <SkeletonList rows={3} />}
 
       {!loading && progress && (
         <>
-          <div style={{ ...cardStyle, padding: "20px", marginBottom: "20px" }}>
+          <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
             <div style={{ fontFamily: fonts.display, fontSize: "28px", color: colors.mossDark }}>
               {progress.read} of {progress.total}
             </div>
-            <div style={{ color: colors.inkSoft, fontSize: "13px" }}>connected meters read this round</div>
-          </div>
+            <div style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>connected meters read this round</div>
+          </Card>
 
-          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>
-            Outstanding ({outstanding.length})
-          </h2>
+          <PageHeader title={`Outstanding (${outstanding.length})`} level={2} />
           {outstanding.length === 0 ? (
             <p style={{ color: colors.inkSoft }}>All connected meters have a reading this round.</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               {outstanding.map((m) => (
-                <div
-                  key={m.id}
-                  style={{ ...cardStyle, padding: "10px 14px", display: "flex", justifyContent: "space-between", fontSize: "14px" }}
-                >
+                <Card pad="sm" key={m.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "var(--text-base)" }}>
                   <span>{m.pitches?.pitch_number_or_name}</span>
                   <span style={{ color: colors.inkSoft }}>{m.meter_type === "electric" ? "Electric" : "Gas"}</span>
-                </div>
+                </Card>
               ))}
             </div>
           )}

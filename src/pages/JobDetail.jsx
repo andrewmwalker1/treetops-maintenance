@@ -1165,7 +1165,7 @@ export default function JobDetail() {
             <div style={{ marginBottom: "var(--space-4)" }}>
               <SectionLabel>Activity types</SectionLabel>
               {allActivityTypes.map((t) => (
-                <label key={t.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "3px 0" }}>
+                <label key={t.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0" }}>
                   <input type="checkbox" checked={activityTypes.some((a) => a.id === t.id)} onChange={() => toggleJobActivityType(t.id)} />
                   {t.name}
                 </label>
@@ -1180,7 +1180,7 @@ export default function JobDetail() {
             <div key={t.id} style={{ marginBottom: "var(--space-3)" }}>
               <div style={{ fontWeight: 600 }}>{t.name}</div>
               {(documentsByActivityType[t.id] || []).length === 0 && (
-                <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
+                <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: "var(--space-1) 0" }}>No RA/MS documents linked yet.</p>
               )}
               {(documentsByActivityType[t.id] || []).map((doc) => (
                 <SafetyDocumentLink key={doc.id} doc={doc} />

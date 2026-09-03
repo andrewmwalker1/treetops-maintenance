@@ -2,20 +2,10 @@ import { useEffect, useState } from "react";
 import { RRule } from "rrule";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle, priorityBarStyle } from "../../lib/theme.js";
+import { colors, text, space, priorityBarStyle } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, PageHeader, Select, Textarea } from "../../ui/index.js";
 import PitchPicker from "../../components/PitchPicker.jsx";
 
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelInline = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
 
 const WEEKDAYS = [
   { code: "MO", label: "Mon" },
@@ -312,26 +302,26 @@ export default function SchedulesTab() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Recurring jobs</h2>
+        <PageHeader title="Recurring jobs" level={2} />
         {schedules.map((s) => (
-          <div key={s.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", gap: "10px", justifyContent: "space-between", alignItems: "center", opacity: s.is_active ? 1 : 0.6 }}>
+          <Card pad="sm" key={s.id} style={{ marginBottom: "var(--space-2)", display: "flex", gap: "var(--space-3)", justifyContent: "space-between", alignItems: "center", opacity: s.is_active ? 1 : 0.6 }}>
             <div style={priorityBarStyle(s.priority)} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600 }}>
                 {s.description || s.job_types?.name || "Untitled"}
                 {!s.is_active && (
-                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.inkSoft, border: `1px solid ${colors.lineStrong}`, borderRadius: "999px", padding: "1px 8px" }}>
+                  <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", fontWeight: 700, color: colors.inkSoft, border: `1px solid ${colors.lineStrong}`, borderRadius: "var(--radius-full)", padding: "var(--space-1) var(--space-2)" }}>
                     PAUSED
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
                 {describeRule(s.rrule)} · {s.lead_in_days} day lead-in
                 {s.last_generated_date ? ` · last created ${s.last_generated_date}` : " · never generated yet"}
               </div>
-              <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
                 {s.assignee_profile_id
                   ? `Assigned to ${people.find((p) => p.id === s.assignee_profile_id)?.display_name || "—"}`
                   : s.assignee_group_id
@@ -340,88 +330,89 @@ export default function SchedulesTab() {
                 {(s.pitches?.pitch_number_or_name || s.areas?.name) && ` · ${s.pitches ? `${terminology.pitch || "Pitch"} ${s.pitches.pitch_number_or_name}` : s.areas.name}`}
               </div>
             </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => handleToggleActive(s)} style={buttonStyle.secondary}>{s.is_active ? "Pause" : "Resume"}</button>
-              <button onClick={() => editSchedule(s)} style={buttonStyle.secondary}>Edit</button>
-              <button onClick={() => handleDelete(s.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button onClick={() => handleToggleActive(s)}>{s.is_active ? "Pause" : "Resume"}</Button>
+              <Button onClick={() => editSchedule(s)}>Edit</Button>
+              <Button variant="danger" onClick={() => handleDelete(s.id)}>Delete</Button>
             </div>
-          </div>
+          </Card>
         ))}
         {schedules.length === 0 && <p style={{ color: colors.inkSoft }}>No recurring jobs set up yet.</p>}
       </div>
 
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>{form.id ? "Edit recurring job" : "New recurring job"}</h2>
-        <form onSubmit={handleSave} style={{ ...cardStyle, padding: "16px" }}>
-          <label style={labelInline}>Job template (optional)</label>
-          <select value={form.jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={fieldStyle}>
+        <PageHeader title={form.id ? "Edit recurring job" : "New recurring job"} level={2} />
+        <Card as="form" pad="md" onSubmit={handleSave}>
+          <label className="tt-field__label">Job template (optional)</label>
+          <Select value={form.jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={{ marginBottom: "var(--space-3)" }}>
             <option value="">—</option>
             {jobTypes.map((jt) => (
               <option key={jt.id} value={jt.id}>{jt.name}</option>
             ))}
-          </select>
+          </Select>
 
-          <label style={labelInline}>Description</label>
-          <textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} style={{ ...fieldStyle, resize: "vertical" }} />
+          <label className="tt-field__label">Description</label>
+          <Textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} style={{ marginBottom: "var(--space-3)" }} />
 
           {sites.length > 1 && (
-            <select required value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} style={fieldStyle}>
+            <Select required value={form.siteId} onChange={(e) => setForm({ ...form, siteId: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
               <option value="">Site</option>
               {sites.map((s) => (
                 <option key={s.id} value={s.id}>{s.name}</option>
               ))}
-            </select>
+            </Select>
           )}
 
-          <label style={labelInline}>Priority</label>
-          <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={fieldStyle}>
+          <label className="tt-field__label">Priority</label>
+          <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
             <option value="immediate">Immediate</option>
-          </select>
+          </Select>
 
-          <label style={labelInline}>Activity types (optional)</label>
-          <div style={{ ...fieldStyle, height: "auto", padding: "10px 14px" }}>
-            {activityTypes.length === 0 && <span style={{ color: colors.inkSoft, fontSize: "14px" }}>None set up yet.</span>}
+          <label className="tt-field__label">Activity types (optional)</label>
+          <div
+            style={{
+              border: `1px solid ${colors.lineStrong}`,
+              borderRadius: "var(--radius-sm)",
+              padding: "var(--space-3)",
+              marginBottom: "var(--space-3)",
+            }}
+          >
+            {activityTypes.length === 0 && <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>None set up yet.</span>}
             {activityTypes.map((a) => (
-              <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "3px 0", fontSize: "14px" }}>
+              <label key={a.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", fontSize: "var(--text-base)" }}>
                 <input type="checkbox" checked={form.activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
                 {a.name}
               </label>
             ))}
           </div>
 
-          <label style={labelInline}>Assign to</label>
-          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+          <label className="tt-field__label">Assign to</label>
+          <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
             <label><input type="radio" checked={form.assigneeKind === "person"} onChange={() => setForm({ ...form, assigneeKind: "person", assigneeId: "" })} /> Person</label>
             <label><input type="radio" checked={form.assigneeKind === "group"} onChange={() => setForm({ ...form, assigneeKind: "group", assigneeId: "" })} /> Group</label>
           </div>
-          <select value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })} style={fieldStyle}>
+          <Select value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
             <option value="">Unassigned</option>
             {(form.assigneeKind === "person" ? people : groups).map((item) => (
               <option key={item.id} value={item.id}>{item.display_name || item.name}</option>
             ))}
-          </select>
+          </Select>
 
-          <label style={labelInline}>Location</label>
-          <div style={{ display: "flex", gap: "10px", marginBottom: "10px" }}>
+          <label className="tt-field__label">Location</label>
+          <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-3)" }}>
             <label><input type="radio" checked={form.locationKind === "pitch"} onChange={() => setForm({ ...form, locationKind: "pitch", locationId: "", areaName: "" })} /> {terminology.pitch || "Pitch"}</label>
             <label><input type="radio" checked={form.locationKind === "area"} onChange={() => setForm({ ...form, locationKind: "area", locationId: "", areaName: "" })} /> {terminology.area || "Area"}</label>
             <label><input type="radio" checked={form.locationKind === "none"} onChange={() => setForm({ ...form, locationKind: "none", locationId: "", areaName: "" })} /> None</label>
           </div>
           {form.locationKind === "pitch" && (
-            <PitchPicker pitches={pitches} value={form.locationId} onChange={(id) => setForm({ ...form, locationId: id })} style={fieldStyle} />
+            <PitchPicker pitches={pitches} value={form.locationId} onChange={(id) => setForm({ ...form, locationId: id })} style={{ marginBottom: "var(--space-3)" }} />
           )}
           {form.locationKind === "area" && (
             <>
-              <input
-                list="schedule-area-suggestions"
-                value={form.areaName}
-                onChange={(e) => setForm({ ...form, areaName: e.target.value })}
-                placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`}
-                style={fieldStyle}
-              />
+              <Input list="schedule-area-suggestions" value={form.areaName} onChange={(e) => setForm({ ...form, areaName: e.target.value })} placeholder={`Type a ${(terminology.area || "area").toLowerCase()} name…`} style={{ marginBottom: "var(--space-3)" }} />
               <datalist id="schedule-area-suggestions">
                 {areas.map((a) => (
                   <option key={a.id} value={a.name} />
@@ -430,30 +421,24 @@ export default function SchedulesTab() {
             </>
           )}
 
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Repeats</label>
-          <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-            <select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}>
+          <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Repeats</label>
+          <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+            <Select value={form.frequency} onChange={(e) => setForm({ ...form, frequency: e.target.value })} style={{ flex: 1 }}>
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
-            </select>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", whiteSpace: "nowrap", fontSize: "13px", color: colors.inkSoft }}>
+            </Select>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", whiteSpace: "nowrap", fontSize: "var(--text-sm)", color: colors.inkSoft }}>
               every
-              <input
-                type="number"
-                min="1"
-                value={form.interval}
-                onChange={(e) => setForm({ ...form, interval: e.target.value })}
-                style={{ ...fieldStyle, marginBottom: 0, width: "56px" }}
-              />
+              <Input type="number" min="1" value={form.interval} onChange={(e) => setForm({ ...form, interval: e.target.value })} />
               {form.frequency === "daily" ? "day(s)" : form.frequency === "weekly" ? "week(s)" : "month(s)"}
             </div>
           </div>
 
           {form.frequency === "weekly" && (
-            <div style={{ display: "flex", gap: "6px", marginBottom: "10px", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
               {WEEKDAYS.map((wd) => (
-                <label key={wd.code} style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "13px" }}>
+                <label key={wd.code} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", fontSize: "var(--text-sm)" }}>
                   <input type="checkbox" checked={form.weekdays.includes(wd.code)} onChange={() => toggleWeekday(wd.code)} />
                   {wd.label}
                 </label>
@@ -463,58 +448,54 @@ export default function SchedulesTab() {
 
           {form.frequency === "monthly" && (
             <>
-              <div style={{ display: "flex", gap: "14px", marginBottom: "10px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+              <div style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-3)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
                   <input type="radio" checked={form.monthlyMode === "monthday"} onChange={() => setForm({ ...form, monthlyMode: "monthday" })} />
                   On a day of the month
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
                   <input type="radio" checked={form.monthlyMode === "weekday"} onChange={() => setForm({ ...form, monthlyMode: "weekday" })} />
                   On a weekday
                 </label>
               </div>
 
               {form.monthlyMode === "monthday" ? (
-                <input
-                  type="number"
-                  min="1"
-                  max="31"
-                  placeholder="Day of month (1-31)"
-                  value={form.monthday}
-                  onChange={(e) => setForm({ ...form, monthday: e.target.value })}
-                  style={fieldStyle}
-                />
+                <Input type="number" min="1" max="31" placeholder="Day of month (1-31)" value={form.monthday} onChange={(e) => setForm({ ...form, monthday: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
               ) : (
-                <div style={{ display: "flex", gap: "8px", marginBottom: "10px" }}>
-                  <select value={form.monthlyPosition} onChange={(e) => setForm({ ...form, monthlyPosition: e.target.value })} style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+                  <Select value={form.monthlyPosition} onChange={(e) => setForm({ ...form, monthlyPosition: e.target.value })} style={{ flex: 1 }}>
                     {MONTHLY_POSITIONS.map((p) => (
                       <option key={p.value} value={p.value}>{p.label}</option>
                     ))}
-                  </select>
-                  <select value={form.monthlyWeekday} onChange={(e) => setForm({ ...form, monthlyWeekday: e.target.value })} style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}>
+                  </Select>
+                  <Select value={form.monthlyWeekday} onChange={(e) => setForm({ ...form, monthlyWeekday: e.target.value })} style={{ flex: 1 }}>
                     <option value="">Weekday</option>
                     {WEEKDAYS.map((wd) => (
                       <option key={wd.code} value={wd.code}>{wd.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               )}
             </>
           )}
 
-          <label style={labelInline}>Starts on</label>
-          <input type="date" required value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={fieldStyle} />
+          <label className="tt-field__label">Starts on</label>
+          <Input type="date" required value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-          <label style={labelInline}>Lead-in days (create the job this many days before it's due)</label>
-          <input type="number" min="0" value={form.leadInDays} onChange={(e) => setForm({ ...form, leadInDays: e.target.value })} style={fieldStyle} />
+          <label className="tt-field__label">Lead-in days (create the job this many days before it's due)</label>
+          <Input type="number" min="0" value={form.leadInDays} onChange={(e) => setForm({ ...form, leadInDays: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
 
-          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+          {error && (
+            <Alert tone="danger" title="Something went wrong">
+              {error}
+            </Alert>
+          )}
 
-          <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-            <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Create recurring job"}</button>
-            {form.id && <button type="button" onClick={() => setForm({ ...blank, siteId: form.siteId })} style={buttonStyle.secondary}>Cancel</button>}
+          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+            <Button variant="primary" type="submit">{form.id ? "Save changes" : "Create recurring job"}</Button>
+            {form.id && <Button onClick={() => setForm({ ...blank, siteId: form.siteId })}>Cancel</Button>}
           </div>
-        </form>
+        </Card>
       </div>
     </div>
   );

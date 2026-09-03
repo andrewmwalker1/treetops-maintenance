@@ -1,17 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, PageHeader, Select } from "../../ui/index.js";
 
 const blankInvite = { email: "", displayName: "", roleId: "", isContractor: false, contractorId: "", siteIds: [] };
 
@@ -179,23 +170,27 @@ export default function UsersTab() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Users</h2>
-        {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+        <PageHeader title="Users" level={2} />
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
         {users.map((u) => (
-          <div key={u.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px" }}>
+          <Card pad="sm" key={u.id} style={{ marginBottom: "var(--space-2)" }}>
             {editingId === u.id ? (
               <form onSubmit={handleSaveEdit}>
-                <input required value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} style={fieldStyle} />
-                <input required type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="Email" style={fieldStyle} />
-                <select required value={editForm.role_id} onChange={(e) => setEditForm({ ...editForm, role_id: e.target.value })} style={fieldStyle}>
+                <Input required value={editForm.display_name} onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })} style={{ marginBottom: "var(--space-3)" }} />
+                <Input required type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} placeholder="Email" style={{ marginBottom: "var(--space-3)" }} />
+                <Select required value={editForm.role_id} onChange={(e) => setEditForm({ ...editForm, role_id: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                   <option value="">Select a role</option>
                   {roles.map((r) => (
                     <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
-                </select>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "10px" }}>
+                </Select>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", marginBottom: "var(--space-3)" }}>
                   <input
                     type="checkbox"
                     checked={editForm.is_contractor}
@@ -204,27 +199,23 @@ export default function UsersTab() {
                   Contractor
                 </label>
                 {editForm.is_contractor && (
-                  <select
-                    value={editForm.contractor_id}
-                    onChange={(e) => setEditForm({ ...editForm, contractor_id: e.target.value })}
-                    style={fieldStyle}
-                  >
+                  <Select value={editForm.contractor_id} onChange={(e) => setEditForm({ ...editForm, contractor_id: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                     <option value="">No company linked yet</option>
                     {contractors.map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
-                  </select>
+                  </Select>
                 )}
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Site access</label>
+                <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Site access</label>
                 {sites.map((s) => (
-                  <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
+                  <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", padding: "var(--space-1) 0" }}>
                     <input type="checkbox" checked={editForm.siteIds.includes(s.id)} onChange={() => toggleEditSite(s.id)} />
                     {s.name}
                   </label>
                 ))}
-                <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
-                  <button type="submit" style={buttonStyle.primary}>Save</button>
-                  <button type="button" onClick={() => { setEditingId(null); setEditForm(null); }} style={buttonStyle.secondary}>Cancel</button>
+                <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
+                  <Button variant="primary" type="submit">Save</Button>
+                  <Button onClick={() => { setEditingId(null); setEditForm(null); }}>Cancel</Button>
                 </div>
               </form>
             ) : (
@@ -233,55 +224,51 @@ export default function UsersTab() {
                   <div style={{ fontWeight: 600 }}>
                     {u.display_name}
                     {u.is_active === false && (
-                      <span style={{ marginLeft: "8px", fontSize: "11px", color: colors.immediate, fontWeight: 600 }}>DEACTIVATED</span>
+                      <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", color: colors.immediate, fontWeight: 600 }}>DEACTIVATED</span>
                     )}
                   </div>
-                  <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+                  <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
                     {u.email} · {u.role_name || "No role"}
                     {u.is_contractor ? ` · Contractor${u.contractor_id ? ` (${contractors.find((c) => c.id === u.contractor_id)?.name || "?"})` : " (no company linked)"}` : ""}
                   </div>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "6px" }}>
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button onClick={() => startEdit(u)} style={buttonStyle.secondary}>Edit</button>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "var(--space-2)" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                    <Button onClick={() => startEdit(u)}>Edit</Button>
                     {u.is_active === false ? (
-                      <button onClick={() => handleReactivate(u.id)} style={buttonStyle.secondary}>Reactivate</button>
+                      <Button onClick={() => handleReactivate(u.id)}>Reactivate</Button>
                     ) : (
                       <>
-                        <button
-                          onClick={() => handleResend(u.id)}
-                          disabled={resendStatus[u.id] === "sending"}
-                          style={buttonStyle.secondary}
-                        >
+                        <Button onClick={() => handleResend(u.id)} disabled={resendStatus[u.id] === "sending"}>
                           {resendStatus[u.id] === "sending" ? "Sending…" : "Resend invite"}
-                        </button>
-                        <button onClick={() => handleDeactivate(u.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Deactivate</button>
+                        </Button>
+                        <Button variant="danger" onClick={() => handleDeactivate(u.id)}>Deactivate</Button>
                       </>
                     )}
                   </div>
-                  {resendStatus[u.id] === "sent" && <span style={{ fontSize: "12px", color: colors.moss }}>Invite email sent</span>}
-                  {resendStatus[u.id] === "error" && <span style={{ fontSize: "12px", color: colors.immediate }}>Failed to send — see message above</span>}
+                  {resendStatus[u.id] === "sent" && <span style={{ fontSize: "var(--text-xs)", color: colors.moss }}>Invite email sent</span>}
+                  {resendStatus[u.id] === "error" && <span style={{ fontSize: "var(--text-xs)", color: colors.immediate }}>Failed to send — see message above</span>}
                 </div>
               </div>
             )}
-          </div>
+          </Card>
         ))}
         {users.length === 0 && <p style={{ color: colors.inkSoft }}>No users yet.</p>}
       </div>
 
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Invite a user</h2>
-        <p style={{ fontSize: "13px", color: colors.inkSoft }}>Only people invited here can sign in — there's no public sign-up.</p>
-        <form onSubmit={handleInvite} style={{ ...cardStyle, padding: "16px" }}>
-          <input required type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} placeholder="Work email" style={fieldStyle} />
-          <input required value={invite.displayName} onChange={(e) => setInvite({ ...invite, displayName: e.target.value })} placeholder="Display name" style={fieldStyle} />
-          <select required value={invite.roleId} onChange={(e) => setInvite({ ...invite, roleId: e.target.value })} style={fieldStyle}>
+        <PageHeader title="Invite a user" level={2} />
+        <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>Only people invited here can sign in — there's no public sign-up.</p>
+        <Card as="form" pad="md" onSubmit={handleInvite}>
+          <Input required type="email" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} placeholder="Work email" style={{ marginBottom: "var(--space-3)" }} />
+          <Input required value={invite.displayName} onChange={(e) => setInvite({ ...invite, displayName: e.target.value })} placeholder="Display name" style={{ marginBottom: "var(--space-3)" }} />
+          <Select required value={invite.roleId} onChange={(e) => setInvite({ ...invite, roleId: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
             <option value="">Select a role</option>
             {roles.map((r) => (
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
-          </select>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", marginBottom: "10px" }}>
+          </Select>
+          <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", marginBottom: "var(--space-3)" }}>
             <input
               type="checkbox"
               checked={invite.isContractor}
@@ -290,21 +277,17 @@ export default function UsersTab() {
             Contractor
           </label>
           {invite.isContractor && (
-            <select
-              value={invite.contractorId}
-              onChange={(e) => setInvite({ ...invite, contractorId: e.target.value })}
-              style={fieldStyle}
-            >
+            <Select value={invite.contractorId} onChange={(e) => setInvite({ ...invite, contractorId: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
               <option value="">No company linked yet</option>
               {contractors.map((c) => (
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
-            </select>
+            </Select>
           )}
 
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Site access</label>
+          <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Site access</label>
           {sites.map((s) => (
-            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", padding: "3px 0" }}>
+            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", padding: "var(--space-1) 0" }}>
               <input
                 type="checkbox"
                 checked={invite.siteIds.includes(s.id)}
@@ -319,18 +302,22 @@ export default function UsersTab() {
             </label>
           ))}
 
-          {inviteStatus === "sent" && <p style={{ color: colors.moss, fontSize: "13px" }}>Invite sent.</p>}
+          {inviteStatus === "sent" && <p style={{ color: colors.moss, fontSize: "var(--text-sm)" }}>Invite sent.</p>}
           {inviteStatus === "sent-email-failed" && (
-            <p style={{ color: colors.immediate, fontSize: "13px" }}>
+            <p style={{ color: colors.immediate, fontSize: "var(--text-sm)" }}>
               Account created, but the invite email failed to send — find them in the list on the left and use "Resend invite".
             </p>
           )}
-          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+          {error && (
+            <Alert tone="danger" title="Something went wrong">
+              {error}
+            </Alert>
+          )}
 
-          <button type="submit" disabled={inviteStatus === "sending"} style={{ ...buttonStyle.primary, width: "100%", marginTop: "10px" }}>
+          <Button variant="primary" block type="submit" disabled={inviteStatus === "sending"}>
             {inviteStatus === "sending" ? "Sending…" : "Send invite"}
-          </button>
-        </form>
+          </Button>
+        </Card>
       </div>
     </div>
   );

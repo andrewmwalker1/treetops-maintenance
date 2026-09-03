@@ -137,7 +137,7 @@ function AppShell() {
     }
     if (deactivated) {
       return (
-        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
           <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
             This account has been deactivated.
           </p>
@@ -158,7 +158,7 @@ function AppShell() {
     }
     if (deactivated) {
       return (
-        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
           <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
             This account has been deactivated.
           </p>
@@ -179,7 +179,7 @@ function AppShell() {
 
   if (deactivated) {
     return (
-      <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+      <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
         <p style={{ color: colors.immediate, textAlign: "center", maxWidth: "360px" }}>
           Your account has been deactivated. Contact your admin if you think this is a mistake.
         </p>
@@ -198,7 +198,7 @@ function AppShell() {
   // 35-desktop-access-permission.sql so nobody's current access changes.
   if (!canAccessDesktop) {
     return (
-      <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+      <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
         <p style={{ color: colors.inkSoft, textAlign: "center", maxWidth: "360px" }}>
           This account doesn't have access to the desktop app.
         </p>

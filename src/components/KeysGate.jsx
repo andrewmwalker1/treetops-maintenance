@@ -12,7 +12,7 @@ export default function KeysGate({ children }) {
 
   if (permissions.size > 0 && !permissions.has("can_use_key_system")) {
     return (
-      <div style={{ textAlign: "center", padding: "40px 20px" }}>
+      <div style={{ textAlign: "center", padding: "var(--space-8) var(--space-5)" }}>
         <p style={{ fontFamily: fonts.body, fontSize: "15px", color: colors.inkSoft, maxWidth: "360px", margin: "0 auto" }}>
           This account doesn't have access to the key system.
         </p>

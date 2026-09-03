@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import KeyReasonsModal from "./KeyReasonsModal.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors, space } from "../../lib/theme.js";
+import { Button, Card, PageHeader } from "../../ui/index.js";
 
 // Preset key check-out reasons for staff checking a key out for
 // themselves (issued_to_kind "self" on KeyStationCheckOut.jsx), by role --
@@ -35,26 +36,26 @@ export default function RoleKeyReasonsTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Key reasons</h2>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <PageHeader title="Key reasons" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         Preset reasons shown on the key-station check-out screen. Self-checkouts use presets from the person's own role; customer and guest checkouts
         use the standard reasons below. Contractor presets are managed from the Contractors tab.
       </p>
 
       {roles.map((r) => (
-        <div key={r.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+        <Card pad="sm" key={r.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
           <div style={{ fontWeight: 600 }}>{r.name}</div>
-          <button onClick={() => setReasonsFor({ kind: "role", id: r.id, name: r.name })} style={buttonStyle.secondary}>Reasons</button>
-        </div>
+          <Button onClick={() => setReasonsFor({ kind: "role", id: r.id, name: r.name })}>Reasons</Button>
+        </Card>
       ))}
       {roles.length === 0 && <p style={{ color: colors.inkSoft }}>No roles set up yet.</p>}
 
-      <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: "20px" }}>Standard reasons</h3>
+      <PageHeader title="Standard reasons" level={2} />
       {FIXED_REASON_OWNERS.map((f) => (
-        <div key={f.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px" }}>
+        <Card pad="sm" key={f.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)" }}>
           <div style={{ fontWeight: 600 }}>{f.label}</div>
-          <button onClick={() => setReasonsFor({ kind: "fixed", id: f.id, name: f.label })} style={buttonStyle.secondary}>Reasons</button>
-        </div>
+          <Button onClick={() => setReasonsFor({ kind: "fixed", id: f.id, name: f.label })}>Reasons</Button>
+        </Card>
       ))}
 
       {reasonsFor && (

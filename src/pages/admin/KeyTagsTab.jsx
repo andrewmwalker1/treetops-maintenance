@@ -4,17 +4,8 @@ import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
 import PitchPicker from "../../components/PitchPicker.jsx";
 import { formatKeyLocation } from "../../keys/KeySelector.jsx";
-import { colors, fonts, cardStyle, buttonStyle, shadow } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
+import { colors, fonts, text, space, radius, shadow } from "../../lib/theme.js";
+import { Alert, Button, Card, Chip, Input, PageHeader, Select } from "../../ui/index.js";
 
 function locationLabel(tag, pitches, specialLocations) {
   const pitchLabel = tag.pitch_id ? pitches.find((p) => p.id === tag.pitch_id)?.pitch_number_or_name || "Unknown pitch" : null;
@@ -111,7 +102,8 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder="Search by pitch, area, location, or tag ID…"
-        style={style}
+        className="tt-input"
+        style={{ marginBottom: "var(--space-3)", ...style }}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
@@ -125,12 +117,12 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
             left: 0,
             right: 0,
             zIndex: 20,
-            marginTop: "4px",
+            marginTop: "var(--space-1)",
             maxHeight: "260px",
             overflowY: "auto",
             background: colors.paper,
             border: `1px solid ${colors.lineStrong}`,
-            borderRadius: "10px",
+            borderRadius: radius.sm,
             boxShadow: shadow.overlay,
           }}
         >
@@ -141,10 +133,10 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
               onClick={() => selectSuggestion(s)}
               onMouseEnter={() => setHighlightedIndex(i)}
               style={{
-                padding: "10px 12px",
+                padding: "var(--space-3) var(--space-3)",
                 cursor: "pointer",
                 fontFamily: fonts.body,
-                fontSize: "13px",
+                fontSize: "var(--text-sm)",
                 color: colors.ink,
                 background: i === highlightedIndex ? colors.line : "transparent",
               }}
@@ -153,7 +145,7 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
             </div>
           ))}
           {(pitches.length + specialLocations.length) > SEARCH_MAX_SUGGESTIONS && suggestions.length === SEARCH_MAX_SUGGESTIONS && (
-            <div style={{ padding: "6px 12px", fontSize: "12px", color: colors.inkSoft, fontStyle: "italic" }}>
+            <div style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", color: colors.inkSoft, fontStyle: "italic" }}>
               Keep typing to narrow it down…
             </div>
           )}
@@ -173,15 +165,15 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
 function LocationPicker({ pitches, specialLocations, pitchId, setPitchId, specialLocationId, setSpecialLocationId, autoFocus = false }) {
   return (
     <>
-      <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Home pitch</label>
-      <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={fieldStyle} autoFocus={autoFocus} />
-      <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>Currently at a special location</label>
-      <select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={fieldStyle}>
+      <label style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>Home pitch</label>
+      <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={{ marginBottom: "var(--space-3)" }} autoFocus={autoFocus} />
+      <label style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>Currently at a special location</label>
+      <Select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={{ marginBottom: "var(--space-3)" }}>
         <option value="">— in the cupboard at its pitch —</option>
         {specialLocations.map((s) => (
           <option key={s.id} value={s.id}>{s.label}</option>
         ))}
-      </select>
+      </Select>
     </>
   );
 }
@@ -486,8 +478,8 @@ export default function KeyTagsTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Key RFID tags</h2>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <PageHeader title="Key RFID tags" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         Scan a tag to register a new one, or to jump straight to an existing tag's own Move form below (physical keys carry no visible number, so
         scanning is the only reliable way to find the right row). Multiple tags can share the same pitch (a caravan with more than one key).
         Handing a key over to its new owner is now done from the key station or the Keys page, not here — this list still shows the history
@@ -497,17 +489,17 @@ export default function KeyTagsTab() {
       {/* Up here, not below the tag list, so scanning a tag doesn't mean
           scrolling past a long (100-200+) list to reach where you actually
           enter its location. */}
-      <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginBottom: "20px" }}>
-        <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Register a new tag</h3>
+      <Card pad="md" style={{ maxWidth: "440px", marginBottom: "var(--space-5)" }}>
+        <PageHeader title="Register a new tag" level={2} />
         <RfidScanListener onScan={handleScan} />
         {!scannedUid && (
-          <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
             Scan a tag on the reader connected to this computer.
           </p>
         )}
         {scannedUid && (
           <form onSubmit={handleAssign}>
-            <p style={{ fontSize: "13px", fontFamily: fonts.mono }}>Scanned tag: {scannedUid}</p>
+            <p style={{ fontSize: "var(--text-sm)", fontFamily: fonts.mono }}>Scanned tag: {scannedUid}</p>
             <LocationPicker
               pitches={pitches}
               specialLocations={specialLocations}
@@ -517,104 +509,99 @@ export default function KeyTagsTab() {
               setSpecialLocationId={setAssignSpecialLocationId}
               autoFocus
             />
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="submit" style={buttonStyle.primary}>Save</button>
-              <button type="button" onClick={() => setScannedUid(null)} style={buttonStyle.secondary}>Cancel</button>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button variant="primary" type="submit">Save</Button>
+              <Button onClick={() => setScannedUid(null)}>Cancel</Button>
             </div>
           </form>
         )}
-      </div>
+      </Card>
 
-      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "10px" }}>
+      <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-3)" }}>
         {STATUS_FILTERS.map((s) => (
-          <button
+          <Chip
             key={s.key}
+            active={statusFilter === s.key}
             onClick={() => setStatusFilter(s.key)}
-            style={{
-              border: `1px solid ${statusFilter === s.key ? colors.mossDark : colors.lineStrong}`,
-              background: statusFilter === s.key ? colors.mossDark : "transparent",
-              color: statusFilter === s.key ? colors.onDark : colors.inkSoft,
-              borderRadius: "999px",
-              padding: "6px 14px",
-              fontFamily: fonts.body,
-              fontSize: "13px",
-              cursor: "pointer",
-            }}
           >
             {s.label}
-          </button>
+          </Chip>
         ))}
       </div>
       <div style={{ maxWidth: "360px" }}>
-        <LocationSearchBox pitches={searchablePitches} specialLocations={searchableSpecialLocations} value={search} onChange={setSearch} style={fieldStyle} />
+        <LocationSearchBox pitches={searchablePitches} specialLocations={searchableSpecialLocations} value={search} onChange={setSearch} />
       </div>
 
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
       {keyTags.length === 0 && <p style={{ color: colors.inkSoft }}>No key tags registered yet.</p>}
       {keyTags.length > 0 && !search.trim() && statusFilter !== "lost" && statusFilter !== "handed_over" && (
-        <p style={{ color: colors.inkSoft, fontSize: "13px" }}>Type a pitch, area, location, or tag ID above to see its key tags.</p>
+        <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>Type a pitch, area, location, or tag ID above to see its key tags.</p>
       )}
 
       {visibleTags.map((tag) => (
-        <div key={tag.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <Card pad="sm" key={tag.id} style={{ marginBottom: "var(--space-2)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
             <div>
               <div style={{ fontWeight: 600 }}>
                 {locationLabel(tag, pitches, specialLocations)}
                 {tag.status === "lost" && (
-                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.onDark, background: colors.immediate, borderRadius: "999px", padding: "2px 10px" }}>
+                  <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", fontWeight: 700, color: colors.onDark, background: colors.immediate, borderRadius: "var(--radius-full)", padding: "var(--space-1) var(--space-3)" }}>
                     LOST
                   </span>
                 )}
                 {tag.status === "handed_over" && (
-                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.onDark, background: colors.mossDark, borderRadius: "999px", padding: "2px 10px" }}>
+                  <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", fontWeight: 700, color: colors.onDark, background: colors.mossDark, borderRadius: "var(--radius-full)", padding: "var(--space-1) var(--space-3)" }}>
                     HANDED OVER
                   </span>
                 )}
                 {openTagIds.has(tag.id) && (
-                  <span style={{ marginLeft: "8px", fontSize: "11px", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "999px", padding: "2px 10px" }}>
+                  <span style={{ marginLeft: "var(--space-2)", fontSize: "var(--text-xs)", fontWeight: 700, color: colors.mossDark, background: colors.line, borderRadius: "var(--radius-full)", padding: "var(--space-1) var(--space-3)" }}>
                     CHECKED OUT
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: "12px", color: colors.inkSoft, fontFamily: fonts.mono }}>{tag.tag_uid}</div>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, fontFamily: fonts.mono }}>{tag.tag_uid}</div>
               {tag.status === "handed_over" && (
-                <div style={{ fontSize: "12px", color: colors.inkSoft, marginTop: "4px" }}>
+                <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: "var(--space-1)" }}>
                   To {tag.handed_over_to} on {new Date(tag.handed_over_at).toLocaleDateString("en-GB")}
                   {tag.handed_over_notes ? ` — ${tag.handed_over_notes}` : ""}
                 </div>
               )}
             </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {tag.status === "lost" && <button onClick={() => handleReinstate(tag)} style={buttonStyle.secondary}>Reinstate</button>}
-              {tag.status === "handed_over" && <button onClick={() => handleReturnToPool(tag)} style={buttonStyle.secondary}>Return to pool</button>}
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              {tag.status === "lost" && <Button onClick={() => handleReinstate(tag)}>Reinstate</Button>}
+              {tag.status === "handed_over" && <Button onClick={() => handleReturnToPool(tag)}>Return to pool</Button>}
               {tag.status === "active" && (
                 <>
-                  <button onClick={() => startMove(tag)} style={buttonStyle.secondary}>Move</button>
-                  {tag.special_location_id && <button onClick={() => handleReturnToStore(tag)} style={buttonStyle.secondary}>Return to store</button>}
-                  <button onClick={() => handleRemove(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Remove</button>
-                  <button onClick={() => handleMarkLost(tag)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Mark as lost</button>
+                  <Button onClick={() => startMove(tag)}>Move</Button>
+                  {tag.special_location_id && <Button onClick={() => handleReturnToStore(tag)}>Return to store</Button>}
+                  <Button variant="danger" onClick={() => handleRemove(tag)}>Remove</Button>
+                  <Button variant="danger" onClick={() => handleMarkLost(tag)}>Mark as lost</Button>
                 </>
               )}
             </div>
           </div>
           {movingTagId === tag.id && (
-            <form onSubmit={handleMove} style={{ marginTop: "12px", borderTop: `1px solid ${colors.lineStrong}`, paddingTop: "12px" }}>
-              <p style={{ fontSize: "12px", color: colors.inkSoft, marginTop: 0, marginBottom: "8px" }}>
+            <form onSubmit={handleMove} style={{ marginTop: "var(--space-3)", borderTop: `1px solid ${colors.lineStrong}`, paddingTop: "var(--space-3)" }}>
+              <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: 0, marginBottom: "var(--space-2)" }}>
                 Currently at: {tag.special_location_id ? specialLocations.find((s) => s.id === tag.special_location_id)?.label || "Unknown location" : "the cupboard"}.
                 Moving only changes which pitch this key belongs to — it stays exactly where it's physically sitting. To move it somewhere else
                 physically, use Relocate instead.
               </p>
-              <label style={{ fontSize: "12px", color: colors.inkSoft, display: "block", marginBottom: "4px" }}>New pitch</label>
-              <PitchPicker pitches={pitches} value={movePitchId} onChange={setMovePitchId} style={fieldStyle} autoFocus />
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" style={buttonStyle.primary}>Save</button>
-                <button type="button" onClick={() => setMovingTagId(null)} style={buttonStyle.secondary}>Cancel</button>
+              <label style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>New pitch</label>
+              <PitchPicker pitches={pitches} value={movePitchId} onChange={setMovePitchId} style={{ marginBottom: "var(--space-3)" }} autoFocus />
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button variant="primary" type="submit">Save</Button>
+                <Button onClick={() => setMovingTagId(null)}>Cancel</Button>
               </div>
             </form>
           )}
-        </div>
+        </Card>
       ))}
       {search.trim() && visibleTags.length === 0 && <p style={{ color: colors.inkSoft }}>Nothing matches this search.</p>}
       {!search.trim() && statusFilter === "lost" && keyTags.length > 0 && visibleTags.length === 0 && (
@@ -624,26 +611,19 @@ export default function KeyTagsTab() {
         <p style={{ color: colors.inkSoft }}>No tags have been handed over.</p>
       )}
 
-      <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
-        <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Special locations</h3>
-        <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <Card pad="md" style={{ maxWidth: "440px", marginTop: "var(--space-4)" }}>
+        <PageHeader title="Special locations" level={2} />
+        <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
           Fixed places a key can live besides a pitch, e.g. the sales keyring.
         </p>
         {specialLocations.map((s) => (
-          <div key={s.id} style={{ fontSize: "13px", padding: "4px 0" }}>{s.label}</div>
+          <div key={s.id} style={{ fontSize: "var(--text-sm)", padding: "var(--space-1) 0" }}>{s.label}</div>
         ))}
-        <form onSubmit={handleAddLocation} style={{ marginTop: "8px" }}>
-          <input
-            type="text"
-            required
-            value={newLocationLabel}
-            onChange={(e) => setNewLocationLabel(e.target.value)}
-            placeholder="e.g. Sales keyring"
-            style={fieldStyle}
-          />
-          <button type="submit" style={buttonStyle.primary}>Add location</button>
+        <form onSubmit={handleAddLocation} style={{ marginTop: "var(--space-2)" }}>
+          <Input type="text" required value={newLocationLabel} onChange={(e) => setNewLocationLabel(e.target.value)} placeholder="e.g. Sales keyring" style={{ marginBottom: "var(--space-3)" }} />
+          <Button variant="primary" type="submit">Add location</Button>
         </form>
-      </div>
+      </Card>
     </div>
   );
 }

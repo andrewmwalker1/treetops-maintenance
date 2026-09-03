@@ -1,22 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  maxWidth: "360px",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  fontSize: "13px",
-  marginBottom: "12px",
-};
-
-const thStyle = { textAlign: "left", padding: "8px 10px", fontSize: "12px", color: colors.inkSoft, whiteSpace: "nowrap" };
-const tdStyle = { padding: "8px 10px", fontSize: "13px", borderTop: `1px solid ${colors.line}` };
+import { colors, text } from "../../lib/theme.js";
+import { Alert, Card, Chip, Input, PageHeader, SkeletonList, Table } from "../../ui/index.js";
 
 // First of a growing set of key-system reports (Andy, 2026-08-26) --
 // pitches with zero *active* key_tags rows attached. Lost and handed-over
@@ -53,42 +39,46 @@ function PitchesWithoutKeysReport() {
 
   return (
     <div>
-      <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Pitches with no keys</h3>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <PageHeader title="Pitches with no keys" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         Every pitch with no active key tag registered against it — includes pitches that never had one, and pitches whose only key has since been
         marked lost or handed over with no duplicate left behind.
       </p>
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
-      {loading && <p style={{ color: colors.inkSoft }}>Loading…</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
+      {loading && <SkeletonList rows={3} />}
       {!loading && !error && (
         <>
-          <p style={{ fontSize: "13px", color: colors.inkSoft }}>
+          <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
             {missing.length} of {pitches.length} pitches.
           </p>
           {missing.length === 0 ? (
             <p style={{ color: colors.inkSoft }}>Every pitch has at least one active key.</p>
           ) : (
             <>
-              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filter by pitch…" style={fieldStyle} />
+              <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Filter by pitch…" style={{ marginBottom: "var(--space-3)" }} />
               {visible.length === 0 ? (
                 <p style={{ color: colors.inkSoft }}>Nothing matches this filter.</p>
               ) : (
-                <div style={{ ...cardStyle, overflowX: "auto", maxWidth: "360px" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <Card pad="md" style={{ overflowX: "auto", maxWidth: "360px" }}>
+                  <Table>
                     <thead>
                       <tr>
-                        <th style={thStyle}>Pitch</th>
+                        <th>Pitch</th>
                       </tr>
                     </thead>
                     <tbody>
                       {visible.map((p) => (
                         <tr key={p.id}>
-                          <td style={tdStyle}>{p.pitch_number_or_name}</td>
+                          <td>{p.pitch_number_or_name}</td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
-                </div>
+                  </Table>
+                </Card>
               )}
             </>
           )}
@@ -109,26 +99,17 @@ export default function KeyReportsTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>Key reports</h2>
+      <PageHeader title="Key reports" level={2} />
       {REPORTS.length > 1 && (
-        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "16px" }}>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
           {REPORTS.map((r) => (
-            <button
+            <Chip
               key={r.key}
+              active={activeReport === r.key}
               onClick={() => setActiveReport(r.key)}
-              style={{
-                border: `1px solid ${activeReport === r.key ? colors.mossDark : colors.lineStrong}`,
-                background: activeReport === r.key ? colors.mossDark : "transparent",
-                color: activeReport === r.key ? colors.onDark : colors.inkSoft,
-                borderRadius: "999px",
-                padding: "6px 14px",
-                fontFamily: fonts.body,
-                fontSize: "13px",
-                cursor: "pointer",
-              }}
             >
               {r.label}
-            </button>
+            </Chip>
           ))}
         </div>
       )}

@@ -2,17 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, PageHeader } from "../../ui/index.js";
 
 const blank = { id: null, name: "", equipment_category: "", documentIds: [] };
 
@@ -104,45 +95,44 @@ export default function ActivityTypesTab() {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Activity types</h2>
+        <PageHeader title="Activity types" level={2} />
         {activityTypes.map((t) => (
-          <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Card pad="sm" key={t.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 600 }}>{t.name}</div>
-              <div style={{ fontSize: "12px", color: colors.inkSoft }}>{(linksByType[t.id] || []).length} RA/MS document(s) linked</div>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{(linksByType[t.id] || []).length} RA/MS document(s) linked</div>
             </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => editType(t)} style={buttonStyle.secondary}>Edit</button>
-              <button onClick={() => handleDelete(t.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button onClick={() => editType(t)}>Edit</Button>
+              <Button variant="danger" onClick={() => handleDelete(t.id)}>Delete</Button>
             </div>
-          </div>
+          </Card>
         ))}
         {activityTypes.length === 0 && <p style={{ color: colors.inkSoft }}>No activity types yet.</p>}
       </div>
 
       <div>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>{form.id ? "Edit activity type" : "New activity type"}</h2>
-        <form onSubmit={handleSave} style={{ ...cardStyle, padding: "16px" }}>
-          <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Strimming" style={fieldStyle} />
-          <input
-            value={form.equipment_category}
-            onChange={(e) => setForm({ ...form, equipment_category: e.target.value })}
-            placeholder="Equipment category (optional)"
-            style={fieldStyle}
-          />
+        <PageHeader title={form.id ? "Edit activity type" : "New activity type"} level={2} />
+        <Card as="form" pad="md" onSubmit={handleSave}>
+          <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Strimming" style={{ marginBottom: "var(--space-3)" }} />
+          <Input value={form.equipment_category} onChange={(e) => setForm({ ...form, equipment_category: e.target.value })} placeholder="Equipment category (optional)" style={{ marginBottom: "var(--space-3)" }} />
 
-          <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Linked RA/MS documents</label>
+          <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Linked RA/MS documents</label>
           <DocumentPicker documents={documents} selectedIds={form.documentIds} onToggle={toggleDocument} />
 
-          {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+          {error && (
+            <Alert tone="danger" title="Something went wrong">
+              {error}
+            </Alert>
+          )}
 
-          <div style={{ display: "flex", gap: "8px", marginTop: "14px" }}>
-            <button type="submit" style={buttonStyle.primary}>{form.id ? "Save changes" : "Create activity type"}</button>
-            {form.id && <button type="button" onClick={() => setForm(blank)} style={buttonStyle.secondary}>Cancel</button>}
+          <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)" }}>
+            <Button variant="primary" type="submit">{form.id ? "Save changes" : "Create activity type"}</Button>
+            {form.id && <Button onClick={() => setForm(blank)}>Cancel</Button>}
           </div>
-        </form>
+        </Card>
       </div>
     </div>
   );

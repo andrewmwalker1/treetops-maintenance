@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { exportMeterReadingsCsvs } from "../../lib/meterExport.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors } from "../../lib/theme.js";
+import { Alert, Button, Card, PageHeader } from "../../ui/index.js";
 
 export default function DownloadMeters() {
   const { profile, org, activeSite } = useAuth();
@@ -28,23 +29,27 @@ export default function DownloadMeters() {
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Download for CampManager</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+      <PageHeader title="Download for CampManager" />
+      <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Downloads both CSVs in CampManager's own format with New Reading Date/New Reading filled in for every
         meter read since the last export. Marks those readings as exported and updates each meter's last reading.
       </p>
-      <div style={{ ...cardStyle, padding: "18px" }}>
-        <button type="button" onClick={handleExport} disabled={exporting} style={{ ...buttonStyle.primary, opacity: exporting ? 0.6 : 1 }}>
+      <Card pad="lg">
+        <Button variant="primary" onClick={handleExport} disabled={exporting}>
           {exporting ? "Exporting…" : "Export CSVs"}
-        </button>
-        {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+        </Button>
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
         {result && (
-          <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
             Exported {result.readingsExported} reading{result.readingsExported === 1 ? "" : "s"} across{" "}
             {result.electricRowCount} electric and {result.gasRowCount} gas meter rows.
           </p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

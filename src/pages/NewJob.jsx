@@ -341,7 +341,7 @@ export default function NewJob() {
               {activityTypes.map((a) => (
                 <label
                   key={a.id}
-                  style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "3px 0", fontSize: "var(--text-base)" }}
+                  style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", fontSize: "var(--text-base)" }}
                 >
                   <input type="checkbox" checked={activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
                   {a.name}

@@ -2,17 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
+import { colors, fonts, space } from "../../lib/theme.js";
+import { Alert, Button, Card, PageHeader, Select } from "../../ui/index.js";
 
 export default function RfidTagsTab() {
   const { org } = useAuth();
@@ -74,49 +65,53 @@ export default function RfidTagsTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, marginTop: 0 }}>RFID fobs</h2>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <PageHeader title="RFID fobs" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         Registered fobs let staff sign in at the workshop kiosk by scanning instead of using a magic-link email.
       </p>
 
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
       {tags.map((t) => (
-        <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <Card pad="sm" key={t.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>{t.profiles?.display_name || "Unknown"}</div>
-            <div style={{ fontSize: "12px", color: colors.inkSoft, fontFamily: fonts.mono }}>{t.tag_uid}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, fontFamily: fonts.mono }}>{t.tag_uid}</div>
           </div>
-          <button onClick={() => handleRevoke(t.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Revoke</button>
-        </div>
+          <Button variant="danger" onClick={() => handleRevoke(t.id)}>Revoke</Button>
+        </Card>
       ))}
       {tags.length === 0 && <p style={{ color: colors.inkSoft }}>No fobs registered yet.</p>}
 
-      <div style={{ ...cardStyle, padding: "16px", maxWidth: "440px", marginTop: "16px" }}>
-        <h3 style={{ fontFamily: fonts.display, fontSize: "14px", color: colors.mossDark, marginTop: 0 }}>Register a new fob</h3>
+      <Card pad="md" style={{ maxWidth: "440px", marginTop: "var(--space-4)" }}>
+        <PageHeader title="Register a new fob" level={2} />
         <RfidScanListener onScan={handleScan} />
         {!scannedUid && (
-          <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
             Scan a fob on the reader connected to this computer.
           </p>
         )}
         {scannedUid && (
           <form onSubmit={handleAssign}>
-            <p style={{ fontSize: "13px", fontFamily: fonts.mono }}>Scanned tag: {scannedUid}</p>
-            <label style={{ display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" }}>Assign to</label>
-            <select required value={assignProfileId} onChange={(e) => setAssignProfileId(e.target.value)} style={fieldStyle}>
+            <p style={{ fontSize: "var(--text-sm)", fontFamily: fonts.mono }}>Scanned tag: {scannedUid}</p>
+            <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Assign to</label>
+            <Select required value={assignProfileId} onChange={(e) => setAssignProfileId(e.target.value)} style={{ marginBottom: "var(--space-3)" }}>
               <option value="">—</option>
               {people.map((p) => (
                 <option key={p.id} value={p.id}>{p.display_name}</option>
               ))}
-            </select>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button type="submit" style={buttonStyle.primary}>Save</button>
-              <button type="button" onClick={() => setScannedUid(null)} style={buttonStyle.secondary}>Cancel</button>
+            </Select>
+            <div style={{ display: "flex", gap: "var(--space-2)" }}>
+              <Button variant="primary" type="submit">Save</Button>
+              <Button onClick={() => setScannedUid(null)}>Cancel</Button>
             </div>
           </form>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

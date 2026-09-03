@@ -3,19 +3,8 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import AssigneePicker, { assigneeKindAndIdFromRow } from "../../components/AssigneePicker.jsx";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
-
-const fieldStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  padding: "8px 12px",
-  borderRadius: "8px",
-  border: `1px solid ${colors.lineStrong}`,
-  fontFamily: fonts.body,
-  marginBottom: "10px",
-};
-
-const labelStyle = { display: "block", fontSize: "13px", fontWeight: 600, color: colors.inkSoft, marginBottom: "6px" };
+import { colors, space } from "../../lib/theme.js";
+import { Alert, Button, Card, Input, Modal, PageHeader, Select } from "../../ui/index.js";
 
 function blankTier() {
   return {
@@ -192,104 +181,92 @@ export default function ServiceTemplatesTab() {
 
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", marginBottom: "6px", flexWrap: "wrap" }}>
-        <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>Service templates</h2>
-        <button onClick={newTemplate} style={buttonStyle.primary}>+ Add service template</button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
+        <PageHeader title="Service templates" level={2} />
+        <Button variant="primary" onClick={newTemplate}>+ Add service template</Button>
       </div>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0 }}>
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         A reusable service schedule (e.g. "Iseki SXG324") — apply it to a machine from its Equipment page. Buying a
         second one of the same machine just needs applying the same template again, not redefining it.
       </p>
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
       {templates.map((t) => (
-        <div key={t.id} style={{ ...cardStyle, padding: "12px 16px", marginBottom: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <Card pad="sm" key={t.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", flexWrap: "wrap" }}>
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
-            <div style={{ fontSize: "12px", color: colors.inkSoft }}>
+            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
               {equipmentTypes.find((et) => et.id === t.equipment_type_id)?.name || "No equipment type set"} · {(tiersByTemplate[t.id] || []).length} tier(s)
             </div>
           </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <button onClick={() => editTemplate(t)} style={buttonStyle.secondary}>Edit</button>
-            <button onClick={() => handleDelete(t.id)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Delete</button>
+          <div style={{ display: "flex", gap: "var(--space-2)" }}>
+            <Button onClick={() => editTemplate(t)}>Edit</Button>
+            <Button variant="danger" onClick={() => handleDelete(t.id)}>Delete</Button>
           </div>
-        </div>
+        </Card>
       ))}
       {templates.length === 0 && <p style={{ color: colors.inkSoft }}>No service templates yet.</p>}
 
       {form && (
-        <div
-          style={{ position: "fixed", inset: 0, background: colors.scrim, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "24px 16px", overflowY: "auto", zIndex: 100 }}
-          onClick={() => setForm(null)}
-        >
-          <div style={{ ...cardStyle, padding: "20px", width: "100%", maxWidth: "560px" }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px" }}>
-              <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>
-                {form.id ? "Edit service template" : "New service template"}
-              </h2>
-              <button type="button" onClick={() => setForm(null)} aria-label="Close" style={{ background: "none", border: "none", fontSize: "20px", color: colors.inkSoft, cursor: "pointer", lineHeight: 1 }}>×</button>
-            </div>
+        <Modal title={form.id ? "Edit service template" : "New service template"} onClose={() => setForm(null)} maxWidth="560px">
             <form onSubmit={handleSave}>
-              <label style={labelStyle}>Name</label>
-              <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Iseki SXG324" style={fieldStyle} />
+              <label className="tt-field__label">Name</label>
+              <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Iseki SXG324" style={{ marginBottom: "var(--space-3)" }} />
 
-              <label style={labelStyle}>Equipment type</label>
-              <select value={form.equipment_type_id} onChange={(e) => setForm({ ...form, equipment_type_id: e.target.value })} style={fieldStyle}>
+              <label className="tt-field__label">Equipment type</label>
+              <Select value={form.equipment_type_id} onChange={(e) => setForm({ ...form, equipment_type_id: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>
                 <option value="">No type set</option>
                 {equipmentTypes.map((et) => (
                   <option key={et.id} value={et.id}>{et.name}</option>
                 ))}
-              </select>
+              </Select>
 
-              <label style={{ ...labelStyle, marginTop: "10px" }}>Tiers</label>
+              <label className="tt-field__label">Tiers</label>
               {form.tiers.map((t) => (
-                <div key={t._key} style={{ background: colors.bg, borderRadius: "10px", padding: "12px", marginBottom: "10px" }}>
-                  <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
-                    <input
-                      required
-                      value={t.name}
-                      onChange={(e) => updateTier(t._key, { name: e.target.value })}
-                      placeholder="e.g. Every 50 Hours"
-                      style={{ ...fieldStyle, marginBottom: 0, flex: 1 }}
-                    />
-                    <button type="button" onClick={() => removeTier(t._key)} style={{ ...buttonStyle.secondary, color: colors.immediate }}>Remove</button>
+                <div key={t._key} style={{ background: colors.bg, borderRadius: "var(--radius-sm)", padding: "var(--space-3)", marginBottom: "var(--space-3)" }}>
+                  <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+                    <Input required value={t.name} onChange={(e) => updateTier(t._key, { name: e.target.value })} placeholder="e.g. Every 50 Hours" style={{ flex: 1 }} />
+                    <Button variant="danger" onClick={() => removeTier(t._key)}>Remove</Button>
                   </div>
 
-                  <div style={{ display: "flex", gap: "16px", marginBottom: "8px", flexWrap: "wrap" }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+                  <div style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
                       <input type="radio" checked={t.trigger_type === "hours"} onChange={() => updateTier(t._key, { trigger_type: "hours" })} /> Every
                       <input
                         type="number"
                         required={t.trigger_type === "hours"}
                         value={t.hours_interval}
                         onChange={(e) => updateTier(t._key, { hours_interval: e.target.value })}
-                        style={{ width: "70px", padding: "4px 8px", borderRadius: "6px", border: `1px solid ${colors.lineStrong}` }}
+                        style={{ width: "70px", padding: "var(--space-1) var(--space-2)", borderRadius: "var(--radius-sm)", border: `1px solid ${colors.lineStrong}` }}
                       />
                       hours
                     </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "13px" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
                       <input type="radio" checked={t.trigger_type === "date"} onChange={() => updateTier(t._key, { trigger_type: "date" })} /> Every
                       <input
                         type="number"
                         required={t.trigger_type === "date"}
                         value={t.date_interval_months}
                         onChange={(e) => updateTier(t._key, { date_interval_months: e.target.value })}
-                        style={{ width: "70px", padding: "4px 8px", borderRadius: "6px", border: `1px solid ${colors.lineStrong}` }}
+                        style={{ width: "70px", padding: "var(--space-1) var(--space-2)", borderRadius: "var(--radius-sm)", border: `1px solid ${colors.lineStrong}` }}
                       />
                       months
                     </label>
                   </div>
 
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", marginBottom: "8px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", marginBottom: "var(--space-2)" }}>
                     <input type="checkbox" checked={t.is_recurring} onChange={(e) => updateTier(t._key, { is_recurring: e.target.checked })} />
                     Repeats (untick for a one-off, like an initial service)
                   </label>
 
-                  <label style={{ ...labelStyle, marginBottom: "4px" }}>Checklist</label>
+                  <label className="tt-field__label">Checklist</label>
                   <ChecklistBuilder items={t.checklist} onChange={(items) => updateTier(t._key, { checklist: items })} />
 
-                  <label style={{ ...labelStyle, marginTop: "8px" }}>Who normally does this</label>
+                  <label className="tt-field__label">Who normally does this</label>
                   <AssigneePicker
                     kind={t.assigneeKind}
                     id={t.assigneeId}
@@ -301,17 +278,20 @@ export default function ServiceTemplatesTab() {
                   />
                 </div>
               ))}
-              <button type="button" onClick={addTier} style={{ ...buttonStyle.secondary, marginBottom: "14px" }}>+ Add tier</button>
+              <Button onClick={addTier}>+ Add tier</Button>
 
-              {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+              {error && (
+                <Alert tone="danger" title="Something went wrong">
+                  {error}
+                </Alert>
+              )}
 
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button type="submit" disabled={saving} style={buttonStyle.primary}>{saving ? "Saving…" : form.id ? "Save changes" : "Create template"}</button>
-                <button type="button" onClick={() => setForm(null)} style={buttonStyle.secondary}>Cancel</button>
+              <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <Button variant="primary" type="submit" disabled={saving}>{saving ? "Saving…" : form.id ? "Save changes" : "Create template"}</Button>
+                <Button onClick={() => setForm(null)}>Cancel</Button>
               </div>
             </form>
-          </div>
-        </div>
+                  </Modal>
       )}
     </div>
   );

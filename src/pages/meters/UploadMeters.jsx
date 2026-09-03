@@ -6,7 +6,8 @@ import {
   fetchMeterCandidatesForGroup,
   resolveDuplicateGroup,
 } from "../../lib/meterImport.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors } from "../../lib/theme.js";
+import { Alert, Button, Card, PageHeader } from "../../ui/index.js";
 
 export default function UploadMeters() {
   const { activeSite } = useAuth();
@@ -48,35 +49,34 @@ export default function UploadMeters() {
 
   return (
     <div style={{ maxWidth: "560px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Upload CampManager files</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+      <PageHeader title="Upload CampManager files" />
+      <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Upload the Electric and/or Gas Utilities CSV exported from CampManager. Meters are matched to pitches by
         the Site column — any row that doesn't match a known pitch is flagged, not silently dropped.
       </p>
-      <div style={{ ...cardStyle, padding: "18px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxWidth: "360px" }}>
-          <label style={{ fontSize: "13px" }}>
+      <Card pad="lg">
+        <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", maxWidth: "360px" }}>
+          <label style={{ fontSize: "var(--text-sm)" }}>
             Electric Utilities CSV
-            <input type="file" accept=".csv" onChange={(e) => setElectricFile(e.target.files?.[0] || null)} style={{ display: "block", marginTop: "4px" }} />
+            <input type="file" accept=".csv" onChange={(e) => setElectricFile(e.target.files?.[0] || null)} style={{ display: "block", marginTop: "var(--space-1)" }} />
           </label>
-          <label style={{ fontSize: "13px" }}>
+          <label style={{ fontSize: "var(--text-sm)" }}>
             Gas Utilities CSV
-            <input type="file" accept=".csv" onChange={(e) => setGasFile(e.target.files?.[0] || null)} style={{ display: "block", marginTop: "4px" }} />
+            <input type="file" accept=".csv" onChange={(e) => setGasFile(e.target.files?.[0] || null)} style={{ display: "block", marginTop: "var(--space-1)" }} />
           </label>
-          <button
-            type="button"
-            onClick={handleImport}
-            disabled={importing || (!electricFile && !gasFile)}
-            style={{ ...buttonStyle.primary, opacity: importing || (!electricFile && !gasFile) ? 0.6 : 1 }}
-          >
+          <Button variant="primary" onClick={handleImport} disabled={importing || (!electricFile && !gasFile)}>
             {importing ? "Importing…" : "Import"}
-          </button>
+          </Button>
         </div>
 
-        {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+        {error && (
+          <Alert tone="danger" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
 
         {result && (
-          <div style={{ marginTop: "12px", fontSize: "13px", color: colors.inkSoft }}>
+          <div style={{ marginTop: "var(--space-3)", fontSize: "var(--text-sm)", color: colors.inkSoft }}>
             <p>
               Imported {result.inserted_count} meter row{result.inserted_count === 1 ? "" : "s"}
               {result.duplicate_group_count > 0 ? `, found ${result.duplicate_group_count} duplicate pitch/type group(s)` : ""}.
@@ -88,13 +88,11 @@ export default function UploadMeters() {
             )}
           </div>
         )}
-      </div>
+      </Card>
 
       {duplicateGroups.length > 0 && (
-        <div style={{ marginTop: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark, margin: 0 }}>
-            Review duplicate meters
-          </h2>
+        <div style={{ marginTop: "var(--space-4)", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+          <PageHeader title="Review duplicate meters" level={2} />
           {duplicateGroups.map((group) => (
             <DuplicateGroupCard key={group.id} group={group} batchId={result.batch_id} onResolved={handleGroupResolved} />
           ))}
@@ -126,12 +124,12 @@ function DuplicateGroupCard({ group, batchId, onResolved }) {
   }
 
   return (
-    <div style={{ ...cardStyle, border: `1px solid ${colors.lineStrong}`, padding: "12px" }}>
-      <div style={{ fontWeight: 600, fontSize: "13px", marginBottom: "8px" }}>
+    <Card pad="sm" style={{ border: `1px solid ${colors.lineStrong}` }}>
+      <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", marginBottom: "var(--space-2)" }}>
         {group.pitches?.pitch_number_or_name} · {group.meter_type === "electric" ? "Electric" : "Gas"} — {candidates.length} meter records
       </div>
       {candidates.map((c) => (
-        <label key={c.external_meter_id} style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", padding: "4px 0" }}>
+        <label key={c.external_meter_id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", padding: "var(--space-1) 0" }}>
           <input
             type="radio"
             name={`group-${group.id}`}
@@ -146,14 +144,9 @@ function DuplicateGroupCard({ group, batchId, onResolved }) {
           </span>
         </label>
       ))}
-      <button
-        type="button"
-        onClick={handleResolve}
-        disabled={resolving}
-        style={{ ...buttonStyle.secondary, marginTop: "8px", fontSize: "13px", padding: "6px 14px" }}
-      >
+      <Button size="sm" onClick={handleResolve} disabled={resolving}>
         {resolving ? "Saving…" : "Confirm"}
-      </button>
-    </div>
+      </Button>
+    </Card>
   );
 }

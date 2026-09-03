@@ -147,7 +147,7 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
               onClick={() => selectPitch(p)}
               onMouseEnter={() => setHighlightedIndex(i)}
               style={{
-                padding: "10px 12px",
+                padding: "var(--space-3) var(--space-3)",
                 cursor: "pointer",
                 fontFamily: fonts.body,
                 fontSize: style?.fontSize || "var(--text-base)",

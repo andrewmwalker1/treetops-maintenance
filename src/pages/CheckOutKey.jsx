@@ -67,8 +67,8 @@ export default function CheckOutKey() {
             </p>
           ) : (
             <>
-              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px", fontSize: "var(--text-base)" }}>Who's taking it?</p>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "6px" }}>
+              <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "var(--space-3)", fontSize: "var(--text-base)" }}>Who's taking it?</p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
                 {[
                   { value: "self", label: "Me" },
                   { value: "contractor", label: "Contractor" },
@@ -118,7 +118,7 @@ export default function CheckOutKey() {
               )}
 
               {issuedToKind === "guest" && (
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "var(--text-sm)", color: colors.inkSoft }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.inkSoft }}>
                   <input type="checkbox" checked={guestConfirmed} onChange={(e) => setGuestConfirmed(e.target.checked)} style={{ width: "18px", height: "18px" }} />
                   Confirmed with the caravan owner
                 </label>
@@ -128,9 +128,9 @@ export default function CheckOutKey() {
         </Card>
 
         <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
-          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "10px", fontSize: "var(--text-base)" }}>Reason</p>
+          <p style={{ fontWeight: 600, marginTop: 0, marginBottom: "var(--space-3)", fontSize: "var(--text-base)" }}>Reason</p>
           {reasonPresets.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginBottom: "10px" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
               {reasonPresets.map((r) => (
                 <Button key={r.id} onClick={() => setReason(r.label)}>
                   {r.label}

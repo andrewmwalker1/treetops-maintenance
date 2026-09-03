@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle, buttonStyle } from "../../lib/theme.js";
+import { colors } from "../../lib/theme.js";
+import { Button, Card, PageHeader } from "../../ui/index.js";
 
 export default function MeterSettings() {
   const { activeSite } = useAuth();
@@ -43,25 +44,25 @@ export default function MeterSettings() {
 
   return (
     <div style={{ maxWidth: "480px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Unit cost settings</h1>
-      <p style={{ color: colors.inkSoft, fontSize: "13px" }}>
+      <PageHeader title="Unit cost settings" />
+      <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>
         Used only for the estimated £ shown on the confirm screen as a sanity check — not for actual billing.
       </p>
-      <div style={{ ...cardStyle, padding: "18px" }}>
-        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-          <label style={{ fontSize: "13px", flex: 1 }}>
+      <Card pad="lg">
+        <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
+          <label style={{ fontSize: "var(--text-sm)", flex: 1 }}>
             Electric £/unit
-            <input type="number" step="0.01" value={electricCost} onChange={(e) => setElectricCost(e.target.value)} style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: "8px", border: `1px solid ${colors.lineStrong}`, marginTop: "4px" }} />
+            <input type="number" step="0.01" value={electricCost} onChange={(e) => setElectricCost(e.target.value)} style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "var(--space-2) var(--space-3)", borderRadius: "var(--radius-sm)", border: `1px solid ${colors.lineStrong}`, marginTop: "var(--space-1)" }} />
           </label>
-          <label style={{ fontSize: "13px", flex: 1 }}>
+          <label style={{ fontSize: "var(--text-sm)", flex: 1 }}>
             Gas £/unit
-            <input type="number" step="0.01" value={gasCost} onChange={(e) => setGasCost(e.target.value)} style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: "8px", border: `1px solid ${colors.lineStrong}`, marginTop: "4px" }} />
+            <input type="number" step="0.01" value={gasCost} onChange={(e) => setGasCost(e.target.value)} style={{ display: "block", width: "100%", boxSizing: "border-box", padding: "var(--space-2) var(--space-3)", borderRadius: "var(--radius-sm)", border: `1px solid ${colors.lineStrong}`, marginTop: "var(--space-1)" }} />
           </label>
         </div>
-        <button type="button" onClick={handleSave} disabled={saving} style={{ ...buttonStyle.secondary, marginTop: "10px" }}>
+        <Button onClick={handleSave} disabled={saving}>
           {saving ? "Saving…" : saved ? "Saved" : "Save"}
-        </button>
-      </div>
+        </Button>
+      </Card>
     </div>
   );
 }

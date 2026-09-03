@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabaseClient.js";
-import { colors, fonts, pageStyle, cardStyle, buttonStyle } from "../lib/theme.js";
+import { colors, fonts, text, space, pageStyle } from "../lib/theme.js";
+import { Button, Card, PageHeader } from "../ui/index.js";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -55,19 +56,17 @@ export default function Login() {
   }
 
   return (
-    <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-      <div style={{ ...cardStyle, padding: "32px", maxWidth: "380px", width: "100%" }}>
-        <h1 style={{ fontFamily: fonts.display, fontWeight: 700, color: colors.mossDark, margin: "0 0 8px" }}>
-          Tree Tops Maintenance
-        </h1>
+    <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
+      <Card pad="lg" style={{ maxWidth: "380px", width: "100%" }}>
+        <PageHeader title="Tree Tops Maintenance" />
         <p style={{ color: colors.inkSoft, marginTop: 0 }}>Sign in with your work email — we'll send you a link and a code.</p>
 
         {status === "sent" || status === "verifying" ? (
           <>
-            <p style={{ color: colors.moss, fontWeight: 600, marginBottom: "4px" }}>
+            <p style={{ color: colors.moss, fontWeight: 600, marginBottom: "var(--space-1)" }}>
               Check your email — tap the link, or enter the 8-digit code below.
             </p>
-            <p style={{ color: colors.inkSoft, fontSize: "13px", marginTop: 0 }}>
+            <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", marginTop: 0 }}>
               Using the app from your home screen? Use the code — the link opens in a
               separate browser tab instead of the app.
             </p>
@@ -84,23 +83,23 @@ export default function Login() {
                 style={{
                   width: "100%",
                   boxSizing: "border-box",
-                  padding: "10px 14px",
-                  borderRadius: "10px",
+                  padding: "var(--space-3) var(--space-4)",
+                  borderRadius: "var(--radius-sm)",
                   border: `1px solid ${colors.lineStrong}`,
                   fontFamily: fonts.mono,
-                  fontSize: "20px",
+                  fontSize: "var(--text-lg)",
                   letterSpacing: "4px",
                   textAlign: "center",
-                  marginBottom: "12px",
+                  marginBottom: "var(--space-3)",
                 }}
               />
-              <button type="submit" disabled={status === "verifying"} style={{ ...buttonStyle.primary, width: "100%" }}>
+              <Button variant="primary" block type="submit" disabled={status === "verifying"}>
                 {status === "verifying" ? "Verifying…" : "Verify code"}
-              </button>
-              {errorMessage && <p style={{ color: colors.immediate, fontSize: "14px" }}>{errorMessage}</p>}
-              <button type="button" onClick={handleUseDifferentEmail} style={{ ...buttonStyle.secondary, width: "100%", marginTop: "8px" }}>
+              </Button>
+              {errorMessage && <p style={{ color: colors.immediate, fontSize: "var(--text-base)" }}>{errorMessage}</p>}
+              <Button block onClick={handleUseDifferentEmail}>
                 Use a different email
-              </button>
+              </Button>
             </form>
           </>
         ) : (
@@ -114,23 +113,23 @@ export default function Login() {
               style={{
                 width: "100%",
                 boxSizing: "border-box",
-                padding: "10px 14px",
-                borderRadius: "10px",
+                padding: "var(--space-3) var(--space-4)",
+                borderRadius: "var(--radius-sm)",
                 border: `1px solid ${colors.lineStrong}`,
                 fontFamily: fonts.body,
-                fontSize: "16px",
-                marginBottom: "12px",
+                fontSize: "var(--text-md)",
+                marginBottom: "var(--space-3)",
               }}
             />
-            <button type="submit" disabled={status === "sending"} style={{ ...buttonStyle.primary, width: "100%" }}>
+            <Button variant="primary" block type="submit" disabled={status === "sending"}>
               {status === "sending" ? "Sending…" : "Send sign-in link & code"}
-            </button>
+            </Button>
             {status === "error" && (
-              <p style={{ color: colors.immediate, fontSize: "14px" }}>{errorMessage}</p>
+              <p style={{ color: colors.immediate, fontSize: "var(--text-base)" }}>{errorMessage}</p>
             )}
           </form>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

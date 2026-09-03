@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
-import { colors, fonts, cardStyle } from "../lib/theme.js";
+import { colors } from "../lib/theme.js";
+import { Card, PageHeader, SkeletonList } from "../ui/index.js";
 
 export default function HealthAndSafety() {
   const { org } = useAuth();
@@ -64,26 +65,26 @@ export default function HealthAndSafety() {
     }
   }, [loading]);
 
-  if (loading) return <p style={{ color: colors.inkSoft }}>Loading…</p>;
+  if (loading) return <SkeletonList rows={3} />;
 
   return (
     <div style={{ maxWidth: "700px" }}>
-      <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, marginTop: 0 }}>Health &amp; Safety</h1>
+      <PageHeader title="Health & Safety" />
 
       {activityTypes.length === 0 && (
         <p style={{ color: colors.inkSoft }}>No activity types have been set up yet — manage these, and their RA/MS documents, from Admin → Activity Types.</p>
       )}
 
       {activityTypes.map((t) => (
-        <div key={t.id} id={`task-${t.id}`} style={{ ...cardStyle, padding: "18px", marginBottom: "16px", scrollMarginTop: "20px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>{t.name}</h2>
+        <Card pad="lg" key={t.id} id={`task-${t.id}`} style={{ marginBottom: "var(--space-4)", scrollMarginTop: "var(--space-5)" }}>
+          <PageHeader title={t.name} level={2} />
           {t.equipment_category && (
-            <div style={{ fontSize: "12px", color: colors.inkSoft, marginBottom: "10px" }}>Equipment category: {t.equipment_category}</div>
+            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginBottom: "var(--space-3)" }}>Equipment category: {t.equipment_category}</div>
           )}
 
-          <div style={{ fontWeight: 600, fontSize: "13px", color: colors.inkSoft, marginTop: "10px" }}>Risk assessments / method statements</div>
+          <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: "var(--space-3)" }}>Risk assessments / method statements</div>
           {(documentsByActivityType[t.id] || []).length === 0 && (
-            <p style={{ color: colors.inkSoft, fontSize: "13px" }}>None linked yet.</p>
+            <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>None linked yet.</p>
           )}
           {(documentsByActivityType[t.id] || []).map((doc) => (
             <SafetyDocumentLink key={doc.id} doc={doc} />
@@ -91,9 +92,9 @@ export default function HealthAndSafety() {
 
           {(videosByActivityType[t.id] || []).length > 0 && (
             <>
-              <div style={{ fontWeight: 600, fontSize: "13px", color: colors.inkSoft, marginTop: "14px" }}>Training videos</div>
+              <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: "var(--space-4)" }}>Training videos</div>
               {videosByActivityType[t.id].map((v) => (
-                <div key={v.id} style={{ padding: "4px 0" }}>
+                <div key={v.id} style={{ padding: "var(--space-1) 0" }}>
                   <a href={v.youtube_url} target="_blank" rel="noreferrer" style={{ color: colors.moss }}>
                     ▶ {v.title}
                   </a>
@@ -101,21 +102,21 @@ export default function HealthAndSafety() {
               ))}
             </>
           )}
-        </div>
+        </Card>
       ))}
 
       {equipmentOnlyVideos.length > 0 && (
-        <div style={{ ...cardStyle, padding: "18px" }}>
-          <h2 style={{ fontFamily: fonts.display, fontSize: "18px", color: colors.mossDark, marginTop: 0 }}>Equipment training videos</h2>
+        <Card pad="lg">
+          <PageHeader title="Equipment training videos" level={2} />
           {equipmentOnlyVideos.map((v) => (
-            <div key={v.id} style={{ padding: "4px 0" }}>
-              <span style={{ fontSize: "12px", color: colors.inkSoft, marginRight: "8px" }}>{v.equipment_category}</span>
+            <div key={v.id} style={{ padding: "var(--space-1) 0" }}>
+              <span style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginRight: "var(--space-2)" }}>{v.equipment_category}</span>
               <a href={v.youtube_url} target="_blank" rel="noreferrer" style={{ color: colors.moss }}>
                 ▶ {v.title}
               </a>
             </div>
           ))}
-        </div>
+        </Card>
       )}
     </div>
   );

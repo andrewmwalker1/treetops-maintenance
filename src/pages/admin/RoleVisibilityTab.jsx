@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle } from "../../lib/theme.js";
+import { useMediaQuery } from "../../lib/useIsMobile.js";
+import { colors } from "../../lib/theme.js";
+import { Alert, Card, EmptyState, PageHeader, SectionLabel, Switch, Table } from "../../ui/index.js";
+
+// A roles-against-roles grid stops being readable long before a phone --
+// somewhere around here on a half-width desktop window too, which is why
+// this is a width query and not the phone check.
+const MATRIX_BREAKPOINT = "(max-width: 900px)";
 
 // Which roles' jobs a role can see (role_visibility, 01-schema.sql) --
 // separate from Job Assignment (role_assignable_roles), which governs
@@ -17,6 +24,7 @@ import { colors, fonts, cardStyle } from "../../lib/theme.js";
 // a no-op.
 export default function RoleVisibilityTab() {
   const { org } = useAuth();
+  const narrow = useMediaQuery(MATRIX_BREAKPOINT);
   const [roles, setRoles] = useState([]);
   const [grants, setGrants] = useState(new Set()); // "roleId:visibleRoleId"
   const [error, setError] = useState(null);
@@ -57,46 +65,89 @@ export default function RoleVisibilityTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Role visibility</h2>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, maxWidth: "640px" }}>
+      <PageHeader title="Role visibility" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, maxWidth: "640px" }}>
         Which roles' jobs each role can see, on top of their own assigned jobs (always visible regardless of this). Tick the row role
         under every column role whose jobs it should see -- e.g. tick Head Gardener's row under Maintenance so Head Gardener sees
         Maintenance's jobs too. Add or rename roles from Roles &amp; Permissions.
       </p>
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ ...cardStyle, padding: "16px", overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: "left", padding: "6px 10px", fontSize: "12px", color: colors.inkSoft }}>This role…</th>
-              <th colSpan={roles.length} style={{ padding: "6px 10px", fontSize: "12px", color: colors.inkSoft, fontWeight: 400 }}>
-                …sees this role's jobs
-              </th>
-            </tr>
-            <tr>
-              <th />
-              {roles.map((c) => (
-                <th key={c.id} style={{ padding: "6px 10px", fontSize: "12px", color: colors.inkSoft, fontWeight: 600 }}>
-                  {c.name}
-                </th>
+      {roles.length === 0 && <EmptyState title="No roles yet">Add one from Roles &amp; permissions.</EmptyState>}
+
+      {/* Below the breakpoint the grid becomes one card per role: the same
+          toggles, read down instead of across, so each role's visibility is
+          legible on its own rather than as a row of unlabelled ticks
+          scrolling off the side. */}
+      {narrow
+        ? roles.map((row) => (
+            <Card key={row.id} pad="md" style={{ marginBottom: "var(--space-3)" }}>
+              <PageHeader title={row.name} level={2} />
+              <SectionLabel>Also sees the jobs of</SectionLabel>
+              {roles.map((col) => (
+                <label
+                  key={col.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "var(--space-3)",
+                    padding: "var(--space-2) 0",
+                    borderTop: `1px solid ${colors.line}`,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{col.name}</span>
+                  <Switch
+                    checked={grants.has(`${row.id}:${col.id}`)}
+                    onChange={() => toggle(row.id, col.id)}
+                    label={`${row.name} sees ${col.name}'s jobs`}
+                  />
+                </label>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {roles.map((row) => (
-              <tr key={row.id} style={{ borderTop: `1px solid ${colors.line}` }}>
-                <td style={{ padding: "8px 10px", fontSize: "13px", fontWeight: 600, whiteSpace: "nowrap" }}>{row.name}</td>
-                {roles.map((col) => (
-                  <td key={col.id} style={{ textAlign: "center", padding: "8px 10px" }}>
-                    <input type="checkbox" checked={grants.has(`${row.id}:${col.id}`)} onChange={() => toggle(row.id, col.id)} />
-                  </td>
+            </Card>
+          ))
+        : roles.length > 0 && (
+            <Table stickyFirstColumn>
+              <thead>
+                <tr>
+                  <th>This role…</th>
+                  <th colSpan={roles.length} style={{ textAlign: "center" }}>
+                    …sees this role's jobs
+                  </th>
+                </tr>
+                <tr>
+                  <th />
+                  {roles.map((c) => (
+                    <th key={c.id} style={{ textAlign: "center" }}>
+                      {c.name}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {roles.map((row) => (
+                  <tr key={row.id}>
+                    <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{row.name}</td>
+                    {roles.map((col) => (
+                      <td key={col.id} style={{ textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={grants.has(`${row.id}:${col.id}`)}
+                          onChange={() => toggle(row.id, col.id)}
+                          aria-label={`${row.name} sees ${col.name}'s jobs`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </tbody>
+            </Table>
+          )}
     </div>
   );
 }

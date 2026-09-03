@@ -8,11 +8,11 @@ const buttonVariants = {
   // workshop touchscreen, then filled solid for the same reason as the
   // "button" variant below (the outlined version blended into the page
   // background).
-  "kiosk-button": { padding: "18px 20px", typeSize: "14px", titleSize: "20px", descSize: "14px", background: colors.moss, border: colors.moss, color: colors.onDark, mutedColor: colors.onDarkMuted },
+  "kiosk-button": { padding: "var(--space-5) var(--space-5)", typeSize: "14px", titleSize: "20px", descSize: "14px", background: colors.moss, border: colors.moss, color: colors.onDark, mutedColor: colors.onDarkMuted },
   // Matches the in-app (phone) machine list buttons' proportions
   // (listButtonStyle in CheckoutKit.jsx/CheckinKit.jsx) -- same
   // button-per-document treatment, sized for the smaller non-kiosk view.
-  button: { padding: "12px 16px", typeSize: "11px", titleSize: "15px", descSize: "13px", background: colors.moss, border: colors.moss, color: colors.onDark, mutedColor: colors.onDarkMuted },
+  button: { padding: "var(--space-3) var(--space-4)", typeSize: "11px", titleSize: "15px", descSize: "13px", background: colors.moss, border: colors.moss, color: colors.onDark, mutedColor: colors.onDarkMuted },
 };
 
 // Renders one RA/MS library entry: type, title (linked to a signed PDF
@@ -50,15 +50,15 @@ export default function SafetyDocumentLink({ doc, variant = "text" }) {
           textDecoration: "none",
           background: buttonSizing.background,
           border: `2px solid ${buttonSizing.border}`,
-          borderRadius: "14px",
+          borderRadius: "var(--radius-md)",
           padding: buttonSizing.padding,
-          marginBottom: "10px",
+          marginBottom: "var(--space-3)",
           fontFamily: fonts.body,
           color: textColor,
           cursor: url ? "pointer" : "default",
         }}
       >
-        <div style={{ fontSize: buttonSizing.typeSize, color: mutedColor, textTransform: "capitalize", marginBottom: "4px" }}>
+        <div style={{ fontSize: buttonSizing.typeSize, color: mutedColor, textTransform: "capitalize", marginBottom: "var(--space-1)" }}>
           {doc.type.replace("_", " ")}
         </div>
         <div style={{ fontSize: buttonSizing.titleSize, fontWeight: 700 }}>
@@ -66,14 +66,14 @@ export default function SafetyDocumentLink({ doc, variant = "text" }) {
           {!doc.pdf_storage_path && " (no PDF yet)"}
         </div>
         {doc.description && (
-          <div style={{ fontSize: buttonSizing.descSize, color: mutedColor, marginTop: "6px" }}>{doc.description}</div>
+          <div style={{ fontSize: buttonSizing.descSize, color: mutedColor, marginTop: "var(--space-2)" }}>{doc.description}</div>
         )}
       </Tag>
     );
   }
 
   return (
-    <div style={{ padding: "4px 0", fontSize: "13px" }}>
+    <div style={{ padding: "var(--space-1) 0", fontSize: "13px" }}>
       <span style={{ color: colors.inkSoft, textTransform: "capitalize" }}>{doc.type.replace("_", " ")}</span>{" "}
       {url ? (
         <a href={url} target="_blank" rel="noreferrer" style={{ color: colors.moss, fontWeight: 600 }}>{doc.title}</a>

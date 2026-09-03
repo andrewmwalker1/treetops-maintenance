@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
-import { colors, fonts, cardStyle } from "../../lib/theme.js";
+import { colors } from "../../lib/theme.js";
+import { Alert, Card, PageHeader, Table } from "../../ui/index.js";
 
 // role_assignable_roles (44-role-assignable-job-targets.sql) -- who a role
 // can create or reassign a job to. Nothing is implicit: a role can't even
@@ -53,20 +54,24 @@ export default function JobAssignmentTab() {
 
   return (
     <div>
-      <h2 style={{ fontFamily: fonts.display, fontSize: "16px", color: colors.mossDark }}>Job assignment</h2>
-      <p style={{ fontSize: "13px", color: colors.inkSoft, marginTop: 0, maxWidth: "560px" }}>
+      <PageHeader title="Job assignment" level={2} />
+      <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0, maxWidth: "560px" }}>
         Which roles a role (down the left) can create or reassign a job to (across the top). Nothing is implicit — even
         assigning within a role's own team needs a tick here.
       </p>
-      {error && <p style={{ color: colors.immediate, fontSize: "13px" }}>{error}</p>}
+      {error && (
+        <Alert tone="danger" title="Something went wrong">
+          {error}
+        </Alert>
+      )}
 
-      <div style={{ ...cardStyle, padding: "16px", overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+      <Card pad="md" style={{ overflowX: "auto" }}>
+        <Table>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "6px 10px", fontSize: "12px", color: colors.inkSoft }}>Role can assign to →</th>
+              <th style={{ textAlign: "left", padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", color: colors.inkSoft }}>Role can assign to →</th>
               {roles.map((r) => (
-                <th key={r.id} style={{ padding: "6px 10px", fontSize: "12px", color: colors.inkSoft, fontWeight: 600 }}>
+                <th key={r.id} style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", color: colors.inkSoft, fontWeight: 600 }}>
                   {r.name}
                 </th>
               ))}
@@ -75,9 +80,9 @@ export default function JobAssignmentTab() {
           <tbody>
             {roles.map((r) => (
               <tr key={r.id} style={{ borderTop: `1px solid ${colors.line}` }}>
-                <td style={{ padding: "8px 10px", fontSize: "13px", fontWeight: 600 }}>{r.name}</td>
+                <td style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-sm)", fontWeight: 600 }}>{r.name}</td>
                 {roles.map((target) => (
-                  <td key={target.id} style={{ textAlign: "center", padding: "8px 10px" }}>
+                  <td key={target.id} style={{ textAlign: "center", padding: "var(--space-2) var(--space-3)" }}>
                     <input
                       type="checkbox"
                       checked={grants.has(`${r.id}:${target.id}`)}
@@ -88,8 +93,8 @@ export default function JobAssignmentTab() {
               </tr>
             ))}
           </tbody>
-        </table>
-      </div>
+        </Table>
+      </Card>
       {roles.length === 0 && <p style={{ color: colors.inkSoft }}>No roles set up yet.</p>}
     </div>
   );

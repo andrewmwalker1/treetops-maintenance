@@ -94,7 +94,7 @@ export default function KeySelector({ tags, onPick, notFoundMessage, size = "kio
                 itself, when they're two different physical keys. This
                 subline makes that explicit on every row rather than only
                 when it happens to matter. */}
-            <div style={{ fontSize: "var(--text-sm)", fontWeight: 400, color: colors.inkSoft, marginTop: "2px" }}>
+            <div style={{ fontSize: "var(--text-sm)", fontWeight: 400, color: colors.inkSoft, marginTop: "var(--space-1)" }}>
               {t.isHistorical
                 ? `A different key for this pitch was handed over to ${t.handed_over_to || "—"} on ${new Date(t.created_at).toLocaleDateString("en-GB")} — it's gone, no tag on file for it anymore.`
                 : `Tag ${t.tag_uid}`}

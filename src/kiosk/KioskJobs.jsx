@@ -58,12 +58,12 @@ function JobRow({ job, terminology = {}, onClick }) {
     >
       <div style={priorityBarStyle(job.priority)} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "flex-start" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-2)", alignItems: "flex-start" }}>
           <span ref={descRef} style={{ fontWeight: 700, fontSize: "var(--text-md)" }}>{job.description}</span>
           {wrapped ? (
             <span
               title={job.job_status?.name}
-              style={{ width: "16px", height: "16px", borderRadius: "50%", flexShrink: 0, marginTop: "3px", background: statusColor[job.job_status?.name] || colors.inkSoft }}
+              style={{ width: "16px", height: "16px", borderRadius: "50%", flexShrink: 0, marginTop: "var(--space-1)", background: statusColor[job.job_status?.name] || colors.inkSoft }}
             />
           ) : (
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
@@ -287,7 +287,7 @@ export default function KioskJobs() {
               <div key={t.id} style={{ marginBottom: "var(--space-3)" }}>
                 <div style={{ fontWeight: 700 }}>{t.name}</div>
                 {(documentsByActivityType[t.id] || []).length === 0 && (
-                  <p style={{ color: colors.inkSoft, fontSize: "var(--text-base)", margin: "2px 0" }}>No RA/MS documents linked yet.</p>
+                  <p style={{ color: colors.inkSoft, fontSize: "var(--text-base)", margin: "var(--space-1) 0" }}>No RA/MS documents linked yet.</p>
                 )}
                 {(documentsByActivityType[t.id] || []).map((doc) => (
                   <SafetyDocumentLink key={doc.id} doc={doc} />
