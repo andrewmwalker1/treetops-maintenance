@@ -153,7 +153,7 @@ export default function GroupsTab() {
             <Input required autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} style={{ marginBottom: "var(--space-3)" }} />
 
             <label className="tt-field__label">Members</label>
-            <Card pad="sm" style={{ marginBottom: "var(--space-4)", maxHeight: "260px", overflowY: "auto" }}>
+            <Card pad="sm" style={{ marginBottom: "var(--space-4)", maxHeight: "var(--scrollbox-max-h)", overflowY: "auto" }}>
               {people.length === 0 && <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>No users yet.</p>}
               {people.map((p) => (
                 <label key={p.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", fontSize: "var(--text-base)" }}>

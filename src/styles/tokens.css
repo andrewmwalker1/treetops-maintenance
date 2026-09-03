@@ -114,6 +114,13 @@
   --width-xl: 560px;
   --width-2xl: 640px;
 
+  /* A bounded-scroll list box (dropdown panel, member picker) -- the one
+     maxHeight value actually reused identically across screens; the app's
+     other maxHeight literals are each a single, different-purpose use
+     (a search-result list's own height, a photo preview's cap) and stay
+     literal. See UI-REDESIGN-PLAN.md section 8j. */
+  --scrollbox-max-h: 260px;
+
   /* ---- Shape ------------------------------------------------------- */
   --radius-sm: 8px;
   --radius-md: 14px;

@@ -118,7 +118,7 @@ function LocationSearchBox({ pitches, specialLocations, value, onChange, style }
             right: 0,
             zIndex: 20,
             marginTop: "var(--space-1)",
-            maxHeight: "260px",
+            maxHeight: "var(--scrollbox-max-h)",
             overflowY: "auto",
             background: colors.paper,
             border: `1px solid ${colors.lineStrong}`,

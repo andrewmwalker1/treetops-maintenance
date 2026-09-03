@@ -113,6 +113,9 @@ export const checkboxSize = {
   kiosk: "var(--checkbox-size-kiosk)",
 };
 
+// The one maxHeight value reused identically for a bounded-scroll list box.
+export const scrollboxMaxHeight = "var(--scrollbox-max-h)";
+
 export const shadow = {
   card: "var(--shadow-card)",
   overlay: "var(--shadow-overlay)",

@@ -1026,3 +1026,63 @@ The two deleted overrides couldn't be computed-style-checked the same
 way (they need a real key-station login to render at all), so that one
 rests on the `git log -S` trace plus reading `base.css`'s own rule
 directly, not a rendered screen.
+
+---
+
+## 8j. `maxHeight` scroll-box decision (2026-09-03)
+
+The candidate flagged when 8h/8i wrapped up. Read the context around
+every non-viewport `maxHeight` literal before deciding, same as every
+prior step in this sweep: `PitchPicker.jsx` and `KeyTagsTab.jsx` turned
+out to carry byte-identical dropdown panels (`maxHeight: "260px",
+overflowY: "auto"` inside an absolutely-positioned autocomplete
+overlay), and `GroupsTab.jsx` uses the same exact value for the same
+purpose -- a bounded scrollable list -- inside a `Card` instead. A real
+three-way match, same shape as what justified the width scale and the
+checkbox tiers.
+
+`DocumentPicker.jsx`'s `220px` and `ScanMeter.jsx`'s `280px` are not
+part of it: different values, and different purposes -- one bounds its
+own single search-result list (no sibling to match), the other caps a
+`<img>` photo preview's height, not a scrollable list at all. Left as
+literals, same reasoning as every other true one-off in this sweep.
+
+Added a single `--scrollbox-max-h: 260px` token (plus a
+`scrollboxMaxHeight` export in `theme.js`, for parity with `width` and
+`checkboxSize`) rather than a multi-step scale, since only one value
+actually qualified. Applied to all three real uses.
+
+**Verification.** Production build clean. `check-styles.mjs` clean
+against the diff. Computed-style check in the browser:
+`--scrollbox-max-h` resolves to exactly `260px` -- pixel-identical, same
+as every other token added in this sweep.
+
+---
+
+## 8k. Px sweep status
+
+What remains, after 8h/8i/8j, is entirely closed decisions, not
+unfinished work -- each single-use or purpose-specific, individually
+looked at and left as a literal on purpose:
+
+- 9 one-off `maxWidth`s (592/980/720/700/600/380/260px) -- no shared
+  value across any of them.
+- 37 border widths (36x `1px`, one `2px`) -- out of scope entirely;
+  `BUILD-BRIEF.md` section 8 names `1px` as the correct spec value for a
+  resting card's border, and there is no border-width token category to
+  convert into.
+- `KioskJobs.jsx`'s `24px` subtask checkbox (no sibling value),
+  `16px` status dot (not a checkbox), and `32px` progress-bar height.
+- A handful of scattered one-off widths with no shared value:
+  `RolesPermissionsTab` 110px, `ServiceTemplatesTab` 70px x2 (same
+  file, same form, still only one consumer of the pattern),
+  `JobDetail` 160px, and `Gallery.jsx`'s dev-only showcase cards
+  (180/230/260px x2/270px).
+- `DocumentPicker`'s `220px` and `ScanMeter`'s `280px` `maxHeight`s (8j).
+- A few single-use position nudges: `minWidth` 160px, `minHeight` 72px,
+  `letterSpacing` 4px, a couple of `top`/`right`/`bottom` offsets.
+
+If a future edit gives any of these a second identical use elsewhere,
+that is the signal to tokenize it -- same test applied at every step of
+this sweep (`git grep` the exact literal, not the property name, before
+deciding).
