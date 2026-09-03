@@ -572,3 +572,155 @@ the print components.
 against real data — that needs a real login. Login and `/ui-gallery` were
 checked in the browser; everything past them is verified structurally, not
 visually.
+
+---
+
+## 8b. Phase 5 — Polish (2026-09-03)
+
+Applied on branch `ui-redesign-phase-5-6`, one commit. Closed the specific
+gaps an audit found still open after Phase 4, rather than redoing work
+Phase 4 already did (icons, most empty-state actions, and motion were
+already built).
+
+**Icons.** Every remaining emoji/glyph pseudo-icon is gone — the camera,
+gallery/image, arrow-up and arrow-down icons it needed didn't exist yet, so
+they're added to `src/ui/icons.jsx` first, then swapped in across
+JobDetail, ChecklistBuilder, and the two admin reorder-icon tabs. The audit
+also caught things the Phase 4 mechanical conversion missed: six in-app key
+pages (CheckInKey, CheckOutKey, FindKey, ForceCheckInKey, HandoverKey,
+RelocateKey) still had a literal "← Keys" instead of `icon={<IconArrowLeft
+/>}`, and two admin delete-role buttons still rendered a literal "×".
+
+**A real accessibility bug**, found while fixing the above: the admin
+Equipment history table's sortable column headers were still `<th
+onClick>` — unreachable by keyboard — even though Phase 4's own commit
+message claims this exact pattern was fixed (it was, but only in
+`EquipmentDetail.jsx`; `EquipmentCheckoutLogTab.jsx` has a near-identical
+table and was missed). Both now use real `<button className="tt-sortbtn">`
+elements with `aria-sort` on the `<th>`.
+
+**Motion and elevation were already correct** — audited, not changed.
+Every `transition:` in the codebase resolves through `--dur-fast` (120ms)
+or `--dur` (180ms), both under the plan's 200ms ceiling; the two
+`animation:` rules (a button spinner, a skeleton shimmer) are continuous
+loading indicators, a different category the ceiling was never meant to
+cover. `--shadow-card` is used in exactly one place
+(`.tt-card--interactive:hover`) and `--shadow-overlay` in exactly two
+(`.tt-modal`, `.tt-menu`) plus two JS-side popover usages — two levels, no
+more, as specified. The one non-token `box-shadow` found (an invalid-input
+focus ring) is now `--focus-ring-inset-danger`, matching the neutral
+`--focus-ring-inset` it sat next to.
+
+**Density.** `--control-h` covers buttons and text inputs under `@media
+(pointer: coarse)`, but nothing had ever done the same for native
+`<input type="checkbox">` / `type="radio">` — they stayed at the ~13px
+browser default on every touch device outside the kiosk/key-station
+screens, which hand-size their own. One rule in `base.css`'s existing
+coarse-pointer block fixes every un-sized instance app-wide at once
+(NewJob, JobDetail, every admin form) without touching the already-sized
+kiosk instances, since an inline `style` always wins over it.
+
+**Two literal hex colours** in `base.css`: the placeholder text colour had
+no token, so it got one (`--c-placeholder`); the print-fallback
+background stays a literal `#FFFFFF` with a comment explaining why — it is
+the actual colour of paper, and using `--c-paper` (deliberately a shade
+off pure white so screen surfaces read against `--c-bg`) would be wrong
+for a printed page specifically.
+
+**Overdue treatment.** `JobCard`'s 3px top-border hack is now a small
+`Pill tone="danger"` reading "Overdue", next to the status pill. The
+priority bar is untouched, per constraint 4.3.
+
+**Empty-state actions.** Of 12 `<EmptyState>` usages with no action prop,
+9 were correctly left alone — there's genuinely nothing to add or clear
+from a check-in screen with nothing checked out, from a kiosk that has no
+admin capability to add equipment types, or from a permission-denial
+screen. Three were real gaps and got fixed: `RoleVisibilityTab`'s "no
+roles yet" told the user where to go ("Add one from Roles & permissions")
+but gave no way to get there — now a real link; `KioskJobs` and
+`KioskSafety`'s filtered-empty-results states had live filter state
+sitting right there with no button to clear it — now they do.
+
+**Explicitly not done, flagged for later:** a broader sweep found roughly
+35 more plain-text "No X yet" / "Nothing matches" paragraphs across
+admin, kiosk and key-station screens that were never converted to
+`EmptyState` in Phase 4 at all (`ActivityTypesTab`, `ContractorsTab`,
+`GroupsTab`, `JobTemplatesTab`, `KeyTagsTab`, `SafetyLibraryTab`,
+`SchedulesTab`, `UsersTab`, and about two dozen more — see the plain `<p
+style={{ color: colors.inkSoft }}>No …</p>` pattern). That's a sweep of
+similar size and shape to Phase 4 itself, not a "polish" fix, so it wasn't
+done here — it needs its own pass. `ViewAsControl.jsx`'s "Return to my
+view" button is also still a raw `<button style={{}}>`, deliberately left:
+it needs an inverted colour treatment (white background, moss-dark text)
+that doesn't correspond to any of `Button`'s four existing variants, since
+it sits on a dark banner rather than the page background — forcing it
+into `Button` via a style override would silently break its hover state
+(an inline style permanently overrides the CSS `:hover` rule), so it
+either needs a genuine new variant or should stay a deliberate, documented
+exception. Not decided here.
+
+**Verification.** Production build after every change. The three static
+sweeps from Phase 4 (unused imports, unresolved JSX components, tag
+balance) re-run clean. Structural checks in the browser: the invalid-input
+focus-ring token resolves to the unchanged original value; the placeholder
+token and the coarse-pointer checkbox/radio rule both resolve correctly in
+computed styles; the `Overdue` pill's exact CSS class renders as a soft
+red pill distinct from the solid status pill next to it. No signed-in
+screen was exercised — same caveat as every phase before this one.
+
+---
+
+## 8c. Phase 6 — Guardrails (2026-09-03)
+
+Applied on the same branch, one commit.
+
+**CLAUDE.md** gets a short "UI rules" section — colour/size/spacing from
+tokens, controls from `src/ui/`, print components are the one exception —
+pointing at BUILD-BRIEF.md section 8 as the source of truth rather than
+duplicating it. Duplicating it is exactly how the token layer drifted from
+the app once already (see section 8's own history note about the old warm
+palette stranding the PWA manifest).
+
+**`scripts/check-styles.mjs`** checks changed `.jsx` files for a literal
+hex colour in a `style` prop and a raw `<button style={{}}>`. Two design
+decisions worth recording:
+
+- It diffs only files changed in the current push
+  (`CHECK_STYLES_BASE`, wired to `github.event.before` in the workflow),
+  not the whole tree. The goal is catching new drift, not retroactively
+  failing on code that predates the script — of which there is some (see
+  8b's flagged follow-ups, plus `ViewAsControl.jsx`'s raw button, which
+  the script would report the next time that file is actually touched).
+- Wired into `deploy.yml` as `continue-on-error: true` between install and
+  build — a warning, not a blocker, exactly as specified. Flip that once
+  it has run clean on a few pushes; that's a one-line change, not done
+  here.
+
+The Checkout step needed `fetch-depth: 0` added — the diff's base commit
+isn't present in the default single-commit shallow clone.
+
+**Verification, beyond the production build:** run against this repo's
+entire history (86 changed files back to the initial scaffold), it found
+exactly one true violation — `ViewAsControl.jsx`'s raw button, already
+known from 8b — and nothing else, confirming the rest of the codebase
+really is clean. A synthetic test file with four deliberate violations
+(three literal hexes — 6-digit, 3-digit, and a 3-digit one on a wrapped
+`<Button>`, still flagged since the wrapper doesn't exempt a literal
+colour — plus a raw `<button>`) confirmed all four are caught, while a
+hex value mentioned only in a comment was correctly not flagged. That
+test file was committed in isolation, verified, then reverted with `git
+reset --soft` so it never touched the real Phase 6 changes sitting
+alongside it.
+
+Also converted in passing: `PhotoThumb.jsx`'s lightbox close button to
+`IconButton`, found while checking what the new script would flag on the
+current tree — a one-line fix once `IconClose` was already imported for
+Phase 5's icon sweep.
+
+**Follow-ups for a future session**, not done here: the ~35-screen
+empty-state sweep and `ViewAsControl.jsx`'s button treatment from 8b;
+flipping `check-styles.mjs` to blocking once it's proven quiet; deciding
+whether `check-styles.mjs` should also catch other literal-value patterns
+(literal px spacing, `rgba()` colours) now that the hex/button pair has
+proven the approach, or whether that's diminishing returns for a
+non-blocking warning.
