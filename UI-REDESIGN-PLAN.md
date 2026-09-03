@@ -1,6 +1,7 @@
 # UI Redesign Plan — Tree Tops Maintenance
 
-**Status:** proposed, not started. Written 2026-09-03 against commit `560c3e9`.
+**Status:** Phases 1–3 applied on branch `ui-redesign-phases-1-3` (not merged,
+not deployed). Phases 4–6 outstanding. Written 2026-09-03 against `560c3e9`.
 **Purpose:** a work order Claude can pick up and apply phase by phase. Each
 phase is self-contained, ends in a commit, and leaves the app shippable.
 
@@ -481,3 +482,46 @@ where the complaint actually lives.
   later swap).
 - The pitch CSV import and offline aeroplane-mode testing still open in
   `RUNBOOK.md` — unrelated to this.
+
+---
+
+## 8. What was actually done (2026-09-03)
+
+Phases 1–3 are applied on branch `ui-redesign-phases-1-3`, three commits,
+one per phase. **Not merged to `main` and not deployed** — merging is what
+triggers the GitHub Pages deploy, so that is Andy's call.
+
+**Decisions taken** (§3's recommendations, all as recommended):
+D1 keep the Admiralty navy · D2 yes to CSS files · D3 no dark mode yet ·
+D4 icons yes, never for priority · D5 mobile bottom tab bar ·
+D6 Admin moves into the account menu.
+
+One decision §3 didn't cover: **Jobs stays at `/`** rather than Dashboard
+becoming the landing page. Changing the landing page would have meant
+re-teaching everyone's muscle memory and touching the RFID terminal
+redirect logic in `App.jsx`, for no gain. Dashboard keeps its place in the
+desktop nav; on a phone it sits in the account menu rather than the tab
+bar, since it is a manager's summary rather than somewhere anyone works.
+
+**Verification.** Production build passes at every phase. The token layer,
+every primitive and every interaction state were checked in the browser via
+`/ui-gallery` (dev-only route), including the new header, tab bar and admin
+nav rendered from their real CSS classes.
+
+**Not verified:** the signed-in screens. Supabase was unreachable from the
+build environment, so nothing past the login screen could be exercised
+against real data. Worth a pass on a real session before merging —
+particularly Admin (the routing change), the account menu, and the phone
+tab bar.
+
+### Phase 4 starting notes
+
+- `src/ui/` is ready; `/ui-gallery` shows everything available.
+- `kioskTheme.js` is still used by 20 kiosk and key-station screens. It
+  should disappear into `size="kiosk"` variants as Group B is converted.
+- `theme.js`'s `buttonStyle`/`cardStyle` are the marker for unconverted
+  screens: ~40 files still spread them. When the last one is gone, so are
+  they.
+- The two permission matrices (`RolesPermissionsTab`, `RoleVisibilityTab`)
+  need real design attention, not just the `Table` primitive — the sticky
+  first column is built and waiting (`stickyFirstColumn`).
