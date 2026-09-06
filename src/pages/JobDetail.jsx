@@ -188,6 +188,16 @@ export default function JobDetail() {
     setActivity(data.activity);
     setActivityTypes(data.activityTypes);
     setDocumentsByActivityType(data.documentsByActivityType);
+    // The progress slider always started at 0 on load, regardless of
+    // what had actually last been logged -- data.activity is already
+    // newest-first (loadJobForPrint.js orders by created_at descending),
+    // so the first progress_update row here is the current value.
+    const lastProgressUpdate = data.activity.find((a) => a.event_type === "progress_update");
+    setProgressPercent(lastProgressUpdate?.new_value?.percent ?? 0);
+    // The slider now shows exactly what was last logged (or never-logged
+    // 0), so the button should read "Logged" rather than "Log update"
+    // until the viewer actually drags it to something new.
+    setProgressLogged(Boolean(lastProgressUpdate));
 
     const { data: tierLinks } = await supabase
       .from("job_service_tiers")
