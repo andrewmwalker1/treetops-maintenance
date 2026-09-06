@@ -103,9 +103,8 @@ export default function JobDetail() {
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
-  // Section names the viewer has clicked to flip away from their default
-  // open/closed state (a section defaults open unless every item in it is
-  // checked) -- see renderChecklistSection below.
+  // Section names the viewer has explicitly opened this session -- every
+  // section starts closed (see the Checklist section's render below).
   const [toggledSections, setToggledSections] = useState(new Set());
   const [photos, setPhotos] = useState([]);
   const [activity, setActivity] = useState([]);
@@ -1380,8 +1379,10 @@ export default function JobDetail() {
                 {ungrouped.map(({ s, i }) => renderSubtaskRow(s, i))}
                 {sections.map(({ name, entries }) => {
                   const sectionDone = entries.every(({ s }) => s.is_checked);
-                  const defaultOpen = !sectionDone;
-                  const isOpen = toggledSections.has(name) ? !defaultOpen : defaultOpen;
+                  // Every section starts closed -- a live job's checklist is
+                  // meant to read as a compact overview, not spill open by
+                  // default, so opening one is always a deliberate click.
+                  const isOpen = toggledSections.has(name);
                   return (
                     <div key={name} style={{ border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: "var(--space-3)", overflow: "hidden" }}>
                       <div
