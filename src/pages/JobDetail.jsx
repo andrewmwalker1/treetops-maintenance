@@ -28,10 +28,13 @@ import {
   IconCheck,
   IconChevronRight,
   IconClose,
+  IconFolder,
   IconGallery,
   IconPrint,
   IconButton,
   Input,
+  Menu,
+  MenuItem,
   Modal,
   ModalFooter,
   PageHeader,
@@ -1055,19 +1058,40 @@ export default function JobDetail() {
           <IconClose size={14} />
         </IconButton>
         {sectionNames.length > 0 && (
-          <Select
-            value={s.section || ""}
-            onChange={(e) => changeSubtaskSection(s.id, e.target.value)}
-            aria-label={`Section for "${s.label}"`}
-            style={{ width: "130px", minHeight: "var(--control-h-sm)", fontSize: "var(--text-xs)" }}
+          <Menu
+            align="right"
+            trigger={(p) => (
+              <IconButton size="sm" label={`Section: ${s.section || "none"} — click to change`} {...p}>
+                <IconFolder size={14} />
+              </IconButton>
+            )}
           >
-            <option value="">No section</option>
-            {sectionNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </Select>
+            {({ close }) => (
+              <>
+                <MenuItem
+                  meta={!s.section ? "current" : undefined}
+                  onSelect={() => {
+                    changeSubtaskSection(s.id, "");
+                    close();
+                  }}
+                >
+                  No section
+                </MenuItem>
+                {sectionNames.map((name) => (
+                  <MenuItem
+                    key={name}
+                    meta={s.section === name ? "current" : undefined}
+                    onSelect={() => {
+                      changeSubtaskSection(s.id, name);
+                      close();
+                    }}
+                  >
+                    {name}
+                  </MenuItem>
+                ))}
+              </>
+            )}
+          </Menu>
         )}
       </>
     );

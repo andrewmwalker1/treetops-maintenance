@@ -126,6 +126,11 @@ export const IconFilter = (p) => (
     <path d="M3 5h18l-7 8v6l-4 2v-8z" />
   </Svg>
 );
+export const IconFolder = (p) => (
+  <Svg {...p}>
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </Svg>
+);
 export const IconEdit = (p) => (
   <Svg {...p}>
     <path d="M11 4H5a2 2 0 00-2 2v13a2 2 0 002 2h13a2 2 0 002-2v-6" />
