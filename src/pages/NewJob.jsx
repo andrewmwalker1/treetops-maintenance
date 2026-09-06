@@ -9,6 +9,7 @@ import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import { getAssignableTargets } from "../lib/assignableTargets.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import PitchPicker from "../components/PitchPicker.jsx";
+import ActivityTypePicker from "../components/ActivityTypePicker.jsx";
 import { colors } from "../lib/theme.js";
 import {
   Alert,
@@ -328,26 +329,11 @@ export default function NewJob() {
           </Field>
 
           <Field label="Activity types (optional)">
-            <div
-              style={{
-                border: `1px solid ${colors.lineStrong}`,
-                borderRadius: "var(--radius-sm)",
-                padding: "var(--space-3)",
-              }}
-            >
-              {activityTypes.length === 0 && (
-                <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>None set up yet.</span>
-              )}
-              {activityTypes.map((a) => (
-                <label
-                  key={a.id}
-                  style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", fontSize: "var(--text-base)" }}
-                >
-                  <input type="checkbox" checked={activityTypeIds.includes(a.id)} onChange={() => toggleActivityType(a.id)} />
-                  {a.name}
-                </label>
-              ))}
-            </div>
+            {activityTypes.length === 0 ? (
+              <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>None set up yet.</span>
+            ) : (
+              <ActivityTypePicker allTypes={activityTypes} selectedIds={activityTypeIds} onToggle={toggleActivityType} />
+            )}
           </Field>
 
           <Field label="Checklist">

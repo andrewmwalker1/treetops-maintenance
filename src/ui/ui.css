@@ -327,6 +327,39 @@ select.tt-input {
   color: var(--c-ink-soft);
 }
 
+.tt-pill--removable {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: 3px;
+}
+.tt-pill__remove {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.tt-pill__remove:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+/* An outlined (not --solid) removable pill sits on the page background,
+   not a solid fill -- the translucent-white treatment above would be
+   invisible there, so it gets a token-based tint instead. */
+.tt-pill:not(.tt-pill--solid) .tt-pill__remove {
+  background: var(--c-surface-sunken);
+}
+.tt-pill:not(.tt-pill--solid) .tt-pill__remove:hover {
+  background: var(--c-line);
+}
+
 .tt-chip {
   display: inline-flex;
   align-items: center;

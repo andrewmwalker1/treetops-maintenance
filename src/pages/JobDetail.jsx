@@ -11,6 +11,7 @@ import { loadJobForPrint } from "../lib/loadJobForPrint.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
+import ActivityTypePicker from "../components/ActivityTypePicker.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
 import { openPrintWindow, writeAndPrintJobBundles } from "../lib/printJobCards.jsx";
 import { colors, fonts, priorityBarStyle, statusPillStyle, priorityColor } from "../lib/theme.js";
@@ -1178,12 +1179,11 @@ export default function JobDetail() {
           {canEditJobDetails && allActivityTypes.length > 0 && (
             <div style={{ marginBottom: "var(--space-4)" }}>
               <SectionLabel>Activity types</SectionLabel>
-              {allActivityTypes.map((t) => (
-                <label key={t.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0" }}>
-                  <input type="checkbox" checked={activityTypes.some((a) => a.id === t.id)} onChange={() => toggleJobActivityType(t.id)} />
-                  {t.name}
-                </label>
-              ))}
+              <ActivityTypePicker
+                allTypes={allActivityTypes}
+                selectedIds={activityTypes.map((a) => a.id)}
+                onToggle={toggleJobActivityType}
+              />
             </div>
           )}
           {/* Without can_edit_job_details, only the types already selected on

@@ -33,6 +33,7 @@ import {
 } from "./primitives.jsx";
 import Modal from "./Modal.jsx";
 import Menu, { MenuHeader, MenuItem, MenuSeparator } from "./Menu.jsx";
+import ActivityTypePicker from "../components/ActivityTypePicker.jsx";
 import "../components/Layout.css";
 import "../pages/Admin.css";
 import {
@@ -63,10 +64,20 @@ function Row({ title, note, children }) {
   );
 }
 
+const DEMO_ACTIVITY_TYPES = [
+  "Hedge cutting & strimming", "Chainsaw operation", "Working at height (ladders & roof)",
+  "Chemical handling (herbicides & cleaning)", "Lone working", "Manual handling",
+  "Hot works (welding & soldering)", "Confined space entry", "Electrical isolation",
+  "Pond & water safety", "Tree felling", "Pesticide spraying (certificate required)",
+  "Ride-on mower & tractor operation", "Asbestos awareness", "First aid at work",
+  "Vehicle towing & trailer use",
+].map((name, i) => ({ id: String(i + 1), name }));
+
 export default function Gallery() {
   const [modalOpen, setModalOpen] = useState(false);
   const [dnd, setDnd] = useState(true);
   const [chip, setChip] = useState("all");
+  const [demoActivityIds, setDemoActivityIds] = useState(["1", "3"]);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", padding: "var(--space-6)" }}>
@@ -139,6 +150,17 @@ export default function Gallery() {
           <Pill tone="danger">Overdue</Pill>
           <Pill tone="ok">Available</Pill>
           <Pill tone="neutral">Decommissioned</Pill>
+          <span style={{ width: "var(--space-4)" }} />
+          <Pill color="var(--c-moss-dark)" onRemove={() => {}} removeLabel="Remove Chainsaw operation">
+            Chainsaw operation
+          </Pill>
+          <Pill tone="neutral" onRemove={() => {}} removeLabel="Remove example">
+            Removable, outlined
+          </Pill>
+        </Row>
+
+        <Row title="Activity type picker" note="Selected types stay on screen as removable pills; the full list only ever appears inside the popout. Try the search box against all 16 of these.">
+          <ActivityTypePicker allTypes={DEMO_ACTIVITY_TYPES} selectedIds={demoActivityIds} onToggle={(id) => setDemoActivityIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))} />
         </Row>
 
         <Row title="Form fields" note="Tab into each: the focus ring is the single highest-value addition in the whole redesign.">

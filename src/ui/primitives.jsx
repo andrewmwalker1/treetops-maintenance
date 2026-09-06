@@ -153,14 +153,22 @@ export const Card = forwardRef(function Card(
 
 // `color` fills the pill with an arbitrary token (job status, equipment
 // status); `tone` picks one of the semantic outlined sets instead.
-export function Pill({ tone, color, className, children, ...rest }) {
+// `onRemove`, if given, adds a small close button inside the pill (a
+// removable-selection tag -- e.g. ActivityTypePicker.jsx) rather than
+// making every caller hand-roll one.
+export function Pill({ tone, color, className, children, onRemove, removeLabel, ...rest }) {
   return (
     <span
-      className={cx("tt-pill", color ? "tt-pill--solid" : `tt-pill--${tone || "neutral"}`, className)}
+      className={cx("tt-pill", color ? "tt-pill--solid" : `tt-pill--${tone || "neutral"}`, onRemove && "tt-pill--removable", className)}
       style={color ? { background: color, borderColor: color } : undefined}
       {...rest}
     >
       {children}
+      {onRemove && (
+        <button type="button" className="tt-pill__remove" onClick={onRemove} aria-label={removeLabel || "Remove"}>
+          <IconClose size={10} />
+        </button>
+      )}
     </span>
   );
 }
