@@ -122,6 +122,7 @@ export default function JobDetail() {
   const [comment, setComment] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newChecklistItemRequiresPhoto, setNewChecklistItemRequiresPhoto] = useState(false);
+  const [newChecklistItemSection, setNewChecklistItemSection] = useState("");
   // Which checklist item's photo gallery modal is open, if any -- see the
   // "View photos" button in the checklist section below.
   const [viewPhotosSubtaskId, setViewPhotosSubtaskId] = useState(null);
@@ -310,13 +311,18 @@ export default function JobDetail() {
     const label = newChecklistItem.trim();
     if (!label) return;
     const nextSortOrder = subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
-    const { error: err } = await supabase
-      .from("job_subtasks")
-      .insert({ job_id: job.id, label, requires_photo: canRequireChecklistItemPhoto && newChecklistItemRequiresPhoto, sort_order: nextSortOrder });
+    const { error: err } = await supabase.from("job_subtasks").insert({
+      job_id: job.id,
+      label,
+      requires_photo: canRequireChecklistItemPhoto && newChecklistItemRequiresPhoto,
+      section: newChecklistItemSection || null,
+      sort_order: nextSortOrder,
+    });
     if (err) setError(err.message);
     else {
       setNewChecklistItem("");
       setNewChecklistItemRequiresPhoto(false);
+      setNewChecklistItemSection("");
       loadAll();
     }
   }
@@ -327,16 +333,34 @@ export default function JobDetail() {
     else loadAll();
   }
 
-  async function moveSubtask(index, direction) {
+  // Moves a subtask relative to its own section-mates (same `section`,
+  // including "no section" as one group) rather than the whole flat
+  // list -- with sections rendered as separate groups, swapping with
+  // whatever happens to be flat-array-adjacent could silently swap
+  // across a section boundary with no visible effect (the grouped view
+  // only ever looks at `section`, never sort_order, to decide which
+  // group something renders in).
+  async function moveSubtask(subtask, direction) {
+    const siblings = subtasks.filter((s) => (s.section || null) === (subtask.section || null));
+    const index = siblings.findIndex((s) => s.id === subtask.id);
     const target = index + direction;
-    if (target < 0 || target >= subtasks.length) return;
-    const a = subtasks[index];
-    const b = subtasks[target];
+    if (target < 0 || target >= siblings.length) return;
+    const a = siblings[index];
+    const b = siblings[target];
     const [{ error: err1 }, { error: err2 }] = await Promise.all([
       supabase.from("job_subtasks").update({ sort_order: b.sort_order }).eq("id", a.id),
       supabase.from("job_subtasks").update({ sort_order: a.sort_order }).eq("id", b.id),
     ]);
     if (err1 || err2) setError((err1 || err2).message);
+    else loadAll();
+  }
+
+  // Reassigning a section is how an item actually gets "moved" past a
+  // heading -- see moveSubtask above for why plain reordering can't do
+  // that on its own once the checklist is grouped.
+  async function changeSubtaskSection(subtaskId, section) {
+    const { error: err } = await supabase.from("job_subtasks").update({ section: section || null }).eq("id", subtaskId);
+    if (err) setError(err.message);
     else loadAll();
   }
 
@@ -957,6 +981,12 @@ export default function JobDetail() {
   function renderSubtaskRow(s, i) {
     const itemPhotos = photos.filter((p) => p.job_subtask_id === s.id);
     const canEdit = permissions.has("can_edit_job_checklist");
+    // Move up/down is scoped to this item's own section-mates (see
+    // moveSubtask), so "can it move" is answered the same way -- its
+    // position among siblings, not its position in the whole flat list.
+    const siblings = subtasks.filter((x) => (x.section || null) === (s.section || null));
+    const siblingIndex = siblings.findIndex((x) => x.id === s.id);
+    const sectionNames = [...new Set(subtasks.map((x) => x.section).filter(Boolean))];
 
     const label = canEdit ? (
       <Input
@@ -1015,15 +1045,30 @@ export default function JobDetail() {
             <IconCamera size={14} />
           </IconButton>
         )}
-        <IconButton size="sm" label="Move up" onClick={() => moveSubtask(i, -1)} disabled={i === 0}>
+        <IconButton size="sm" label="Move up" onClick={() => moveSubtask(s, -1)} disabled={siblingIndex === 0}>
           <IconArrowUp size={14} />
         </IconButton>
-        <IconButton size="sm" label="Move down" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1}>
+        <IconButton size="sm" label="Move down" onClick={() => moveSubtask(s, 1)} disabled={siblingIndex === siblings.length - 1}>
           <IconArrowDown size={14} />
         </IconButton>
         <IconButton size="sm" label="Remove item" onClick={() => removeSubtask(s.id)} style={{ color: colors.immediate }}>
           <IconClose size={14} />
         </IconButton>
+        {sectionNames.length > 0 && (
+          <Select
+            value={s.section || ""}
+            onChange={(e) => changeSubtaskSection(s.id, e.target.value)}
+            aria-label={`Section for "${s.label}"`}
+            style={{ width: "130px", minHeight: "var(--control-h-sm)", fontSize: "var(--text-xs)" }}
+          >
+            <option value="">No section</option>
+            {sectionNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+        )}
       </>
     );
 
@@ -1044,7 +1089,7 @@ export default function JobDetail() {
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{checkControls}</div>
           </div>
           {editIcons && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-2)", flexWrap: "wrap" }}>
               {editIcons}
             </div>
           )}
@@ -1426,8 +1471,28 @@ export default function JobDetail() {
                 onChange={(e) => setNewChecklistItem(e.target.value)}
                 placeholder="Add an item…"
                 aria-label="Add a checklist item"
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: "160px" }}
               />
+              {(() => {
+                const sectionNames = [...new Set(subtasks.map((s) => s.section).filter(Boolean))];
+                return (
+                  sectionNames.length > 0 && (
+                    <Select
+                      value={newChecklistItemSection}
+                      onChange={(e) => setNewChecklistItemSection(e.target.value)}
+                      aria-label="Section for the new item"
+                      style={{ width: "130px", minHeight: "var(--control-h-sm)", fontSize: "var(--text-xs)" }}
+                    >
+                      <option value="">No section</option>
+                      {sectionNames.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </Select>
+                  )
+                );
+              })()}
               {canRequireChecklistItemPhoto && (
                 <label
                   style={{
