@@ -19,6 +19,13 @@ import { Button, IconArrowDown, IconArrowUp, IconButton, IconCamera, IconClose, 
 // permission-gated control in this codebase (hidden, not disabled).
 export default function ChecklistBuilder({ items, onChange, readOnly = false, canRequirePhoto = false }) {
   const [newItem, setNewItem] = useState("");
+  // Which row's label was last focused -- "Add section heading" inserts
+  // right above it, rather than always at the bottom, since on a long
+  // list dragging a new heading up from the end one row at a time is the
+  // whole problem this is meant to solve. Not cleared on blur, so
+  // clicking the button itself (which blurs the input) still targets
+  // whatever row the admin was just working in.
+  const [focusedIndex, setFocusedIndex] = useState(null);
 
   function addItem() {
     const text = newItem.trim();
@@ -28,10 +35,13 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false, ca
   }
 
   function addHeading() {
-    onChange([...items, { type: "heading", label: "New section" }]);
+    const insertAt = focusedIndex !== null && focusedIndex >= 0 && focusedIndex <= items.length ? focusedIndex : items.length;
+    onChange([...items.slice(0, insertAt), { type: "heading", label: "New section" }, ...items.slice(insertAt)]);
+    setFocusedIndex(null);
   }
 
   function removeItem(index) {
+    if (focusedIndex === index) setFocusedIndex(null);
     onChange(items.filter((_, i) => i !== index));
   }
 
@@ -83,8 +93,19 @@ export default function ChecklistBuilder({ items, onChange, readOnly = false, ca
               <Input
                 value={item.label}
                 onChange={(e) => editItem(i, e.target.value)}
+                onFocus={() => setFocusedIndex(i)}
                 aria-label={isHeading ? `Section heading ${i + 1}` : `Checklist item ${i + 1}`}
-                style={{ flex: 1, fontWeight: isHeading ? 700 : 400, background: isHeading ? colors.paper : undefined }}
+                style={{
+                  flex: 1,
+                  fontWeight: isHeading ? 700 : 400,
+                  background: isHeading ? colors.paper : undefined,
+                  // Lingers after the input itself blurs (e.g. clicking "Add
+                  // section heading" moves real focus to the button) so
+                  // there's still a visible answer to "where will the new
+                  // heading land" -- same inset-ring token the rest of the
+                  // app already uses for "this field is focused".
+                  boxShadow: focusedIndex === i ? "var(--focus-ring-inset)" : undefined,
+                }}
               />
             )}
             {!isHeading && canRequirePhoto && (
