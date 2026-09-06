@@ -34,6 +34,7 @@ import {
 import Modal from "./Modal.jsx";
 import Menu, { MenuHeader, MenuItem, MenuSeparator } from "./Menu.jsx";
 import ActivityTypePicker from "../components/ActivityTypePicker.jsx";
+import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import "../components/Layout.css";
 import "../pages/Admin.css";
 import {
@@ -78,6 +79,14 @@ export default function Gallery() {
   const [dnd, setDnd] = useState(true);
   const [chip, setChip] = useState("all");
   const [demoActivityIds, setDemoActivityIds] = useState(["1", "3"]);
+  const [demoChecklist, setDemoChecklist] = useState([
+    { type: "heading", label: "Kitchen" },
+    { label: "Clean and defrost fridge/freezer", requiresPhoto: false },
+    { label: "Wipe down all worktops", requiresPhoto: false },
+    { type: "heading", label: "Safety checks" },
+    { label: "Test smoke alarm", requiresPhoto: true },
+    { label: "Check fire extinguisher in date", requiresPhoto: true },
+  ]);
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--c-bg)", padding: "var(--space-6)" }}>
@@ -161,6 +170,12 @@ export default function Gallery() {
 
         <Row title="Activity type picker" note="Selected types stay on screen as removable pills; the full list only ever appears inside the popout. Try the search box against all 16 of these.">
           <ActivityTypePicker allTypes={DEMO_ACTIVITY_TYPES} selectedIds={demoActivityIds} onToggle={(id) => setDemoActivityIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]))} />
+        </Row>
+
+        <Row title="Checklist builder — section headings" note="A heading is a second row type with no checkbox or photo toggle, reordered/removed the same way as an item.">
+          <div style={{ width: "min(420px, 100%)" }}>
+            <ChecklistBuilder items={demoChecklist} onChange={setDemoChecklist} canRequirePhoto />
+          </div>
         </Row>
 
         <Row title="Form fields" note="Tab into each: the focus ring is the single highest-value addition in the whole redesign.">

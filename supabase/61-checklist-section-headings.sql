@@ -1,0 +1,17 @@
+-- Tree Tops Maintenance Platform -- checklist section headings
+-- Run after 60-seed-iseki-service-schedule.sql.
+--
+-- Andy asked for long checklists (Sam's ~50-item caravan prep) to group
+-- into collapsible sections instead of one flat list. A section heading
+-- is a new row *shape* in template_schema (job_types.template_schema,
+-- jsonb -- {type:"heading", label}, alongside the existing
+-- {label, requiresPhoto} item shape) rather than a new table or column
+-- there, so no migration is needed on that side.
+--
+-- Turning a template into a real job still needs somewhere to carry
+-- "which section" onto each actual checklist item -- that's the one
+-- real schema change here. Nullable and not FK'd to anything: existing
+-- jobs, and items added ad hoc outside a template, simply have no
+-- section, and the checklist UI groups those under one ungrouped bucket
+-- rather than requiring every item to belong to a heading.
+alter table public.job_subtasks add column if not exists section text;

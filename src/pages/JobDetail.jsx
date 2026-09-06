@@ -26,6 +26,7 @@ import {
   IconArrowUp,
   IconCamera,
   IconCheck,
+  IconChevronRight,
   IconClose,
   IconGallery,
   IconPrint,
@@ -102,6 +103,10 @@ export default function JobDetail() {
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
+  // Section names the viewer has clicked to flip away from their default
+  // open/closed state (a section defaults open unless every item in it is
+  // checked) -- see renderChecklistSection below.
+  const [toggledSections, setToggledSections] = useState(new Set());
   const [photos, setPhotos] = useState([]);
   const [activity, setActivity] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
@@ -932,6 +937,161 @@ export default function JobDetail() {
     );
   }
 
+  // One checklist row -- shared by the ungrouped list and every section
+  // accordion below, since a row's own rendering (photo controls, edit
+  // icons, mobile layout) doesn't depend on whether it's inside a
+  // section. `i` is always the item's real index in the flat `subtasks`
+  // array (not its position within a section), since moveSubtask/
+  // persistSubtaskLabel key off that -- reordering moves an item through
+  // the flat sort order and can cross a section boundary, same as
+  // dragging a row past a heading in the template builder would.
+  function renderSubtaskRow(s, i) {
+    const itemPhotos = photos.filter((p) => p.job_subtask_id === s.id);
+    const canEdit = permissions.has("can_edit_job_checklist");
+
+    const label = canEdit ? (
+      <Input
+        value={s.label}
+        onChange={(e) => editSubtaskLabelLocal(i, e.target.value)}
+        onBlur={() => persistSubtaskLabel(subtasks[i])}
+        aria-label={`Checklist item ${i + 1}`}
+        style={{
+          flex: 1,
+          minWidth: isMobile ? "80px" : "120px",
+          textDecoration: s.is_checked ? "line-through" : "none",
+          color: s.is_checked ? colors.inkSoft : colors.ink,
+        }}
+      />
+    ) : (
+      <span style={{ flex: 1, minWidth: isMobile ? "80px" : "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
+    );
+
+    // Photos accumulate here without checking the item off -- e.g.
+    // several angles/faults for "photograph the caravan before you
+    // start". Checking off is a separate, explicit action once at
+    // least one photo exists.
+    const checkControls = s.requires_photo ? (
+      <>
+        {!s.is_checked && (
+          <IconButton size="sm" onClick={() => handleChecklistPhotoCapture(s)} disabled={uploadingSubtaskId === s.id} label="Add photo">
+            {uploadingSubtaskId === s.id ? "…" : <IconCamera size={14} />}
+          </IconButton>
+        )}
+        {itemPhotos.length > 0 && (
+          <Button size="sm" icon={<IconGallery size={14} />} onClick={() => setViewPhotosSubtaskId(s.id)}>
+            View photos ({itemPhotos.length})
+          </Button>
+        )}
+        {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
+          <Button size="sm" variant="ghost" onClick={() => handleCheckOffWithoutPhoto(s)}>
+            Check off without photo
+          </Button>
+        )}
+        {(s.is_checked || itemPhotos.length > 0) && <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />}
+      </>
+    ) : (
+      <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
+    );
+
+    const editIcons = canEdit && (
+      <>
+        {canRequireChecklistItemPhoto && (
+          <IconButton
+            size="sm"
+            onClick={() => toggleSubtaskRequiresPhoto(s)}
+            aria-pressed={s.requires_photo}
+            label={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
+            style={s.requires_photo ? { background: colors.mossDark, color: colors.onDark, borderColor: colors.mossDark } : undefined}
+          >
+            <IconCamera size={14} />
+          </IconButton>
+        )}
+        <IconButton size="sm" label="Move up" onClick={() => moveSubtask(i, -1)} disabled={i === 0}>
+          <IconArrowUp size={14} />
+        </IconButton>
+        <IconButton size="sm" label="Move down" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1}>
+          <IconArrowDown size={14} />
+        </IconButton>
+        <IconButton size="sm" label="Remove item" onClick={() => removeSubtask(s.id)} style={{ color: colors.immediate }}>
+          <IconClose size={14} />
+        </IconButton>
+      </>
+    );
+
+    // On a narrow phone, the label + fixed-width controls column +
+    // reorder/remove icons don't all fit on one line -- they used to
+    // just wrap wherever flexbox happened to break, splitting a
+    // truncated-looking label from a stray row of icon buttons
+    // underneath. The photo/checkbox controls are compact icon
+    // buttons now (IconButton, size="sm"), so those stay on
+    // the same line as the label; only the reorder/remove icons
+    // (only shown at all with edit permission) drop to a second
+    // line, and only when there's edit permission to show them.
+    if (isMobile) {
+      return (
+        <div key={s.id} style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+            {label}
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{checkControls}</div>
+          </div>
+          {editIcons && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-2)" }}>
+              {editIcons}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", flexWrap: "wrap" }}>
+        {label}
+        {/* Controls live in a fixed-width right-hand column, flush
+            against the row's right edge (label's flex:1 pushes it
+            there), so checkboxes and "Add photo" buttons line up in
+            one column down the list instead of the item text
+            starting at a different x on every row. */}
+        <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-2)", flexWrap: "wrap" }}>
+          {checkControls}
+        </div>
+        {editIcons}
+      </div>
+    );
+  }
+
+  // Groups by section name wherever it appears in the flat array (not
+  // just consecutive runs -- a manual reorder can interleave two
+  // sections), in each section's first-appearance order. Items with no
+  // section render as a plain flat list -- every job's checklist looked
+  // like this before section headings existed, and still does unless a
+  // template (or a manual edit) actually sets one.
+  function groupSubtasksBySection() {
+    const ungrouped = [];
+    const sectionOrder = [];
+    const bySection = new Map();
+    subtasks.forEach((s, i) => {
+      if (!s.section) {
+        ungrouped.push({ s, i });
+        return;
+      }
+      if (!bySection.has(s.section)) {
+        bySection.set(s.section, []);
+        sectionOrder.push(s.section);
+      }
+      bySection.get(s.section).push({ s, i });
+    });
+    return { ungrouped, sections: sectionOrder.map((name) => ({ name, entries: bySection.get(name) })) };
+  }
+
+  function toggleSectionOpen(name) {
+    setToggledSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  }
+
   return (
     <div style={{ maxWidth: "var(--width-2xl)" }}>
       <div
@@ -1206,148 +1366,45 @@ export default function JobDetail() {
 
       {(subtasks.length > 0 || permissions.has("can_edit_job_checklist")) && (
         <Section title="Checklist">
-          {subtasks.map((s, i) => {
-            const itemPhotos = photos.filter((p) => p.job_subtask_id === s.id);
-            const canEdit = permissions.has("can_edit_job_checklist");
-
-            const label = canEdit ? (
-              <Input
-                value={s.label}
-                onChange={(e) => editSubtaskLabelLocal(i, e.target.value)}
-                onBlur={() => persistSubtaskLabel(subtasks[i])}
-                aria-label={`Checklist item ${i + 1}`}
-                style={{
-                  flex: 1,
-                  minWidth: isMobile ? "80px" : "120px",
-                  textDecoration: s.is_checked ? "line-through" : "none",
-                  color: s.is_checked ? colors.inkSoft : colors.ink,
-                }}
-              />
-            ) : (
-              <span style={{ flex: 1, minWidth: isMobile ? "80px" : "120px", textDecoration: s.is_checked ? "line-through" : "none", color: s.is_checked ? colors.inkSoft : colors.ink }}>{s.label}</span>
-            );
-
-            // Photos accumulate here without checking the item off -- e.g.
-            // several angles/faults for "photograph the caravan before you
-            // start". Checking off is a separate, explicit action once at
-            // least one photo exists.
-            const checkControls = s.requires_photo ? (
-              <>
-                {!s.is_checked && (
-                  <IconButton
-                    size="sm"
-                    onClick={() => handleChecklistPhotoCapture(s)}
-                    disabled={uploadingSubtaskId === s.id}
-                    label="Add photo"
-                  >
-                    {uploadingSubtaskId === s.id ? "…" : <IconCamera size={14} />}
-                  </IconButton>
-                )}
-                {itemPhotos.length > 0 && (
-                  <Button size="sm" icon={<IconGallery size={14} />} onClick={() => setViewPhotosSubtaskId(s.id)}>
-                    View photos ({itemPhotos.length})
-                  </Button>
-                )}
-                {!s.is_checked && itemPhotos.length === 0 && canCheckOffWithoutPhoto && (
-                  <Button size="sm" variant="ghost" onClick={() => handleCheckOffWithoutPhoto(s)}>
-                    Check off without photo
-                  </Button>
-                )}
-                {(s.is_checked || itemPhotos.length > 0) && (
-                  <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-                )}
-              </>
-            ) : (
-              <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
-            );
-
-            const editIcons = canEdit && (
-              <>
-                {canRequireChecklistItemPhoto && (
-                  <IconButton
-                    size="sm"
-                    onClick={() => toggleSubtaskRequiresPhoto(s)}
-                    aria-pressed={s.requires_photo}
-                    label={s.requires_photo ? "Requires a photo to check off — click to remove" : "Click to require a photo to check off"}
-                    style={
-                      s.requires_photo
-                        ? { background: colors.mossDark, color: colors.onDark, borderColor: colors.mossDark }
-                        : undefined
-                    }
-                  >
-                    <IconCamera size={14} />
-                  </IconButton>
-                )}
-                <IconButton size="sm" label="Move up" onClick={() => moveSubtask(i, -1)} disabled={i === 0}>
-                  <IconArrowUp size={14} />
-                </IconButton>
-                <IconButton size="sm" label="Move down" onClick={() => moveSubtask(i, 1)} disabled={i === subtasks.length - 1}>
-                  <IconArrowDown size={14} />
-                </IconButton>
-                <IconButton size="sm" label="Remove item" onClick={() => removeSubtask(s.id)} style={{ color: colors.immediate }}>
-                  <IconClose size={14} />
-                </IconButton>
-              </>
-            );
-
-            // On a narrow phone, the label + fixed-width controls column +
-            // reorder/remove icons don't all fit on one line -- they used to
-            // just wrap wherever flexbox happened to break, splitting a
-            // truncated-looking label from a stray row of icon buttons
-            // underneath. The photo/checkbox controls are compact icon
-            // buttons now (IconButton, size="sm"), so those stay on
-            // the same line as the label; only the reorder/remove icons
-            // (only shown at all with edit permission) drop to a second
-            // line, and only when there's edit permission to show them.
-            if (isMobile) {
-              return (
-                <div key={s.id} style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
-                    {label}
-                    <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{checkControls}</div>
-                  </div>
-                  {editIcons && (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "flex-end",
-                        gap: "var(--space-2)",
-                        marginTop: "var(--space-2)",
-                      }}
-                    >
-                      {editIcons}
-                    </div>
-                  )}
-                </div>
-              );
-            }
-
+          {subtasks.length > 0 && (() => {
+            const doneCount = subtasks.filter((s) => s.is_checked).length;
+            const { ungrouped, sections } = groupSubtasksBySection();
             return (
-              <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-1) 0", flexWrap: "wrap" }}>
-                {label}
-                {/* Controls live in a fixed-width right-hand column, flush
-                    against the row's right edge (label's flex:1 pushes it
-                    there), so checkboxes and "Add photo" buttons line up in
-                    one column down the list instead of the item text
-                    starting at a different x on every row. */}
-                <div
-                  style={{
-                    width: "160px",
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "flex-end",
-                    gap: "var(--space-2)",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {checkControls}
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.mossDark, fontWeight: 600 }}>
+                  <span>{doneCount} of {subtasks.length} done</span>
                 </div>
-                {editIcons}
-              </div>
+                <div style={{ height: "6px", borderRadius: "999px", background: colors.surfaceSunken, overflow: "hidden", marginBottom: "var(--space-4)" }}>
+                  <div style={{ height: "100%", width: `${subtasks.length ? (doneCount / subtasks.length) * 100 : 0}%`, background: colors.moss, borderRadius: "999px" }} />
+                </div>
+                {ungrouped.map(({ s, i }) => renderSubtaskRow(s, i))}
+                {sections.map(({ name, entries }) => {
+                  const sectionDone = entries.every(({ s }) => s.is_checked);
+                  const defaultOpen = !sectionDone;
+                  const isOpen = toggledSections.has(name) ? !defaultOpen : defaultOpen;
+                  return (
+                    <div key={name} style={{ border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: "var(--space-3)", overflow: "hidden" }}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleSectionOpen(name)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSectionOpen(name); } }}
+                        style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-3)", cursor: "pointer", background: colors.paper }}
+                      >
+                        <IconChevronRight size={14} style={{ color: colors.inkSoft, flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform var(--dur-fast) var(--ease)" }} />
+                        <span style={{ flex: 1, fontWeight: 600, fontSize: "var(--text-base)" }}>{name}</span>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: sectionDone ? colors.okInk : colors.inkSoft }}>
+                          {entries.filter(({ s }) => s.is_checked).length} / {entries.length}
+                        </span>
+                      </div>
+                      {isOpen && <div style={{ padding: "0 var(--space-3) var(--space-3)" }}>{entries.map(({ s, i }) => renderSubtaskRow(s, i))}</div>}
+                    </div>
+                  );
+                })}
+              </>
             );
-          })}
+          })()}
+
           {permissions.has("can_edit_job_checklist") && (
             <form
               onSubmit={addSubtask}

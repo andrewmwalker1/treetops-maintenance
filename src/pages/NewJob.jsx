@@ -277,10 +277,28 @@ export default function NewJob() {
         if (activityError) console.error("Failed to attach activity types to new job", activityError);
       }
       if (checklistItems.length > 0) {
-        const { error: checklistError } = await supabase
-          .from("job_subtasks")
-          .insert(checklistItems.map((item, i) => ({ job_id: jobData.id, label: item.label, requires_photo: item.requiresPhoto, sort_order: i })));
-        if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
+        // A heading row (see ChecklistBuilder.jsx) is never itself a real
+        // checklist item -- it just names the section for whatever items
+        // follow it, up to the next heading (or the end of the list).
+        let currentSection = null;
+        const subtaskRows = [];
+        for (const item of checklistItems) {
+          if (item.type === "heading") {
+            currentSection = item.label;
+            continue;
+          }
+          subtaskRows.push({
+            job_id: jobData.id,
+            label: item.label,
+            requires_photo: item.requiresPhoto,
+            section: currentSection,
+            sort_order: subtaskRows.length,
+          });
+        }
+        if (subtaskRows.length > 0) {
+          const { error: checklistError } = await supabase.from("job_subtasks").insert(subtaskRows);
+          if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
+        }
       }
       navigate("/");
     } catch (err) {
