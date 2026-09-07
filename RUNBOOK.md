@@ -1,7 +1,13 @@
 # Running this against Supabase
 
-This app needs its **own** Supabase project — separate from Tree Tops Hub's
-(`qkbpsqlrzygcairtidye`). Nothing here should touch that project.
+This app runs on its own long-standing Supabase project
+(`ozhwgrzlpvfdemmogmav`). Tree Tops Hub and ParkMan2 were migrated into
+this same project on 28 Aug 2026 (each in its own schema, `hub` and
+`parkman2` — see `SUPABASE-CONSOLIDATION-PLAN.md` for the full runbook
+and history), so this is now the shared project for all three apps, with
+Maintenance itself untouched by that move and still using `public`. The
+old Hub/ParkMan2 project (`qkbpsqlrzygcairtidye`) is retired/pending
+decommission — don't point anything at it.
 
 ## 1. Create the project
 
@@ -164,10 +170,12 @@ If this happens again, check in this order before assuming it's a code bug:
    nothing's listed there, open a support ticket via the dashboard rather
    than continuing to debug from the app side.
 
-See also `SUPABASE-CONSOLIDATION-PLAN.md` — a live proposal to fold this
-app into the same Supabase project Hub and ParkMan2 already share, which
-would mean one Pro+Micro bill covering all three apps instead of paying for
-this app's upgrade in isolation.
+See also `SUPABASE-CONSOLIDATION-PLAN.md` — this consolidation is now
+**done** (28 Aug 2026): Hub and ParkMan2 were moved into this app's own
+Supabase project rather than the other way around, so one Pro+Micro bill
+now covers all three apps. Phase 5 (final decommission of the old
+`qkbpsqlrzygcairtidye` project) was still pending as of that doc's last
+update — check its "What's left" section for current status.
 
 ## What's NOT done yet
 

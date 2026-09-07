@@ -8,9 +8,12 @@ automatically, every session.
 
 1. Run `git status` and `git log -1` — confirm a clean, up to date `main`
    before editing anything.
-2. This is a **separate Supabase project** from Tree Tops Hub
-   (`qkbpsqlrzygcairtidye`) — never point this app at the Hub's project,
-   and never assume Hub migrations/tables apply here.
+2. This app owns the shared Supabase project (`ozhwgrzlpvfdemmogmav`) —
+   Tree Tops Hub and ParkMan2 were migrated into it on 28 Aug 2026 (see
+   `SUPABASE-CONSOLIDATION-PLAN.md`), each in its own schema (`hub`,
+   `parkman2`), while this app keeps using `public` and stays otherwise
+   untouched. Never write cross-schema queries or assume Hub/ParkMan2
+   tables live in `public` — they're isolated by schema, not by project.
 3. The deploy pipeline (`.github/workflows/deploy.yml`, GitHub Pages) is
    **confirmed live**, hooked up to the custom domain
    `jobs.treetops.co.uk`. Pushing to `main` builds and deploys
