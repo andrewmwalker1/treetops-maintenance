@@ -6,8 +6,8 @@ this same project on 28 Aug 2026 (each in its own schema, `hub` and
 `parkman2` — see `SUPABASE-CONSOLIDATION-PLAN.md` for the full runbook
 and history), so this is now the shared project for all three apps, with
 Maintenance itself untouched by that move and still using `public`. The
-old Hub/ParkMan2 project (`qkbpsqlrzygcairtidye`) is retired/pending
-decommission — don't point anything at it.
+old Hub/ParkMan2 project (`qkbpsqlrzygcairtidye`) was deleted 7 Sep 2026
+— that project ID no longer exists, don't point anything at it.
 
 ## 1. Create the project
 
@@ -170,12 +170,11 @@ If this happens again, check in this order before assuming it's a code bug:
    nothing's listed there, open a support ticket via the dashboard rather
    than continuing to debug from the app side.
 
-See also `SUPABASE-CONSOLIDATION-PLAN.md` — this consolidation is now
-**done** (28 Aug 2026): Hub and ParkMan2 were moved into this app's own
-Supabase project rather than the other way around, so one Pro+Micro bill
-now covers all three apps. Phase 5 (final decommission of the old
-`qkbpsqlrzygcairtidye` project) was still pending as of that doc's last
-update — check its "What's left" section for current status.
+See also `SUPABASE-CONSOLIDATION-PLAN.md` — this consolidation is fully
+**done** (28 Aug – 7 Sep 2026): Hub and ParkMan2 were moved into this
+app's own Supabase project rather than the other way around, so one
+Pro+Micro bill now covers all three apps, and the old
+`qkbpsqlrzygcairtidye` project has since been deleted.
 
 ## What's NOT done yet
 

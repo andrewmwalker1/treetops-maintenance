@@ -827,17 +827,25 @@ users to manually toggle anything off and on, which was the original
 plan and wouldn't have been reliable to communicate to real park guests
 anyway.
 
-## What's left — Phase 5 (verify + decommission)
+## Phase 5 — verify + decommission: done (7 Sep 2026)
 
-Smoke test as real users over the next few days (Andy: try an actual
-magic-link sign-in on both apps when convenient — not yet verified
-end-to-end). Confirm zero new write activity on `qkbpsqlrzygcairtidye`
-for 48h (catches any stale PWA still pointed at the old URL — Hub's
-service worker in particular may serve a cached old build to returning
-visitors until it self-updates). Keep the old project alive, untouched,
-for at least one full week as the rollback safety net. After that:
-delete `qkbpsqlrzygcairtidye` (the only truly irreversible step left) and
-clean up the scratchpad credential files from this session.
+Before deletion: confirmed Hub (`hub.treetops.co.uk`) live and rendering
+real data, deployed bundle referencing only `ozhwgrzlpvfdemmogmav`; and
+Maintenance (`jobs.treetops.co.uk`) loading cleanly with no console
+errors (Maintenance was never on the old project, so never at risk).
+ParkMan2 not separately re-verified at this point — Andy's call, it's
+low-traffic and not one of the two apps he considers live day-to-day.
+
+**`qkbpsqlrzygcairtidye` (`hub-treetops-db`) has been deleted** — Andy
+confirmed via the Supabase dashboard, Settings → General → Delete
+project, 7 Sep 2026, ten days after the 28 Aug cutover. This project ID
+no longer exists; don't reference it as live anywhere, and treat any
+doc/comment still pointing at it (outside this historical record) as
+stale.
+
+The whole consolidation — Hub and ParkMan2 now permanently live in
+`ozhwgrzlpvfdemmogmav`, each in their own schema, Maintenance untouched
+throughout — is complete. Nothing left from this plan.
 
 ## Why this needs a local Claude Code session, not a cloud one
 Discovered 28 Aug 2026: a cloud/web Claude Code session's network egress
