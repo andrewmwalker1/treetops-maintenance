@@ -523,9 +523,13 @@ consolidation pattern from day one.
   `{ db: { schema: "parkman2" } }` to `createClient()` — **zero source
   changes needed**, redeploy as-is. No name collision with Maintenance's
   8 functions.
-- Storage buckets: need to check ParkMan2's actual bucket names for
-  collisions against Maintenance's 4 (`job-photos`, `fault-photos`,
-  `ra-ms-pdfs`, `contractor-documents`) before Phase 3 — not yet checked.
+- Storage buckets: **checked (7 Sep 2026), no collisions.** ParkMan2 has
+  two (`customer-documents`, `letter-templates`, from
+  `25-document-register.sql`/`23-letter-templates.sql`), confirmed live
+  on `ozhwgrzlpvfdemmogmav` alongside Hub's `info-pdfs` and Maintenance's
+  now-5 buckets (`job-photos`, `fault-photos`, `ra-ms-pdfs`,
+  `contractor-documents`, plus `meter-photos` added later in
+  `52-meter-readings-schema.sql`) — 8 buckets total, all unique names.
 
 ## Hub → new `hub` schema (the genuinely new complexity)
 
