@@ -413,17 +413,17 @@ min (no in-app banner exists to enforce this).
   action in this whole plan.** Don't shorten the one-week window under
   cost pressure.
 
-## Credentials already collected (28 Aug 2026 session — re-verify/rotate)
+## Credentials from the 28 Aug 2026 session — rotated/deleted (7 Sep 2026)
 - Maintenance project ref: `ozhwgrzlpvfdemmogmav`, region `eu-west-1`
-  (Ireland).
-- Target project ref: `qkbpsqlrzygcairtidye`, region unconfirmed.
-- Publishable and secret keys for both projects, and a Personal Access
-  Token, were shared directly in that session's chat — **not recorded
-  here on purpose.** Get fresh ones (or reuse the same ones if Andy still
-  has them) when picking this up — do not go looking for them in old chat
-  history as a substitute for asking Andy directly, and rotate/delete them
-  once the migration is verified done, per the plan's own hygiene notes
-  above.
+  (Ireland). Still the live shared project.
+- Old target project ref `qkbpsqlrzygcairtidye` — **deleted** (see Phase 5
+  above), no longer exists.
+- The Personal Access Token and secret key shared directly in that
+  session's chat (never recorded here, by design) have both been
+  revoked: the PAT ("Maintenance DB migration") was deleted outright,
+  and `ozhwgrzlpvfdemmogmav`'s secret key was rotated — old value
+  deleted, replaced with a fresh one. Neither old value works any more.
+  Nothing left to clean up here.
 
 ---
 
@@ -609,7 +609,9 @@ Already re-done above for the target. Still needed before Phase 1:
   database (they're moving *out* of `qkbpsqlrzygcairtidye`, which itself
   doesn't need backing up since it's not being decommissioned — but the
   data leaving it does).
-- ParkMan2 storage bucket names (not yet checked against Maintenance's 4).
+- ~~ParkMan2 storage bucket names (not yet checked against Maintenance's 4).~~
+  Checked 7 Sep 2026, no collisions — see the ParkMan2 schema section
+  below.
 - Whether any Hub or ParkMan2 user email needs reconciling against an
   existing Maintenance account — the original "everyone uses the same
   email" confirmation was scoped to Hub/ParkMan2 overlap, not Maintenance.
