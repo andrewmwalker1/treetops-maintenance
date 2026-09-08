@@ -19,6 +19,7 @@ import ForceCheckInKey from "./pages/ForceCheckInKey.jsx";
 import HandoverKey from "./pages/HandoverKey.jsx";
 import KeysGate from "./components/KeysGate.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import OfficeHub from "./pages/OfficeHub.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
 import Admin from "./pages/Admin.jsx";
 import KioskSignIn from "./kiosk/KioskSignIn.jsx";
@@ -224,6 +225,7 @@ function AppShell() {
         <Route path="/key-register/force-checkin" element={<KeysGate><ForceCheckInKey /></KeysGate>} />
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/office-hub" element={<OfficeHub />} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/meter-reading" element={<MeterReadingHome />} />
         <Route path="/meter-reading/scan" element={<LazyRoute Component={ScanMeter} />} />

@@ -11,6 +11,7 @@ import Menu, { MenuHeader, MenuItem, MenuSeparator } from "../ui/Menu.jsx";
 import { Switch } from "../ui/primitives.jsx";
 import {
   IconEquipment,
+  IconFolder,
   IconJobs,
   IconKeys,
   IconMeters,
@@ -103,6 +104,9 @@ export default function Layout({ children }) {
   const navItems = [
     { to: "/", label: "Jobs", end: true, Icon: IconJobs, tabBar: true },
     { to: "/dashboard", label: "Dashboard", Icon: IconOverview, tabBar: false },
+    ...(permissions.has("can_use_office_hub")
+      ? [{ to: "/office-hub", label: "Office Hub", Icon: IconFolder, tabBar: false }]
+      : []),
     { to: "/equipment", label: "Equipment", shortLabel: "Kit", Icon: IconEquipment, tabBar: true },
     ...(permissions.has("can_use_key_system")
       ? [{ to: "/key-register", label: "Keys", Icon: IconKeys, tabBar: true }]

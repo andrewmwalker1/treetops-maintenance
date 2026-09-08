@@ -6,6 +6,33 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "license-agreement-builder",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "http-server",
+        "C:\\Users\\andy\\Documents\\GitHub\\license-agreement-builder",
+        "-p",
+        "5180",
+        "-c-1"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "treetops-office-hub-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "C:\\Users\\andy\\Documents\\GitHub\\treetops-office-hub",
+        "--",
+        "--port",
+        "5174",
+        "--strictPort"
+      ],
+      "port": 5174
     }
   ]
 }

@@ -22,6 +22,7 @@ import RoleKeyReasonsTab from "./admin/RoleKeyReasonsTab.jsx";
 import EquipmentCheckoutLogTab from "./admin/EquipmentCheckoutLogTab.jsx";
 import ContractorsTab from "./admin/ContractorsTab.jsx";
 import GroupsTab from "./admin/GroupsTab.jsx";
+import OfficeHubTab from "./admin/OfficeHubTab.jsx";
 import { EmptyState, PageHeader } from "../ui/primitives.jsx";
 import { IconChevronDown } from "../ui/icons.jsx";
 import "./Admin.css";
@@ -51,6 +52,7 @@ const ALL_TABS = [
   { key: "roleVisibility", label: "Role visibility", Component: RoleVisibilityTab, permission: "can_manage_roles_and_permissions" },
   { key: "jobAssignment", label: "Job assignment", Component: JobAssignmentTab, permission: "can_manage_roles_and_permissions" },
   { key: "users", label: "Users", Component: UsersTab, permission: "can_manage_users" },
+  { key: "officeHub", label: "Office Hub catalog", Component: OfficeHubTab, permission: "can_manage_office_hub_catalog" },
 ];
 
 // Purely a display grouping -- doesn't affect ALL_TABS' permission gating
