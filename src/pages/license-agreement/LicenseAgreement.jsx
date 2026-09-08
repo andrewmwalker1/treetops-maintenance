@@ -172,7 +172,7 @@ export default function LicenseAgreement() {
                 fontSize: "var(--text-xs)", fontWeight: 600, padding: "5px 12px", borderRadius: "var(--radius-full)",
                 border: `1px solid ${isActive ? colors.moss : isDone ? colors.okBorder : colors.line}`,
                 background: isActive ? colors.moss : isDone ? colors.okSurface : colors.paper,
-                color: isActive ? "#fff" : isDone ? colors.okInk : colors.inkSoft,
+                color: isActive ? colors.onDark : isDone ? colors.okInk : colors.inkSoft,
               }}
             >
               {s.label}

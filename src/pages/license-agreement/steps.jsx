@@ -237,7 +237,7 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
           <Hint>Campmanager stores joint owners squashed together (e.g. Title "Mr &amp; Mrs", First name "Jane &amp; Mark") — split out here so each person's name is correct on the signature page. Add or remove people as needed.</Hint>
 
           {wizard.peopleAutoSwapped && (
-            <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: "#faf3e2", border: "1px solid #e4ce93", color: "#6e5514", borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
+            <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: colors.warnSurface, border: `1px solid ${colors.warnBorder}`, color: colors.warnInk, borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
               Titles didn't match the usual gender for these first names, so they've been auto-swapped. This is a guess, not a guarantee — please check it's right.
             </div>
           )}
@@ -432,7 +432,7 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         </Field>
       </div>
       {wifiAlreadyInstalled && (
-        <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: "#faf3e2", border: "1px solid #e4ce93", color: "#6e5514", borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
+        <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: colors.warnSurface, border: `1px solid ${colors.warnBorder}`, color: colors.warnInk, borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
           Wifi Already Installed
         </div>
       )}
@@ -561,7 +561,7 @@ export function Step4Signees({ wizard, onContinue }) {
         const name = personFullName(person);
         return (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: colors.surfaceHover, border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
-            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: colors.moss, color: "#fff", fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0 }}>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: colors.moss, color: colors.onDark, fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0 }}>
               {i + 1}
             </span>
             <span style={{ fontWeight: name ? 600 : 400, color: name ? colors.ink : colors.inkSoft, fontStyle: name ? "normal" : "italic" }}>{name || "No name entered"}</span>
@@ -595,7 +595,7 @@ export function Step5Generate({ wizard, generating, generateError, generateSucce
       <Hint>Merges everything above into the Purchase &amp; Licence Agreement and saves it as a .docx.</Hint>
 
       {changes.length > 0 && (
-        <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: "#faf3e2", border: "1px solid #e4ce93", color: "#6e5514", borderRadius: "var(--radius-sm)", marginBottom: 20 }}>
+        <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: colors.warnSurface, border: `1px solid ${colors.warnBorder}`, color: colors.warnInk, borderRadius: "var(--radius-sm)", marginBottom: 20 }}>
           Remember to update Campmanager too — this wizard doesn't write back to it:
           {changes.map((c, i) => <div key={i}>• {c}</div>)}
         </div>
