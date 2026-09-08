@@ -4,8 +4,8 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { colors, space } from "../lib/theme.js";
 import {
-  Alert, Button, Card, EmptyState, IconArrowDown, IconArrowUp, IconButton,
-  PageHeader, SkeletonList,
+  Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, IconButton,
+  IconSearch, Input, PageHeader, SkeletonList,
 } from "../ui/index.js";
 
 // Lazy: pulls in docxtemplater/pizzip, needed only by whoever actually
@@ -38,6 +38,11 @@ async function loadHubData(key, fallback) {
 
 const categoryName = (categories, id) => categories.find((c) => c.id === id)?.name || "Uncategorised";
 
+// Same search-by-name/address/category + category-chip filtering Hub's
+// own guest-facing Contractors/Explore screens already give customers
+// (App.jsx's ContractorsScreen/DirectoryScreen there) -- kept in step
+// deliberately rather than a plain unfiltered list, since staff have
+// exactly as much need to quickly find one contractor among many.
 function DirectoriesPanel() {
   const [view, setView] = useState("contractors");
   const [loading, setLoading] = useState(true);
@@ -45,6 +50,8 @@ function DirectoriesPanel() {
   const [contractorCategories, setContractorCategories] = useState([]);
   const [directory, setDirectory] = useState([]);
   const [directoryCategories, setDirectoryCategories] = useState([]);
+  const [query, setQuery] = useState("");
+  const [categoryId, setCategoryId] = useState("all");
 
   useEffect(() => {
     Promise.all([
@@ -58,8 +65,28 @@ function DirectoriesPanel() {
     });
   }, []);
 
+  function switchView(next) {
+    setView(next);
+    setQuery("");
+    setCategoryId("all");
+  }
+
   const rows = view === "contractors" ? contractors : directory;
   const categories = view === "contractors" ? contractorCategories : directoryCategories;
+  const pillOptions = [{ id: "all", name: "All" }, ...categories];
+
+  const q = query.trim().toLowerCase();
+  const filtered = rows
+    .filter((r) => categoryId === "all" || r.categoryId === categoryId)
+    .filter((r) => {
+      if (!q) return true;
+      return (
+        r.name.toLowerCase().includes(q) ||
+        (r.address || "").toLowerCase().includes(q) ||
+        categoryName(categories, r.categoryId).toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => (view === "explore" ? (a.mins ?? 9999) - (b.mins ?? 9999) : 0));
 
   return (
     <div>
@@ -67,22 +94,46 @@ function DirectoriesPanel() {
         Read-only — pulled live from Tree Tops Hub. Manage these in Hub's own admin portal.
       </p>
       <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-        <Button variant={view === "contractors" ? "primary" : "secondary"} onClick={() => setView("contractors")}>Contractors</Button>
-        <Button variant={view === "explore" ? "primary" : "secondary"} onClick={() => setView("explore")}>Places to Explore</Button>
+        <Button variant={view === "contractors" ? "primary" : "secondary"} onClick={() => switchView("contractors")}>Contractors</Button>
+        <Button variant={view === "explore" ? "primary" : "secondary"} onClick={() => switchView("explore")}>Places to Explore</Button>
       </div>
+
       {loading ? (
         <SkeletonList rows={3} height={56} />
-      ) : rows.length === 0 ? (
-        <EmptyState title="Nothing to show" />
       ) : (
-        rows.map((r) => (
-          <Card pad="sm" key={r.id} style={{ marginBottom: "var(--space-2)" }}>
-            <div style={{ fontWeight: 600 }}>{r.name}</div>
-            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
-              {categoryName(categories, r.categoryId)}{r.phone ? ` · ${r.phone}` : ""}{r.address ? ` · ${r.address}` : ""}
-            </div>
-          </Card>
-        ))
+        <>
+          <div style={{ position: "relative", marginBottom: "var(--space-2)" }}>
+            <IconSearch size={15} color={colors.inkSoft} style={{ position: "absolute", left: 10, top: 10 }} />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={view === "contractors" ? "Search by name or service..." : "Search by name or area..."}
+              style={{ paddingLeft: 32, width: "100%" }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: "var(--space-2)", overflowX: "auto", paddingBottom: 2, marginBottom: "var(--space-3)" }}>
+            {pillOptions.map((c) => (
+              <Chip key={c.id} active={categoryId === c.id} onClick={() => setCategoryId(c.id)} style={{ flexShrink: 0 }}>
+                {c.name}
+              </Chip>
+            ))}
+          </div>
+          <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, margin: "0 0 var(--space-2)" }}>
+            {filtered.length} {filtered.length === 1 ? "result" : "results"}
+          </p>
+          {filtered.length === 0 ? (
+            <EmptyState title="No matches">Try a different search or category.</EmptyState>
+          ) : (
+            filtered.map((r) => (
+              <Card pad="sm" key={r.id} style={{ marginBottom: "var(--space-2)" }}>
+                <div style={{ fontWeight: 600 }}>{r.name}</div>
+                <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
+                  {categoryName(categories, r.categoryId)}{r.phone ? ` · ${r.phone}` : ""}{r.address ? ` · ${r.address}` : ""}
+                </div>
+              </Card>
+            ))
+          )}
+        </>
       )}
     </div>
   );
