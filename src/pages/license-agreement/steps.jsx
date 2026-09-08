@@ -91,9 +91,11 @@ function newPriceForSale(unit, seasonLength, ratesFullYearDefault, selectedRow) 
     ratesPaymentYear: new Date().getFullYear(),
     deposit: { amount: "", date: "" },
     partExchange: { amount: "", date: "" },
-    balanceDate: "",
+    // Defaulted to the licence start date -- both are usually the same
+    // day in practice; still freely editable if a sale differs.
+    balanceDate: unit?.licenceStart || "",
     completionType: "fixed",
-    completionDate: "",
+    completionDate: unit?.licenceStart || "",
   };
 }
 
