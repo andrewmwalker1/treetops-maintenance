@@ -58,7 +58,7 @@ export default function Login() {
   return (
     <div style={{ ...pageStyle, display: "flex", alignItems: "center", justifyContent: "center", padding: "var(--space-6)" }}>
       <Card pad="lg" style={{ maxWidth: "380px", width: "100%" }}>
-        <PageHeader title="Tree Tops Maintenance" />
+        <PageHeader title="Tree Tops" />
         <p style={{ color: colors.inkSoft, marginTop: 0 }}>Sign in with your work email — we'll send you a link and a code.</p>
 
         {status === "sent" || status === "verifying" ? (

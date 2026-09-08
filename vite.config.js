@@ -33,9 +33,9 @@ export default defineConfig({
       },
       includeAssets: ["favicon-32.png", "apple-touch-icon.png"],
       manifest: {
-        name: "Tree Tops Maintenance",
-        short_name: "Maintenance",
-        description: "Maintenance and H&S job tracking for Tree Tops Caravan Park.",
+        name: "Tree Tops",
+        short_name: "Tree Tops",
+        description: "Staff app for Tree Tops Caravan Park — jobs, equipment, keys, meters, H&S, Office Hub and licence agreements.",
         start_url: "/",
         scope: "/",
         display: "standalone",

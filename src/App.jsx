@@ -42,6 +42,11 @@ const DownloadMeters = lazy(() => import("./pages/meters/DownloadMeters.jsx"));
 const MeterSettings = lazy(() => import("./pages/meters/MeterSettings.jsx"));
 const MeterLabels = lazy(() => import("./pages/meters/MeterLabels.jsx"));
 
+// Lazy-loaded: docxtemplater + pizzip only exist to merge a Word
+// document, needed only by the office staff who process caravan
+// sales -- same reasoning as the meter tools above.
+const LicenseAgreement = lazy(() => import("./pages/license-agreement/LicenseAgreement.jsx"));
+
 function LazyRoute({ Component }) {
   return (
     <Suspense fallback={<p style={{ color: colors.inkSoft }}>Loading…</p>}>
@@ -226,6 +231,7 @@ function AppShell() {
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/office-hub" element={<OfficeHub />} />
+        <Route path="/license-agreement" element={<LazyRoute Component={LicenseAgreement} />} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/meter-reading" element={<MeterReadingHome />} />
         <Route path="/meter-reading/scan" element={<LazyRoute Component={ScanMeter} />} />

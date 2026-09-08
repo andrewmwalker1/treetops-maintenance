@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { NavLink, Navigate, useParams } from "react-router-dom";
 import { usePermissions } from "../lib/permissions.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
@@ -23,6 +23,11 @@ import EquipmentCheckoutLogTab from "./admin/EquipmentCheckoutLogTab.jsx";
 import ContractorsTab from "./admin/ContractorsTab.jsx";
 import GroupsTab from "./admin/GroupsTab.jsx";
 import OfficeHubTab from "./admin/OfficeHubTab.jsx";
+// Lazy: pulls in pizzip (template conversion) -- only the admins who
+// manage this settings screen need that weight, not every visit to
+// /admin/*. Same reasoning as App.jsx's meter-tools/License Agreement
+// lazy routes.
+const LicenseAgreementSettingsTab = lazy(() => import("./admin/LicenseAgreementSettingsTab.jsx"));
 import { EmptyState, PageHeader } from "../ui/primitives.jsx";
 import { IconChevronDown } from "../ui/icons.jsx";
 import "./Admin.css";
@@ -53,6 +58,7 @@ const ALL_TABS = [
   { key: "jobAssignment", label: "Job assignment", Component: JobAssignmentTab, permission: "can_manage_roles_and_permissions" },
   { key: "users", label: "Users", Component: UsersTab, permission: "can_manage_users" },
   { key: "officeHub", label: "Office Hub catalog", Component: OfficeHubTab, permission: "can_manage_office_hub_catalog" },
+  { key: "licenseAgreement", label: "License agreement settings", Component: LicenseAgreementSettingsTab, permission: "can_manage_license_agreement_settings" },
 ];
 
 // Purely a display grouping -- doesn't affect ALL_TABS' permission gating
@@ -101,7 +107,9 @@ export default function Admin() {
       {isMobile ? (
         <div>
           <MobileNav groups={visibleGroups} activeKey={activeTab.key} />
-          <ActiveComponent />
+          <Suspense fallback={<p>Loading…</p>}>
+            <ActiveComponent />
+          </Suspense>
         </div>
       ) : (
         <div className="tt-admin">
@@ -122,7 +130,9 @@ export default function Admin() {
             ))}
           </nav>
           <div className="tt-admin__body">
-            <ActiveComponent />
+            <Suspense fallback={<p>Loading…</p>}>
+              <ActiveComponent />
+            </Suspense>
           </div>
         </div>
       )}

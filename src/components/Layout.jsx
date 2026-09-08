@@ -10,6 +10,7 @@ import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
 import Menu, { MenuHeader, MenuItem, MenuSeparator } from "../ui/Menu.jsx";
 import { Switch } from "../ui/primitives.jsx";
 import {
+  IconEdit,
   IconEquipment,
   IconFolder,
   IconJobs,
@@ -106,6 +107,9 @@ export default function Layout({ children }) {
     { to: "/dashboard", label: "Dashboard", Icon: IconOverview, tabBar: false },
     ...(permissions.has("can_use_office_hub")
       ? [{ to: "/office-hub", label: "Office Hub", Icon: IconFolder, tabBar: false }]
+      : []),
+    ...(permissions.has("can_use_license_agreement")
+      ? [{ to: "/license-agreement", label: "License Agreement", shortLabel: "Agreement", Icon: IconEdit, tabBar: false }]
       : []),
     { to: "/equipment", label: "Equipment", shortLabel: "Kit", Icon: IconEquipment, tabBar: true },
     ...(permissions.has("can_use_key_system")
