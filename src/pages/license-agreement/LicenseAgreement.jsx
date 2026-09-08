@@ -74,6 +74,12 @@ export default function LicenseAgreement() {
   const [drafts, setDrafts] = useState([]);
 
   const [step, setStep] = useState(1);
+  // Tracks the furthest step reached, separately from which one's
+  // currently shown -- lets the step pills act as real back/forward
+  // navigation (click an earlier one to revisit it) without allowing a
+  // jump ahead to a step whose data (e.g. wizard.price) doesn't exist
+  // yet.
+  const [maxStepReached, setMaxStepReached] = useState(1);
   const [wizard, setWizard] = useState(BLANK_WIZARD);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState("");
@@ -96,6 +102,17 @@ export default function LicenseAgreement() {
     });
   }, [org, permissions]);
 
+  // The wizard now swaps one step's content for another instead of the
+  // original single scrolling page -- without this, moving to the next
+  // (or a previous) step leaves the view wherever it happened to be
+  // scrolled to on the last one, rather than starting at the top of the
+  // new content. Layout.jsx's scrollable region is <main class="tt-main">,
+  // not the window itself.
+  useEffect(() => {
+    document.querySelector(".tt-main")?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }, [step]);
+
   if (!permissions.has("can_use_license_agreement")) {
     return <EmptyState title="No access">You don't have permission to use the License Agreement Builder. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
@@ -104,8 +121,14 @@ export default function LicenseAgreement() {
   function startNew() {
     setWizard(BLANK_WIZARD);
     setStep(1);
+    setMaxStepReached(1);
     setGenerateError("");
     setGenerateSuccess("");
+  }
+
+  function goToStep(n) {
+    setStep(n);
+    setMaxStepReached((m) => Math.max(m, n));
   }
 
   async function saveDraft() {
@@ -125,6 +148,7 @@ export default function LicenseAgreement() {
     const { step: savedStep, ...savedWizard } = draft.data;
     setWizard(savedWizard);
     setStep(savedStep || 5);
+    setMaxStepReached(savedStep || 5);
     setGenerateError("");
     setGenerateSuccess("");
   }
@@ -165,18 +189,22 @@ export default function LicenseAgreement() {
         {STEPS.map((s) => {
           const isActive = step === s.key;
           const isDone = step > s.key;
+          const reachable = s.key <= maxStepReached;
           return (
-            <span
+            <Button
               key={s.key}
+              disabled={!reachable}
+              onClick={() => goToStep(s.key)}
               style={{
                 fontSize: "var(--text-xs)", fontWeight: 600, padding: "5px 12px", borderRadius: "var(--radius-full)",
                 border: `1px solid ${isActive ? colors.moss : isDone ? colors.okBorder : colors.line}`,
                 background: isActive ? colors.moss : isDone ? colors.okSurface : colors.paper,
                 color: isActive ? colors.onDark : isDone ? colors.okInk : colors.inkSoft,
+                opacity: reachable ? 1 : 0.6,
               }}
             >
               {s.label}
-            </span>
+            </Button>
           );
         })}
       </div>
@@ -187,12 +215,12 @@ export default function LicenseAgreement() {
           setWizard={setWizard}
           areaSeasonMap={areaSeasonMap}
           ratesFullYearDefault={ratesFullYearDefault}
-          onContinue={() => setStep(2)}
+          onContinue={() => goToStep(2)}
         />
       )}
-      {step === 2 && <Step2Price wizard={wizard} setWizard={setWizard} pitchBandsTable={pitchBandsTable} onContinue={() => setStep(3)} />}
-      {step === 3 && <Step3Instructions wizard={wizard} setWizard={setWizard} onContinue={() => setStep(4)} />}
-      {step === 4 && <Step4Signees wizard={wizard} onContinue={() => setStep(5)} />}
+      {step === 2 && <Step2Price wizard={wizard} setWizard={setWizard} pitchBandsTable={pitchBandsTable} onContinue={() => goToStep(3)} />}
+      {step === 3 && <Step3Instructions wizard={wizard} setWizard={setWizard} onContinue={() => goToStep(4)} />}
+      {step === 4 && <Step4Signees wizard={wizard} onContinue={() => goToStep(5)} />}
       {step === 5 && (
         <Step5Generate
           wizard={wizard}

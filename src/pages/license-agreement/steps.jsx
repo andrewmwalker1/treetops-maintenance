@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Papa from "papaparse";
 import { colors } from "../../lib/theme.js";
 import { Alert, Button, Card, Input, Select, Textarea } from "../../ui/index.js";
@@ -101,6 +101,8 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
   const [csvError, setCsvError] = useState("");
   const [rows, setRows] = useState(null);
   const [fileName, setFileName] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 
   function selectRow(row) {
     const sale = newSaleFromRow(row, areaSeasonMap);
@@ -149,13 +151,26 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
             </label>
           </div>
         ) : (
-          <label
-            style={{ display: "block", border: `2px dashed ${colors.lineStrong}`, borderRadius: "var(--radius-sm)", padding: 28, textAlign: "center", color: colors.inkSoft, cursor: "pointer" }}
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const file = e.dataTransfer.files?.[0];
+              if (file) handleFile(file);
+            }}
+            style={{
+              border: `2px dashed ${dragOver ? colors.moss : colors.lineStrong}`,
+              background: dragOver ? colors.surfaceHover : "transparent",
+              borderRadius: "var(--radius-sm)", padding: 28, textAlign: "center", color: colors.inkSoft, cursor: "pointer",
+            }}
           >
             <div style={{ fontWeight: 600, color: colors.ink, marginBottom: 4 }}>Click to choose a file, or drag one here</div>
             <div>CSV file exported from Campmanager</div>
-            <input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
-          </label>
+            <input ref={fileInputRef} type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
+          </div>
         )}
         {csvError && <Alert tone="danger" title="Something went wrong">{csvError}</Alert>}
       </Card>
