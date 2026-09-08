@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import Papa from "papaparse";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader, Select, Textarea } from "../../ui/index.js";
+import { Alert, Button, Card, Input, Select, Textarea } from "../../ui/index.js";
 import {
   computeCaravanAmount, computeMonthsToCharge, computePitchFeeProrataAmount, deriveSeasonLengthForPitch,
   derivePeopleFromRow, formatCurrency, getCampmanagerChanges, getWifiRegistrationReminder, inputValueToDate,
@@ -22,13 +22,38 @@ const CUSTOMER_FIELD_LABELS = {
   addressLine1: "Address line 1", addressLine2: "Address line 2", addressLine3: "Address line 3",
   postcode: "Postcode", country: "Country", telephone: "Telephone", mobile: "Mobile", email: "Email",
 };
+const FULL_WIDTH_FIELDS = new Set(["addressLine1", "addressLine2", "addressLine3"]);
 
+// Matches the original standalone tool's .card h2 / .card-hint / .field
+// label styling exactly (same colour tokens, just a tighter, more
+// form-dense layout than this app's usual PageHeader/Card spacing).
+export function CardTitle({ children }) {
+  return <h2 style={{ fontSize: 16, margin: "0 0 4px", color: colors.mossDark }}>{children}</h2>;
+}
+export function Hint({ children }) {
+  return <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: "0 0 18px" }}>{children}</p>;
+}
+function SectionLabel({ children }) {
+  return <p style={{ fontSize: "var(--text-sm)", textTransform: "uppercase", letterSpacing: "0.04em", color: colors.inkSoft, margin: "20px 0 4px" }}>{children}</p>;
+}
 function FieldLabel({ children }) {
-  return <span style={{ fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>{children}</span>;
+  return <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: colors.inkSoft, marginBottom: 4 }}>{children}</span>;
 }
-function Hint({ children }) {
-  return <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: 0 }}>{children}</p>;
+function Field({ label, children, full }) {
+  return (
+    <label style={{ display: "block", gridColumn: full ? "1 / -1" : undefined }}>
+      <FieldLabel>{label}</FieldLabel>
+      {children}
+    </label>
+  );
 }
+const shadedBoxStyle = { background: colors.surfaceHover, border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", padding: 16 };
+const totalRowStyle = { display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 700, fontSize: "var(--text-sm)", padding: "12px 14px", margin: "14px 0 4px", ...shadedBoxStyle };
+const grandTotalRowStyle = { ...totalRowStyle, background: colors.okSurface, borderColor: colors.okBorder, color: colors.okInk, fontSize: "var(--text-base)" };
+
+// ---------------------------------------------------------------------
+// Step 1 — Import & contact details
+// ---------------------------------------------------------------------
 
 function newSaleFromRow(row, areaSeasonMap) {
   const customer = {};
@@ -73,18 +98,13 @@ function newPriceForSale(unit, seasonLength, ratesFullYearDefault, selectedRow) 
 }
 
 export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDefault, onContinue }) {
-  const fileInputRef = useRef(null);
   const [csvError, setCsvError] = useState("");
-  const [rows, setRows] = useState(wizard.selectedRow ? null : []);
+  const [rows, setRows] = useState(null);
   const [fileName, setFileName] = useState("");
 
   function selectRow(row) {
     const sale = newSaleFromRow(row, areaSeasonMap);
-    setWizard((w) => ({
-      ...w,
-      ...sale,
-      price: newPriceForSale(sale.unit, sale.seasonLength, ratesFullYearDefault, row),
-    }));
+    setWizard((w) => ({ ...w, ...sale, price: newPriceForSale(sale.unit, sale.seasonLength, ratesFullYearDefault, row) }));
     setRows(null);
   }
 
@@ -103,12 +123,9 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
           setCsvError("No unit rows found in that file.");
           return;
         }
-        setFileName(file.name);
-        if (parsed.length === 1) {
-          selectRow(parsed[0]);
-        } else {
-          setRows(parsed);
-        }
+        setFileName(file.name + " (" + parsed.length + " row" + (parsed.length === 1 ? "" : "s") + ")");
+        if (parsed.length === 1) selectRow(parsed[0]);
+        else setRows(parsed);
       },
       error(err) {
         setCsvError("Couldn't read that file: " + err.message);
@@ -120,37 +137,66 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
 
   return (
     <div>
-      <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
-        <PageHeader title="Import sale CSV" level={2} />
+      <Card pad="md" style={{ marginBottom: 20 }}>
+        <CardTitle>Import sale CSV</CardTitle>
         <Hint>The Campmanager unit export (e.g. "Holiday Homes.csv"). If it contains more than one unit, you'll be asked which one to use.</Hint>
-        <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
-        {fileName && !rows && wizard.selectedRow && <p style={{ fontSize: "var(--text-sm)", color: colors.moss }}>{fileName} loaded</p>}
+        {wizard.selectedRow ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: colors.okSurface, border: `1px solid ${colors.okBorder}`, borderRadius: "var(--radius-sm)", color: colors.okInk, fontSize: "var(--text-sm)" }}>
+            <span>{fileName || "Sale loaded"}</span>
+            <label style={{ textDecoration: "underline", cursor: "pointer" }}>
+              Change file
+              <input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
+            </label>
+          </div>
+        ) : (
+          <label
+            style={{ display: "block", border: `2px dashed ${colors.lineStrong}`, borderRadius: "var(--radius-sm)", padding: 28, textAlign: "center", color: colors.inkSoft, cursor: "pointer" }}
+          >
+            <div style={{ fontWeight: 600, color: colors.ink, marginBottom: 4 }}>Click to choose a file, or drag one here</div>
+            <div>CSV file exported from Campmanager</div>
+            <input type="file" accept=".csv,text/csv" style={{ display: "none" }} onChange={(e) => e.target.files[0] && handleFile(e.target.files[0])} />
+          </label>
+        )}
         {csvError && <Alert tone="danger" title="Something went wrong">{csvError}</Alert>}
       </Card>
 
       {rows && (
-        <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
-          <PageHeader title="Which unit is this sale for?" level={2} />
+        <Card pad="md" style={{ marginBottom: 20 }}>
+          <CardTitle>Which unit is this sale for?</CardTitle>
           <Hint>This file has more than one unit — pick the one being sold.</Hint>
-          {rows.map((row, i) => (
-            <Card key={i} pad="sm" interactive onClick={() => selectRow(row)} style={{ cursor: "pointer", marginBottom: "var(--space-2)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "var(--space-3)", flexWrap: "wrap" }}>
-                <strong>{row["Unit Site"]}</strong>
-                <span>{[row["Unit Customer Title"], row["Unit Customer First Name"], row["Unit Customer Last Name"]].filter(Boolean).join(" ")}</span>
-                <span>{[row["Unit Make"], row["Unit Model"]].filter(Boolean).join(" ")}</span>
-                <span>{row["Unit Category"]}</span>
-              </div>
-            </Card>
-          ))}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
+              <thead>
+                <tr>
+                  {["Pitch", "Current owner", "Caravan", "Pitch band"].map((h) => (
+                    <th key={h} style={{ textAlign: "left", fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.04em", color: colors.inkSoft, borderBottom: `1px solid ${colors.line}`, padding: "6px 10px" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row, i) => (
+                  <tr key={i} onClick={() => selectRow(row)} style={{ cursor: "pointer" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = colors.surfaceHover)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <td style={{ padding: "8px 10px", borderBottom: `1px solid ${colors.line}` }}>{row["Unit Site"]}</td>
+                    <td style={{ padding: "8px 10px", borderBottom: `1px solid ${colors.line}` }}>{[row["Unit Customer Title"], row["Unit Customer First Name"], row["Unit Customer Last Name"]].filter(Boolean).join(" ")}</td>
+                    <td style={{ padding: "8px 10px", borderBottom: `1px solid ${colors.line}` }}>{[row["Unit Make"], row["Unit Model"]].filter(Boolean).join(" ")}</td>
+                    <td style={{ padding: "8px 10px", borderBottom: `1px solid ${colors.line}` }}>{row["Unit Category"]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
       {wizard.selectedRow && (
         <Card pad="md">
-          <PageHeader title="Customer contact details" level={2} />
+          <CardTitle>Customer contact details</CardTitle>
           <Hint>Pulled from the CSV for the selected unit. Check and correct anything before continuing — these feed the agreement's address block.</Hint>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+          <div style={{ ...shadedBoxStyle, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "12px 20px", marginBottom: 20 }}>
             {[
               ["Pitch", wizard.selectedRow["Unit Site"]],
               ["Caravan", [wizard.selectedRow["Unit Make"], wizard.selectedRow["Unit Model"]].filter(Boolean).join(" ")],
@@ -158,48 +204,47 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
               ["Size", wizard.selectedRow["Unit Length"] && wizard.selectedRow["Unit Width"] ? `${wizard.selectedRow["Unit Length"]} x ${wizard.selectedRow["Unit Width"]}` : ""],
               ["Serial number", wizard.selectedRow["Unit Serial Number"]],
             ].map(([label, value]) => (
-              <div key={label}>
-                <FieldLabel>{label}</FieldLabel>
-                <span>{value || "—"}</span>
+              <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.04em", color: colors.inkSoft }}>{label}</span>
+                <span style={{ fontSize: "var(--text-sm)", fontWeight: 600 }}>{value || "—"}</span>
               </div>
             ))}
           </div>
 
-          <div style={{ marginBottom: "var(--space-4)" }}>
+          <div style={{ marginBottom: 14 }}>
             <FieldLabel>Build specification</FieldLabel>
-            <div style={{ display: "flex", gap: "var(--space-4)" }}>
+            <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
               {["EN 1647", "BS 3632"].map((v) => (
-                <label key={v} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+                <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                   <input type="radio" checked={wizard.buildSpec === v} onChange={() => setWizard((w) => ({ ...w, buildSpec: v }))} /> {v}
                 </label>
               ))}
             </div>
           </div>
 
-          <div style={{ marginBottom: "var(--space-4)" }}>
+          <div style={{ marginBottom: 14 }}>
             <FieldLabel>Will you be the first owner of your Holiday Caravan?</FieldLabel>
-            <div style={{ display: "flex", gap: "var(--space-4)" }}>
+            <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
               {[["yes", "Yes"], ["no", "No"]].map(([v, label]) => (
-                <label key={v} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+                <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                   <input type="radio" checked={wizard.firstOwner === v} onChange={() => setWizard((w) => ({ ...w, firstOwner: v }))} /> {label}
                 </label>
               ))}
             </div>
           </div>
 
-          <PageHeader title="Who owns this caravan" level={2} />
+          <SectionLabel>Who owns this caravan</SectionLabel>
           <Hint>Campmanager stores joint owners squashed together (e.g. Title "Mr &amp; Mrs", First name "Jane &amp; Mark") — split out here so each person's name is correct on the signature page. Add or remove people as needed.</Hint>
 
           {wizard.peopleAutoSwapped && (
-            <Alert tone="warn" title="Titles auto-swapped">
+            <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: "#faf3e2", border: "1px solid #e4ce93", color: "#6e5514", borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
               Titles didn't match the usual gender for these first names, so they've been auto-swapped. This is a guess, not a guarantee — please check it's right.
-            </Alert>
+            </div>
           )}
 
           {wizard.people.map((person, i) => (
-            <div key={i} style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)", alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div>
-                <FieldLabel>Title</FieldLabel>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "110px 1fr 1fr auto", gap: 10, alignItems: "end", marginBottom: 10 }}>
+              <Field label="Title">
                 <Input
                   list="license-agreement-title-suggestions"
                   value={person.title}
@@ -207,11 +252,9 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
                     const people = wizard.people.map((p, idx) => (idx === i ? { ...p, title: e.target.value } : p));
                     setWizard((w) => ({ ...w, people, peopleAutoSwapped: false }));
                   }}
-                  style={{ width: 100 }}
                 />
-              </div>
-              <div>
-                <FieldLabel>First name</FieldLabel>
+              </Field>
+              <Field label="First name">
                 <Input
                   value={person.firstName}
                   onChange={(e) => {
@@ -219,9 +262,8 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
                     setWizard((w) => ({ ...w, people }));
                   }}
                 />
-              </div>
-              <div>
-                <FieldLabel>Last name</FieldLabel>
+              </Field>
+              <Field label="Last name">
                 <Input
                   value={person.lastName}
                   onChange={(e) => {
@@ -229,14 +271,14 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
                     setWizard((w) => ({ ...w, people }));
                   }}
                 />
-              </div>
+              </Field>
               <Button
                 variant="danger"
                 disabled={wizard.people.length <= 1}
                 onClick={() => setWizard((w) => ({ ...w, people: w.people.filter((_, idx) => idx !== i) }))}
                 title="Remove this person"
               >
-                Remove
+                ✕
               </Button>
             </div>
           ))}
@@ -245,36 +287,38 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
           </datalist>
 
           {wizard.people.length === 2 && (
-            <Button
-              onClick={() => {
-                const [a, b] = wizard.people;
-                setWizard((w) => ({ ...w, people: [{ ...a, title: b.title }, { ...b, title: a.title }], peopleAutoSwapped: false }));
-              }}
-              style={{ marginBottom: "var(--space-3)" }}
-            >
-              ⇅ Swap titles between the two people
-            </Button>
+            <div style={{ margin: "4px 0 14px" }}>
+              <Button
+                onClick={() => {
+                  const [a, b] = wizard.people;
+                  setWizard((w) => ({ ...w, people: [{ ...a, title: b.title }, { ...b, title: a.title }], peopleAutoSwapped: false }));
+                }}
+              >
+                ⇅ Swap titles between the two people
+              </Button>
+            </div>
           )}
-          <div style={{ marginBottom: "var(--space-4)" }}>
+          <div style={{ marginBottom: 20 }}>
             <Button onClick={() => setWizard((w) => ({ ...w, people: [...w.people, { title: "", firstName: "", lastName: w.people[w.people.length - 1]?.lastName || "" }] }))}>
               + Add person
             </Button>
           </div>
 
-          <PageHeader title="Contact details" level={2} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
+          <SectionLabel>Contact details</SectionLabel>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 16px", marginBottom: 20 }}>
             {Object.keys(CUSTOMER_FIELD_MAP).map((key) => (
-              <div key={key}>
-                <FieldLabel>{CUSTOMER_FIELD_LABELS[key]}</FieldLabel>
+              <Field key={key} label={CUSTOMER_FIELD_LABELS[key]} full={FULL_WIDTH_FIELDS.has(key)}>
                 <Input
                   value={wizard.customer[key] || ""}
                   onChange={(e) => setWizard((w) => ({ ...w, customer: { ...w.customer, [key]: e.target.value } }))}
                 />
-              </div>
+              </Field>
             ))}
           </div>
 
-          <Button variant="primary" disabled={!hasName} onClick={onContinue}>Continue</Button>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <Button variant="primary" disabled={!hasName} onClick={onContinue}>Continue</Button>
+          </div>
         </Card>
       )}
     </div>
@@ -289,15 +333,14 @@ function LineItemsEditor({ items, onChange, placeholder }) {
   return (
     <div>
       {items.map((item, i) => (
-        <div key={i} style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 130px auto", gap: 10, alignItems: "center", marginBottom: 8 }}>
           <Input
-            style={{ flex: 2 }}
             placeholder={placeholder}
             value={item.description}
             onChange={(e) => onChange(items.map((it, idx) => (idx === i ? { ...it, description: e.target.value } : it)))}
           />
           <Input
-            type="number" step="0.01" min="0" placeholder="0.00" style={{ flex: 1 }}
+            type="number" step="0.01" min="0" placeholder="0.00"
             value={item.amount}
             onChange={(e) => onChange(items.map((it, idx) => (idx === i ? { ...it, amount: e.target.value } : it)))}
           />
@@ -307,6 +350,8 @@ function LineItemsEditor({ items, onChange, placeholder }) {
     </div>
   );
 }
+
+const readOnlyRowStyle = { background: colors.surfaceHover, color: colors.inkSoft, fontWeight: 600 };
 
 export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
   const { price, unit, seasonLength } = wizard;
@@ -348,35 +393,31 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
 
   return (
     <Card pad="md">
-      <PageHeader title="Price breakdown" level={2} />
+      <CardTitle>Price breakdown</CardTitle>
       <Hint>Line items for the purchase price, plus payment and completion. Totals update as you add items.</Hint>
 
-      <PageHeader title="Pitch band &amp; licence dates" level={2} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
-        <div>
-          <FieldLabel>Pitch band</FieldLabel>
+      <SectionLabel>Pitch band &amp; licence dates</SectionLabel>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 16px", marginBottom: 20 }}>
+        <Field label="Pitch band">
           <Select value={unit.pitchBand} onChange={(e) => setWizard((w) => ({ ...w, unit: { ...w.unit, pitchBand: e.target.value } }))}>
             {bandOptions.length === 0 && <option value="">Import the Pitch Fees table in Admin settings</option>}
             {bandOptions.map((b) => <option key={b} value={b}>{b}</option>)}
           </Select>
-        </div>
-        <div>
-          <FieldLabel>Pitch fee (full year, inc VAT)</FieldLabel>
-          <Input readOnly value={pitchBandsTable.length === 0 ? "Import the Pitch Fees table above" : fullYear === null ? "No match for this pitch band" : formatCurrency(fullYear)} />
-        </div>
-        <div>
-          <FieldLabel>Licence start date</FieldLabel>
+        </Field>
+        <Field label="Pitch fee (full year, inc VAT)">
+          <Input readOnly style={readOnlyRowStyle} value={pitchBandsTable.length === 0 ? "Import the Pitch Fees table above" : fullYear === null ? "No match for this pitch band" : formatCurrency(fullYear)} />
+        </Field>
+        <Field label="Licence start date">
           <Input type="date" value={unit.licenceStart} onChange={(e) => setLicenceDate("licenceStart", e.target.value)} />
-        </div>
-        <div>
-          <FieldLabel>Licence end date</FieldLabel>
+        </Field>
+        <Field label="Licence end date">
           <Input type="date" value={unit.licenceEnd} onChange={(e) => setLicenceDate("licenceEnd", e.target.value)} />
-        </div>
+        </Field>
         <div>
           <FieldLabel>Pitch fee season length</FieldLabel>
-          <div style={{ display: "flex", gap: "var(--space-3)" }}>
+          <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
             {[9, 10.5].map((len) => (
-              <label key={len} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+              <label key={len} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
                 <input type="radio" checked={seasonLength === len} onChange={() => setSeasonLength(len)} /> {len} months
               </label>
             ))}
@@ -384,17 +425,23 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         </div>
       </div>
 
-      <PageHeader title="Items included in the window price" level={2} />
-      <div style={{ maxWidth: 220, marginBottom: "var(--space-3)" }}>
-        <FieldLabel>Window price</FieldLabel>
-        <Input type="number" step="0.01" min="0" placeholder="0.00" value={price.windowPrice} onChange={(e) => patchPrice({ windowPrice: e.target.value })} />
+      <SectionLabel>Items included in the window price</SectionLabel>
+      <div style={{ maxWidth: 220, marginBottom: 14 }}>
+        <Field label="Window price">
+          <Input type="number" step="0.01" min="0" placeholder="0.00" value={price.windowPrice} onChange={(e) => patchPrice({ windowPrice: e.target.value })} />
+        </Field>
       </div>
-      {wifiAlreadyInstalled && <Alert tone="info" title="Wifi Already Installed" />}
+      {wifiAlreadyInstalled && (
+        <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: "#faf3e2", border: "1px solid #e4ce93", color: "#6e5514", borderRadius: "var(--radius-sm)", marginBottom: 12 }}>
+          Wifi Already Installed
+        </div>
+      )}
       <Hint>The all-in advertised price. The caravan's own value below is whatever's left after the other included items — it isn't entered directly.</Hint>
 
-      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
-        <Input style={{ flex: 2 }} value={price.caravanDescription} onChange={(e) => patchPrice({ caravanDescription: e.target.value })} />
-        <Input style={{ flex: 1 }} readOnly value={formatCurrency(caravanAmount)} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 130px auto", gap: 10, alignItems: "center", marginBottom: 8 }}>
+        <Input value={price.caravanDescription} onChange={(e) => patchPrice({ caravanDescription: e.target.value })} />
+        <Input readOnly style={readOnlyRowStyle} value={formatCurrency(caravanAmount)} />
+        <span />
       </div>
       {caravanAmount < 0 && (
         <Alert tone="danger" title="Check the figures">
@@ -404,81 +451,82 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         </Alert>
       )}
 
-      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-1)" }}>
-        <Input style={{ flex: 2 }} readOnly value="Pitch Fees (pro-rata)" />
-        <Input style={{ flex: 1 }} readOnly value={formatCurrency(pitchFeeAmount)} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 130px auto", gap: 10, alignItems: "center", marginBottom: 4 }}>
+        <Input readOnly style={readOnlyRowStyle} value="Pitch Fees (pro-rata)" />
+        <Input readOnly style={readOnlyRowStyle} value={formatCurrency(pitchFeeAmount)} />
+        <span />
       </div>
-      <div style={{ maxWidth: 260, marginBottom: "var(--space-1)" }}>
-        <FieldLabel>{`Months to charge (of ${seasonLength})`}</FieldLabel>
-        <Input
-          type="number" step="0.1" min="0"
-          value={price.pitchFeeMonths}
-          onChange={(e) => patchPrice({ pitchFeeMonths: e.target.value, pitchFeeMonthsManuallySet: true })}
-        />
+      <div style={{ maxWidth: 260, margin: "0 0 6px" }}>
+        <Field label={`Months to charge (of ${seasonLength})`}>
+          <Input
+            type="number" step="0.1" min="0"
+            value={price.pitchFeeMonths}
+            onChange={(e) => patchPrice({ pitchFeeMonths: e.target.value, pitchFeeMonthsManuallySet: true })}
+          />
+        </Field>
       </div>
       <Hint>{fullYear === null
         ? (pitchBandsTable.length ? "No matching pitch band found in the Pitch Fees table — check the pitch band above." : "Import the Pitch Fees table in Admin settings to calculate this automatically.")
         : `${formatCurrency(fullYear)} full year ÷ ${seasonLength} months × ${price.pitchFeeMonths} months to charge.`}</Hint>
 
-      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
-        <Input style={{ flex: 2 }} readOnly value="Rates" />
-        <Input style={{ flex: 1 }} type="number" step="0.01" min="0" placeholder="0.00" value={price.ratesCurrentYear} onChange={(e) => patchPrice({ ratesCurrentYear: e.target.value })} />
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 130px auto", gap: 10, alignItems: "center", marginBottom: 4 }}>
+        <Input readOnly style={readOnlyRowStyle} value="Rates" />
+        <Input type="number" step="0.01" min="0" placeholder="0.00" value={price.ratesCurrentYear} onChange={(e) => patchPrice({ ratesCurrentYear: e.target.value })} />
+        <span />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
-        <div>
-          <FieldLabel>Rates (full year)</FieldLabel>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 16px", margin: "0 0 14px" }}>
+        <Field label="Rates (full year)">
           <Input type="number" step="0.01" min="0" placeholder="0.00" value={price.ratesFullYear} onChange={(e) => patchPrice({ ratesFullYear: e.target.value })} />
-        </div>
-        <div>
-          <FieldLabel>Rates payment date this year (01 Jul)</FieldLabel>
+        </Field>
+        <Field label="Rates payment date this year (01 Jul)">
           <Input type="number" min="2000" max="2100" step="1" value={price.ratesPaymentYear} onChange={(e) => patchPrice({ ratesPaymentYear: e.target.value })} />
-        </div>
+        </Field>
       </div>
       <Hint>Rates aren't banded like the Pitch Fee, and there's no formula — enter the current full-year figure (saved as next sale's default) and whatever's being charged for this one.</Hint>
 
       <LineItemsEditor items={price.includedItems} placeholder="e.g. Insurance, Wifi Install" onChange={(items) => patchPrice({ includedItems: items })} />
       <Button onClick={() => patchPrice({ includedItems: [...price.includedItems, { description: "", amount: "" }] })}>+ Add item</Button>
-      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, margin: "var(--space-3) 0 var(--space-4)" }}>
+      <div style={totalRowStyle}>
         <span>Agreed purchase price (window price)</span>
         <span>{formatCurrency(windowPrice)}</span>
       </div>
 
-      <PageHeader title="Additional costs" level={2} />
+      <SectionLabel>Additional costs</SectionLabel>
       <Hint>Anything charged on top of the window price — delivery, siting, connection fees, extras.</Hint>
       <LineItemsEditor items={price.additionalItems} placeholder="e.g. Delivery" onChange={(items) => patchPrice({ additionalItems: items })} />
       <Button onClick={() => patchPrice({ additionalItems: [...price.additionalItems, { description: "", amount: "" }] })}>+ Add cost</Button>
-      <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, margin: "var(--space-3) 0 var(--space-4)" }}>
+      <div style={grandTotalRowStyle}>
         <span>Agreed total purchase price (including additional costs)</span>
         <span>{formatCurrency(grandTotal)}</span>
       </div>
 
-      <PageHeader title="Payment" level={2} />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
-        <div><FieldLabel>Deposit paid</FieldLabel><Input type="number" step="0.01" min="0" placeholder="0.00" value={price.deposit.amount} onChange={(e) => patchPrice({ deposit: { ...price.deposit, amount: e.target.value } })} /></div>
-        <div><FieldLabel>Deposit date</FieldLabel><Input type="date" value={price.deposit.date} onChange={(e) => patchPrice({ deposit: { ...price.deposit, date: e.target.value } })} /></div>
-        <div><FieldLabel>Allowance for part-exchange</FieldLabel><Input type="number" step="0.01" min="0" placeholder="0.00" value={price.partExchange.amount} onChange={(e) => patchPrice({ partExchange: { ...price.partExchange, amount: e.target.value } })} /></div>
-        <div><FieldLabel>Part-exchange date</FieldLabel><Input type="date" value={price.partExchange.date} onChange={(e) => patchPrice({ partExchange: { ...price.partExchange, date: e.target.value } })} /></div>
-        <div>
-          <FieldLabel>Balance</FieldLabel>
-          <Input readOnly value={formatCurrency(Math.max(balance, 0)) + (balance < 0 ? " (deposit + part-exchange exceed the total)" : "")} />
-        </div>
-        <div><FieldLabel>Balance date</FieldLabel><Input type="date" value={price.balanceDate} onChange={(e) => patchPrice({ balanceDate: e.target.value })} /></div>
+      <SectionLabel>Payment</SectionLabel>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 16px", marginBottom: 20 }}>
+        <Field label="Deposit paid"><Input type="number" step="0.01" min="0" placeholder="0.00" value={price.deposit.amount} onChange={(e) => patchPrice({ deposit: { ...price.deposit, amount: e.target.value } })} /></Field>
+        <Field label="Deposit date"><Input type="date" value={price.deposit.date} onChange={(e) => patchPrice({ deposit: { ...price.deposit, date: e.target.value } })} /></Field>
+        <Field label="Allowance for part-exchange"><Input type="number" step="0.01" min="0" placeholder="0.00" value={price.partExchange.amount} onChange={(e) => patchPrice({ partExchange: { ...price.partExchange, amount: e.target.value } })} /></Field>
+        <Field label="Part-exchange date"><Input type="date" value={price.partExchange.date} onChange={(e) => patchPrice({ partExchange: { ...price.partExchange, date: e.target.value } })} /></Field>
+        <Field label="Balance"><Input readOnly style={readOnlyRowStyle} value={formatCurrency(Math.max(balance, 0)) + (balance < 0 ? " (deposit + part-exchange exceed the total)" : "")} /></Field>
+        <Field label="Balance date"><Input type="date" value={price.balanceDate} onChange={(e) => patchPrice({ balanceDate: e.target.value })} /></Field>
       </div>
 
-      <PageHeader title="Completion" level={2} />
-      <div style={{ display: "flex", gap: "var(--space-4)", marginBottom: "var(--space-2)" }}>
+      <SectionLabel>Completion</SectionLabel>
+      <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)", marginBottom: 14 }}>
         {[["fixed", "Fixed completion date"], ["estimated", "Estimated completion date"]].map(([v, label]) => (
-          <label key={v} style={{ display: "flex", alignItems: "center", gap: "var(--space-1)" }}>
+          <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
             <input type="radio" checked={price.completionType === v} onChange={() => patchPrice({ completionType: v })} /> {label}
           </label>
         ))}
       </div>
-      <div style={{ maxWidth: 220, marginBottom: "var(--space-4)" }}>
-        <FieldLabel>{price.completionType === "estimated" ? "Estimated completion date" : "Completion date"}</FieldLabel>
-        <Input type="date" value={price.completionDate} onChange={(e) => patchPrice({ completionDate: e.target.value })} />
+      <div style={{ maxWidth: 220, marginBottom: 20 }}>
+        <Field label={price.completionType === "estimated" ? "Estimated completion date" : "Completion date"}>
+          <Input type="date" value={price.completionDate} onChange={(e) => patchPrice({ completionDate: e.target.value })} />
+        </Field>
       </div>
 
-      <Button variant="primary" onClick={onContinue}>Continue</Button>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button variant="primary" onClick={onContinue}>Continue</Button>
+      </div>
     </Card>
   );
 }
@@ -490,10 +538,12 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
 export function Step3Instructions({ wizard, setWizard, onContinue }) {
   return (
     <Card pad="md">
-      <PageHeader title="Special instructions" level={2} />
+      <CardTitle>Special instructions</CardTitle>
       <Hint>Any special or extra terms which change or add to the standard terms in the Purchase Agreement. Leave as "None" if there aren't any.</Hint>
-      <Textarea rows={3} value={wizard.specialTerms} onChange={(e) => setWizard((w) => ({ ...w, specialTerms: e.target.value }))} style={{ marginBottom: "var(--space-4)", width: "100%" }} />
-      <Button variant="primary" onClick={onContinue}>Continue</Button>
+      <Textarea rows={3} value={wizard.specialTerms} onChange={(e) => setWizard((w) => ({ ...w, specialTerms: e.target.value }))} style={{ marginBottom: 20, width: "100%" }} />
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button variant="primary" onClick={onContinue}>Continue</Button>
+      </div>
     </Card>
   );
 }
@@ -505,14 +555,16 @@ export function Step3Instructions({ wizard, setWizard, onContinue }) {
 export function Step4Signees({ wizard, onContinue }) {
   return (
     <Card pad="md">
-      <PageHeader title="Signees" level={2} />
+      <CardTitle>Signees</CardTitle>
       <Hint>These are the people who'll sign the agreement, from "Who owns this caravan" on the first step. Go back there to add, remove or correct anyone — this is just a final check.</Hint>
       {wizard.people.map((person, i) => {
         const name = personFullName(person);
         return (
-          <div key={i} style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", marginBottom: "var(--space-2)" }}>
-            <span style={{ fontWeight: 700 }}>{i + 1}</span>
-            <span style={{ color: name ? colors.ink : colors.inkSoft, fontStyle: name ? "normal" : "italic" }}>{name || "No name entered"}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: colors.surfaceHover, border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: colors.moss, color: "#fff", fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0 }}>
+              {i + 1}
+            </span>
+            <span style={{ fontWeight: name ? 600 : 400, color: name ? colors.ink : colors.inkSoft, fontStyle: name ? "normal" : "italic" }}>{name || "No name entered"}</span>
           </div>
         );
       })}
@@ -521,7 +573,9 @@ export function Step4Signees({ wizard, onContinue }) {
           The agreement's signature block supports up to 4 signees — there are {wizard.people.length} here. Go back to "Who owns this caravan" to remove someone, or check the document can be extended further.
         </Alert>
       )}
-      <Button variant="primary" onClick={onContinue} style={{ marginTop: "var(--space-3)" }}>Continue</Button>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+        <Button variant="primary" onClick={onContinue}>Continue</Button>
+      </div>
     </Card>
   );
 }
@@ -537,18 +591,25 @@ export function Step5Generate({ wizard, generating, generateError, generateSucce
 
   return (
     <Card pad="md">
-      <PageHeader title="Generate document" level={2} />
+      <CardTitle>Generate document</CardTitle>
       <Hint>Merges everything above into the Purchase &amp; Licence Agreement and saves it as a .docx.</Hint>
 
       {changes.length > 0 && (
-        <Alert tone="info" title="Remember to update Campmanager too — this wizard doesn't write back to it">
+        <div style={{ fontSize: "var(--text-sm)", padding: "8px 12px", background: "#faf3e2", border: "1px solid #e4ce93", color: "#6e5514", borderRadius: "var(--radius-sm)", marginBottom: 20 }}>
+          Remember to update Campmanager too — this wizard doesn't write back to it:
           {changes.map((c, i) => <div key={i}>• {c}</div>)}
-        </Alert>
+        </div>
       )}
 
-      <Button variant="primary" disabled={generating} onClick={onGenerate}>{generating ? "Generating…" : "Generate document"}</Button>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <Button variant="primary" disabled={generating} onClick={onGenerate}>{generating ? "Generating…" : "Generate document"}</Button>
+      </div>
       {generateError && <Alert tone="danger" title="Couldn't generate the document">{generateError}</Alert>}
-      {generateSuccess && <Alert tone="ok" title="Done">{generateSuccess} generated.</Alert>}
+      {generateSuccess && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: colors.okSurface, border: `1px solid ${colors.okBorder}`, borderRadius: "var(--radius-sm)", color: colors.okInk, fontSize: "var(--text-sm)", marginTop: 10 }}>
+          {generateSuccess} generated.
+        </div>
+      )}
     </Card>
   );
 }

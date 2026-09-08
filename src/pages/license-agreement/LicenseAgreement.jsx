@@ -3,10 +3,10 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { usePermissions } from "../../lib/permissions.js";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, EmptyState, PageHeader, SkeletonList } from "../../ui/index.js";
+import { Button, Card, EmptyState, PageHeader, SkeletonList } from "../../ui/index.js";
 import { DEFAULT_AREA_SEASON_MAP, personFullName } from "./calculations.js";
 import { generateDocument } from "./generateDocument.js";
-import { Step1Import, Step2Price, Step3Instructions, Step4Signees, Step5Generate } from "./steps.jsx";
+import { CardTitle, Step1Import, Step2Price, Step3Instructions, Step4Signees, Step5Generate } from "./steps.jsx";
 
 const STEPS = [
   { key: 1, label: "1. Import &amp; contact details" },
@@ -32,30 +32,32 @@ const BLANK_WIZARD = {
 
 function DraftsPanel({ drafts, onResume, onDiscard, onSaveNow, canSave }) {
   return (
-    <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "var(--space-2)" }}>
-        <PageHeader title="Saved drafts" level={2} />
+    <Card pad="md" style={{ padding: "16px 24px", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <CardTitle>Saved drafts</CardTitle>
+          <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, margin: 0 }}>
+            Shared with anyone who has access to this tool — pick one up from any computer, or save before stepping away from an interrupted sale.
+          </p>
+        </div>
         <Button variant="primary" disabled={!canSave} onClick={onSaveNow}>💾 Save as draft</Button>
       </div>
-      <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: 0 }}>
-        Shared with anyone who has access to this tool — pick one up from any computer, or save progress here before stepping away from an interrupted sale.
-      </p>
-      {drafts.length === 0 ? (
-        <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>No saved drafts yet.</p>
-      ) : (
-        drafts.map((d) => (
-          <Card pad="sm" key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-            <div>
-              <strong>{d.unit_site || "(no pitch)"}</strong>{" "}
-              <span style={{ color: colors.inkSoft }}>{d.customer_name}</span>
-              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>Saved {new Date(d.saved_at).toLocaleString("en-GB")}</div>
+      {drafts.length > 0 && (
+        <div style={{ marginTop: 14 }}>
+          {drafts.map((d) => (
+            <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "10px 14px", background: colors.surfaceHover, border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: 8, flexWrap: "wrap" }}>
+              <div>
+                <strong>{d.unit_site || "(no pitch)"}</strong>{" "}
+                <span style={{ color: colors.inkSoft }}>{d.customer_name}</span>
+                <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>Saved {new Date(d.saved_at).toLocaleString("en-GB")}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button onClick={() => onResume(d)}>Resume</Button>
+                <Button variant="danger" onClick={() => onDiscard(d)}>Delete</Button>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <Button onClick={() => onResume(d)}>Resume</Button>
-              <Button variant="danger" onClick={() => onDiscard(d)}>Delete</Button>
-            </div>
-          </Card>
-        ))
+          ))}
+        </div>
       )}
     </Card>
   );
@@ -153,25 +155,30 @@ export default function LicenseAgreement() {
 
   return (
     <div>
-      <PageHeader title="License Agreement Builder" />
+      <PageHeader title="License Agreement Builder" level={2} />
       <DraftsPanel drafts={drafts} onResume={resumeDraft} onDiscard={discardDraft} onSaveNow={saveDraft} canSave={!!wizard.selectedRow} />
       {wizard.selectedRow && (
         <Button onClick={startNew} style={{ marginBottom: "var(--space-3)" }}>Start a new sale</Button>
       )}
 
-      <div style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
-        {STEPS.map((s) => (
-          <span
-            key={s.key}
-            style={{
-              padding: "6px 12px", borderRadius: "var(--radius-full)", fontSize: "var(--text-xs)", fontWeight: 700,
-              background: step === s.key ? colors.moss : step > s.key ? colors.surfaceSunken : "transparent",
-              color: step === s.key ? colors.onDark : colors.inkSoft,
-            }}
-          >
-            {s.label}
-          </span>
-        ))}
+      <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
+        {STEPS.map((s) => {
+          const isActive = step === s.key;
+          const isDone = step > s.key;
+          return (
+            <span
+              key={s.key}
+              style={{
+                fontSize: "var(--text-xs)", fontWeight: 600, padding: "5px 12px", borderRadius: "var(--radius-full)",
+                border: `1px solid ${isActive ? colors.moss : isDone ? colors.okBorder : colors.line}`,
+                background: isActive ? colors.moss : isDone ? colors.okSurface : colors.paper,
+                color: isActive ? "#fff" : isDone ? colors.okInk : colors.inkSoft,
+              }}
+            >
+              {s.label}
+            </span>
+          );
+        })}
       </div>
 
       {step === 1 && (

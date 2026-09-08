@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
@@ -7,6 +7,11 @@ import {
   Alert, Button, Card, EmptyState, IconArrowDown, IconArrowUp, IconButton,
   PageHeader, SkeletonList,
 } from "../ui/index.js";
+
+// Lazy: pulls in docxtemplater/pizzip, needed only by whoever actually
+// opens this tab, not everyone visiting Office Hub. Same reasoning as
+// App.jsx's meter-tools routes.
+const LicenseAgreement = lazy(() => import("./license-agreement/LicenseAgreement.jsx"));
 
 const HUB_SUPABASE_URL = "https://ozhwgrzlpvfdemmogmav.supabase.co";
 const HUB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96aHdncnpscHZmZGVtbW9nbWF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwNDA2NDcsImV4cCI6MjEwMDYxNjY0N30.MPfUD5u-NSc6yRXsxd2KHHEI3ogFcekJBY8XI5kCq0Q";
@@ -202,7 +207,9 @@ function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems,
 export default function OfficeHub() {
   const { org, profile } = useAuth();
   const permissions = usePermissions();
-  const [tab, setTab] = useState("dashboard");
+  const canOfficeHub = permissions.has("can_use_office_hub");
+  const canLicenseAgreement = permissions.has("can_use_license_agreement");
+  const [tab, setTab] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [links, setLinks] = useState([]);
@@ -211,8 +218,22 @@ export default function OfficeHub() {
   const [docCategories, setDocCategories] = useState([]);
   const [dashboardItems, setDashboardItems] = useState([]);
 
+  const availableTabs = [
+    canOfficeHub && "dashboard",
+    canOfficeHub && "browse",
+    canLicenseAgreement && "license-agreement",
+  ].filter(Boolean);
+
+  // Lands on whichever tab this person can actually see, rather than
+  // always defaulting to "dashboard" -- someone with only License
+  // Agreement access would otherwise land on a tab they can't use.
   useEffect(() => {
-    if (!org || !permissions.has("can_use_office_hub")) return;
+    if (availableTabs.length && !availableTabs.includes(tab)) setTab(availableTabs[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [availableTabs.join(",")]);
+
+  useEffect(() => {
+    if (!org || !canOfficeHub) return;
     Promise.all([
       supabase.from("office_hub_link_categories").select("*").eq("org_id", org.id).order("sort_order"),
       supabase.from("office_hub_links").select("*").eq("org_id", org.id).order("sort_order"),
@@ -230,9 +251,9 @@ export default function OfficeHub() {
       setDashboardItems(di.data || []);
       setLoading(false);
     });
-  }, [org, profile?.id, permissions]);
+  }, [org, profile?.id, canOfficeHub]);
 
-  if (!permissions.has("can_use_office_hub")) {
+  if (!canOfficeHub && !canLicenseAgreement) {
     return <EmptyState title="No access">You don't have permission to see Office Hub. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
 
@@ -241,16 +262,21 @@ export default function OfficeHub() {
       <PageHeader title="Office Hub" />
       {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
       <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
-        <Button variant={tab === "dashboard" ? "primary" : "secondary"} onClick={() => setTab("dashboard")}>My Dashboard</Button>
-        <Button variant={tab === "browse" ? "primary" : "secondary"} onClick={() => setTab("browse")}>Browse</Button>
+        {canOfficeHub && <Button variant={tab === "dashboard" ? "primary" : "secondary"} onClick={() => setTab("dashboard")}>My Dashboard</Button>}
+        {canOfficeHub && <Button variant={tab === "browse" ? "primary" : "secondary"} onClick={() => setTab("browse")}>Browse</Button>}
+        {canLicenseAgreement && <Button variant={tab === "license-agreement" ? "primary" : "secondary"} onClick={() => setTab("license-agreement")}>License Agreement</Button>}
       </div>
-      {loading ? (
+      {tab === "license-agreement" ? (
+        <Suspense fallback={<SkeletonList rows={3} height={80} />}>
+          <LicenseAgreement />
+        </Suspense>
+      ) : loading && canOfficeHub ? (
         <SkeletonList rows={3} height={80} />
       ) : tab === "dashboard" ? (
         <DashboardTab items={dashboardItems} setItems={setDashboardItems} links={links} docs={docs} linkCategories={linkCategories} docCategories={docCategories} />
-      ) : (
+      ) : tab === "browse" ? (
         <BrowseTab links={links} linkCategories={linkCategories} docs={docs} docCategories={docCategories} dashboardItems={dashboardItems} setDashboardItems={setDashboardItems} profileId={profile.id} />
-      )}
+      ) : null}
     </div>
   );
 }
