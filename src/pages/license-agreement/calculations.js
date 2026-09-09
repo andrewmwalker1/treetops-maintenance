@@ -60,6 +60,30 @@ export function ukDateForMerge(inputValue) {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function ordinalSuffix(day) {
+  if (day >= 11 && day <= 13) return "th";
+  switch (day % 10) {
+    case 1: return "st";
+    case 2: return "nd";
+    case 3: return "rd";
+    default: return "th";
+  }
+}
+
+// "7th December 2026" - matches the document's existing "1st March" /
+// "7th December" wording for season dates, plus the year since this one
+// isn't a fixed recurring date.
+export function formatOrdinalDate(date) {
+  if (!date) return "";
+  const day = date.getDate();
+  return `${day}${ordinalSuffix(day)} ${MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+}
+
 /* Tree Tops' 4 areas, identified by the first two letters of the pitch
  * number (e.g. "OP" in "OP-E16"). Used only as a fallback before the
  * shared area_seasons table has loaded. */
@@ -286,6 +310,14 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
   const completionDate = p.completionType === "fixed" ? ukDateForMerge(p.completionDate) : "";
   const estimatedCompletionDate = p.completionType === "estimated" ? ukDateForMerge(p.completionDate) : "";
 
+  // Pro-rata whenever fewer months than the full season are being
+  // charged for (a manually-overridden pitchFeeMonths counts too).
+  const pitchFeeMonthsNum = parseAmount(p.pitchFeeMonths);
+  const isProRata = pitchFeeMonthsNum < seasonLength - 0.05;
+  const licenceStartDate = inputValueToDate(u.licenceStart);
+  const seasonEndYear = licenceStartDate ? licenceStartDate.getFullYear() : new Date().getFullYear();
+  const proRataEndDate = isProRata ? formatOrdinalDate(getSeasonDates(seasonLength, seasonEndYear).end) : "";
+
   return {
     Unit_Customer_Title: joinNamesNaturally(ppl.map((x) => x.title).filter(Boolean)),
     Unit_Customer_First_Name: joinNamesNaturally(ppl.map((x) => x.firstName).filter(Boolean)),
@@ -319,6 +351,9 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
 
     pitch_fee_current_year: formatMoneyPlain(computePitchFeeProrataAmount(u, seasonLength, p.pitchFeeMonths, pitchBandsTable)),
     pitch_fee_full_year: formatMoneyPlain(lookupPitchFeeFullYear(u.pitchBand, pitchBandsTable) || 0),
+    is_pro_rata: isProRata,
+    pro_rata_end_date: proRataEndDate,
+    current_year: String(new Date().getFullYear()),
 
     rates_payment_year: String(p.ratesPaymentYear || ""),
     rates_current_year: formatMoneyPlain(parseAmount(p.ratesCurrentYear)),
