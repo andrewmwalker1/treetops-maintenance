@@ -321,7 +321,7 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
   const includedItems = [
     { description: p.caravanDescription || "Caravan", amount: formatCurrency(computeCaravanAmount(p, u, seasonLength, pitchBandsTable)) },
     ...(pitchFeeIncluded ? [pitchFeeLineItem] : []),
-    { description: "Rates", amount: formatCurrency(parseAmount(p.ratesCurrentYear)) },
+    { description: "Rates, Water & Refuse", amount: formatCurrency(parseAmount(p.ratesCurrentYear)) },
     ...(p.includedItems || []).map((item) => ({ description: item.description, amount: formatCurrency(parseAmount(item.amount)) })),
   ];
   const additionalItems = [

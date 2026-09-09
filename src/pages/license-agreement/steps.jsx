@@ -498,7 +498,7 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         : `${formatCurrency(fullYear)} full year ÷ ${seasonLength} months × ${price.pitchFeeMonths} months to charge.`}</Hint>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 130px auto", gap: 10, alignItems: "center", marginBottom: 4 }}>
-        <Input readOnly style={readOnlyRowStyle} value="Rates" />
+        <Input readOnly style={readOnlyRowStyle} value="Rates, Water & Refuse" />
         <Input type="number" step="0.01" min="0" placeholder="0.00" value={price.ratesCurrentYear} onChange={(e) => patchPrice({ ratesCurrentYear: e.target.value })} />
         <span />
       </div>
