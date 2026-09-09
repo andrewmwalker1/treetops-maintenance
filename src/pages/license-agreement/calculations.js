@@ -325,7 +325,7 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
     Unit_Customer_Address_Line_1: cust.addressLine1 || "",
     Unit_Customer_Address_Line_2: cust.addressLine2 || "",
     Unit_Customer_Address_Line_3: cust.addressLine3 || "",
-    Unit_Customer_Address_CityTown: "",
+    Unit_Customer_Address_CityTown: cust.cityTown || "",
     Unit_Customer_Address_Country: cust.country || "",
     Unit_Customer_Address_Postcode: cust.postcode || "",
     Unit_Customer_Telephone: cust.telephone || "",

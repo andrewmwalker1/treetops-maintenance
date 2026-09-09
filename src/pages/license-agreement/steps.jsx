@@ -12,6 +12,7 @@ const CUSTOMER_FIELD_MAP = {
   addressLine1: "Unit Customer Address Line 1",
   addressLine2: "Unit Customer Address Line 2",
   addressLine3: "Unit Customer Address Line 3",
+  cityTown: "Unit Customer Address City/Town",
   postcode: "Unit Customer Address Postcode",
   country: "Unit Customer Address Country",
   telephone: "Unit Customer Telephone",
@@ -20,7 +21,7 @@ const CUSTOMER_FIELD_MAP = {
 };
 const CUSTOMER_FIELD_LABELS = {
   addressLine1: "Address line 1", addressLine2: "Address line 2", addressLine3: "Address line 3",
-  postcode: "Postcode", country: "Country", telephone: "Telephone", mobile: "Mobile", email: "Email",
+  cityTown: "City/Town", postcode: "Postcode", country: "Country", telephone: "Telephone", mobile: "Mobile", email: "Email",
 };
 const FULL_WIDTH_FIELDS = new Set(["addressLine1", "addressLine2", "addressLine3"]);
 
