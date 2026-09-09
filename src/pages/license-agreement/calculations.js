@@ -134,10 +134,14 @@ export function computePitchFeeProrataAmount(unit, seasonLength, pitchFeeMonths,
   return (fullYear / seasonLength) * parseAmount(pitchFeeMonths);
 }
 
+// pitchFeeIncluded defaults to true (bundled into the window price, as
+// it's always been) - staff can flip it off when the pitch fee is being
+// charged as an add-on instead, on top of the window price.
 export function computeCaravanAmount(price, unit, seasonLength, pitchBandsTable) {
+  const pitchFeeIncluded = price.pitchFeeIncluded !== false;
   return (
     parseAmount(price.windowPrice) -
-    computePitchFeeProrataAmount(unit, seasonLength, price.pitchFeeMonths, pitchBandsTable) -
+    (pitchFeeIncluded ? computePitchFeeProrataAmount(unit, seasonLength, price.pitchFeeMonths, pitchBandsTable) : 0) -
     parseAmount(price.ratesCurrentYear) -
     sumItems(price.includedItems)
   );
@@ -297,19 +301,6 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
 
   const signeeFullNames = ppl.map(personFullName).filter(Boolean);
 
-  const includedItems = [
-    { description: p.caravanDescription || "Caravan", amount: formatCurrency(computeCaravanAmount(p, u, seasonLength, pitchBandsTable)) },
-    { description: "Pitch Fees", amount: formatCurrency(computePitchFeeProrataAmount(u, seasonLength, p.pitchFeeMonths, pitchBandsTable)) },
-    { description: "Rates", amount: formatCurrency(parseAmount(p.ratesCurrentYear)) },
-    ...(p.includedItems || []).map((item) => ({ description: item.description, amount: formatCurrency(parseAmount(item.amount)) })),
-  ];
-  const additionalItems = (p.additionalItems || []).map((item) => ({ description: item.description, amount: formatCurrency(parseAmount(item.amount)) }));
-
-  const windowPriceTotal = parseAmount(p.windowPrice);
-  const grandTotal = windowPriceTotal + sumItems(p.additionalItems || []);
-  const completionDate = p.completionType === "fixed" ? ukDateForMerge(p.completionDate) : "";
-  const estimatedCompletionDate = p.completionType === "estimated" ? ukDateForMerge(p.completionDate) : "";
-
   // Pro-rata whenever fewer months than the full season are being
   // charged for (a manually-overridden pitchFeeMonths counts too).
   const pitchFeeMonthsNum = parseAmount(p.pitchFeeMonths);
@@ -317,6 +308,31 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
   const licenceStartDate = inputValueToDate(u.licenceStart);
   const seasonEndYear = licenceStartDate ? licenceStartDate.getFullYear() : new Date().getFullYear();
   const proRataEndDate = isProRata ? formatOrdinalDate(getSeasonDates(seasonLength, seasonEndYear).end) : "";
+
+  // Normally bundled into the window price (subtracted from the
+  // caravan's own value); staff can mark it as an add-on instead, so it
+  // shows under Additional Costs and is charged on top of the window
+  // price rather than out of it.
+  const pitchFeeIncluded = p.pitchFeeIncluded !== false;
+  const pitchFeeAmount = computePitchFeeProrataAmount(u, seasonLength, p.pitchFeeMonths, pitchBandsTable);
+  const pitchFeeDescription = isProRata ? `Pitch Fees (Pro-rata until ${proRataEndDate})` : "Pitch Fees";
+  const pitchFeeLineItem = { description: pitchFeeDescription, amount: formatCurrency(pitchFeeAmount) };
+
+  const includedItems = [
+    { description: p.caravanDescription || "Caravan", amount: formatCurrency(computeCaravanAmount(p, u, seasonLength, pitchBandsTable)) },
+    ...(pitchFeeIncluded ? [pitchFeeLineItem] : []),
+    { description: "Rates", amount: formatCurrency(parseAmount(p.ratesCurrentYear)) },
+    ...(p.includedItems || []).map((item) => ({ description: item.description, amount: formatCurrency(parseAmount(item.amount)) })),
+  ];
+  const additionalItems = [
+    ...(pitchFeeIncluded ? [] : [pitchFeeLineItem]),
+    ...(p.additionalItems || []).map((item) => ({ description: item.description, amount: formatCurrency(parseAmount(item.amount)) })),
+  ];
+
+  const windowPriceTotal = parseAmount(p.windowPrice);
+  const grandTotal = windowPriceTotal + sumItems(p.additionalItems || []) + (pitchFeeIncluded ? 0 : pitchFeeAmount);
+  const completionDate = p.completionType === "fixed" ? ukDateForMerge(p.completionDate) : "";
+  const estimatedCompletionDate = p.completionType === "estimated" ? ukDateForMerge(p.completionDate) : "";
 
   return {
     Unit_Customer_Title: joinNamesNaturally(ppl.map((x) => x.title).filter(Boolean)),
@@ -349,7 +365,7 @@ export function buildMergeData({ selectedRow, customer, unit, price, people, bui
 
     special_terms: specialTerms || "None",
 
-    pitch_fee_current_year: formatMoneyPlain(computePitchFeeProrataAmount(u, seasonLength, p.pitchFeeMonths, pitchBandsTable)),
+    pitch_fee_current_year: formatMoneyPlain(pitchFeeAmount),
     pitch_fee_full_year: formatMoneyPlain(lookupPitchFeeFullYear(u.pitchBand, pitchBandsTable) || 0),
     is_pro_rata: isProRata,
     pro_rata_end_date: proRataEndDate,

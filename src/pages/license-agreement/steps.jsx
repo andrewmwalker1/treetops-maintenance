@@ -87,6 +87,7 @@ function newPriceForSale(unit, seasonLength, ratesFullYearDefault, selectedRow) 
     additionalItems: [],
     pitchFeeMonths: computeMonthsToCharge(unit ? inputValueToDate(unit.licenceStart) : null, seasonLength),
     pitchFeeMonthsManuallySet: false,
+    pitchFeeIncluded: true,
     ratesFullYear: ratesFullYearDefault || "",
     ratesCurrentYear: "",
     ratesPaymentYear: new Date().getFullYear(),
@@ -377,9 +378,10 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
 
   const fullYear = lookupPitchFeeFullYear(unit.pitchBand, pitchBandsTable);
   const pitchFeeAmount = computePitchFeeProrataAmount(unit, seasonLength, price.pitchFeeMonths, pitchBandsTable);
+  const pitchFeeIncluded = price.pitchFeeIncluded !== false;
   const caravanAmount = computeCaravanAmount(price, unit, seasonLength, pitchBandsTable);
   const windowPrice = parseAmount(price.windowPrice);
-  const additionalTotal = sumItems(price.additionalItems);
+  const additionalTotal = sumItems(price.additionalItems) + (pitchFeeIncluded ? 0 : pitchFeeAmount);
   const grandTotal = windowPrice + additionalTotal;
   const balance = grandTotal - parseAmount(price.deposit.amount) - parseAmount(price.partExchange.amount);
 
@@ -474,6 +476,14 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         <Input readOnly style={readOnlyRowStyle} value={formatCurrency(pitchFeeAmount)} />
         <span />
       </div>
+      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-sm)", margin: "0 0 6px", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={!pitchFeeIncluded}
+          onChange={(e) => patchPrice({ pitchFeeIncluded: !e.target.checked })}
+        />
+        Add-on — charge on top of the window price instead of bundling it in
+      </label>
       <div style={{ maxWidth: 260, margin: "0 0 6px" }}>
         <Field label={`Months to charge (of ${seasonLength})`}>
           <Input
