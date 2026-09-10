@@ -90,9 +90,18 @@ multi-checkout equipment types. The admin "Checkout Log" is now "Equipment
 history" — checkouts, faults, and repairs merged into one chronological,
 filterable log per machine. Contractors can now have documents (proof of
 qualifications/insurance/H&S, each with an optional expiry) attached via a
-"Documents" button; `contractor-document-reminders` (daily cron, not yet
-deployed/scheduled — see RUNBOOK.md) raises an Office job and emails the
-contractor 7 days before each document's expiry.
+"Documents" button; `contractor-document-reminders` (daily cron, confirmed
+live and succeeding — see RUNBOOK.md) raises an Office job and emails the
+contractor 7 days before each document's expiry. Equipment now has the
+same pattern: a "Documents" button on the Equipment admin screen
+(`equipment_documents`, `65-equipment-documents.sql`) stores JPG/PDF
+files per equipment item — pure reference (an invoice) or date-critical
+(Gas Test certs, MOT) — and `equipment-document-reminders` (deployed, cron
+**not yet scheduled** — see RUNBOOK.md §7) raises an Office job 7 days
+before expiry (no contractor-style email, since equipment has no contact).
+The New Job screen's photo field now accepts multiple photos, not just
+one (`job_photos` already supported this; only the create-screen UI was
+capped).
 
 Since then: **push notifications** now actually fire — job creation and
 reassignment push the person/group assignee (`src/lib/jobAssignmentNotify.js`),

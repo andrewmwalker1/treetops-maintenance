@@ -75,6 +75,7 @@ supabase functions deploy manage-users
 supabase functions deploy rfid-login
 supabase functions deploy send-contractor-job-email
 supabase functions deploy contractor-document-reminders
+supabase functions deploy equipment-document-reminders
 ```
 
 ## 6. Set Edge Function secrets
@@ -90,15 +91,25 @@ for every Edge Function — no need to set those yourself. `RESEND_API_KEY`
 is needed by `send-contractor-job-email` and `contractor-document-reminders`
 (both send via Resend) — get one from resend.com and verify the
 `treetopscaravanpark.co.uk` sending domain there first, or emails will fail.
+`equipment-document-reminders` needs no Resend secret — equipment has no
+contact to email, so it only raises the Office job.
 
 ## 7. Schedule the daily cron functions
 
 This project has no Cron UI in the Dashboard (not under Edge Functions,
 not under Database) — scheduling is done directly via SQL (`pg_cron` +
-`pg_net`, both already enabled on this project). Two functions need this:
+`pg_net`, both already enabled on this project). As of 10 Sep 2026, three
+functions are scheduled this way (confirmed live and succeeding daily via
+`cron.job_run_details`):
 - `generate-scheduled-jobs` — expands recurring job schedules.
+- `generate-service-jobs` — equipment service schedule jobs.
 - `contractor-document-reminders` — raises an Office job + emails the
   contractor 7 days before a contractor document expires.
+
+`equipment-document-reminders` (raises an Office job 7 days before an
+equipment document — Gas Test, MOT — expires; see
+`65-equipment-documents.sql`) is deployed but **not yet scheduled** — run
+the SQL below for it once, same as the others.
 
 Dashboard → SQL Editor → run, once per function (needs a service-role
 secret key from Settings → API — the `sb_secret_...` one, not the anon
@@ -178,6 +189,9 @@ Pro+Micro bill now covers all three apps, and the old
 
 ## What's NOT done yet
 
+- `equipment-document-reminders` is deployed but not yet scheduled — run
+  the step 7 SQL for it once (needs the service-role secret key from
+  Settings → API, which Claude Code won't handle — paste it in yourself).
 - Pitch CSV not supplied — `pitches` only has a `pitch_number_or_name`
   column until you send the real data.
 - `role_visibility` beyond Head Gardener needs your confirmation (see

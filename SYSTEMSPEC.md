@@ -105,6 +105,7 @@ supabase/
     clear-login-context/        -- clears a stale login_context claim on the caller's own profile
     send-contractor-job-email/  -- emails a job's details to its assigned contractor
     contractor-document-reminders/ -- daily cron: Office job + contractor email 7 days before a document expires
+    equipment-document-reminders/  -- daily cron: Office job 7 days before an equipment document (Gas Test, MOT, ...) expires
 scripts/
   seed-users.mjs                -- one-shot: invites the initial Tree Tops team
 src/

@@ -65,8 +65,7 @@ export default function NewJob() {
   const [submitting, setSubmitting] = useState(false);
   const [queuedNotice, setQueuedNotice] = useState(false);
   const [submitError, setSubmitError] = useState(null);
-  const [photoFile, setPhotoFile] = useState(null);
-  const [photoPreviewUrl, setPhotoPreviewUrl] = useState(null);
+  const [photos, setPhotos] = useState([]); // [{ file, previewUrl }]
   const [photoError, setPhotoError] = useState(null);
   const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [showSaveAsModal, setShowSaveAsModal] = useState(false);
@@ -146,22 +145,22 @@ export default function NewJob() {
     setPhotoError(null);
     try {
       const file = await capturePhoto();
-      setPhotoFile(file);
-      setPhotoPreviewUrl(URL.createObjectURL(file));
+      setPhotos((prev) => [...prev, { file, previewUrl: URL.createObjectURL(file) }]);
     } catch (err) {
       if (err.message !== "Photo capture cancelled.") setPhotoError(err.message);
     }
   }
 
-  function handleRemovePhoto() {
-    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl);
-    setPhotoFile(null);
-    setPhotoPreviewUrl(null);
+  function handleRemovePhoto(index) {
+    setPhotos((prev) => {
+      if (prev[index]) URL.revokeObjectURL(prev[index].previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
   }
 
-  async function uploadPhotoForJob(jobId) {
-    const path = `${jobId}/${crypto.randomUUID()}-${photoFile.name}`;
-    const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, photoFile);
+  async function uploadPhotoForJob(jobId, file) {
+    const path = `${jobId}/${crypto.randomUUID()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, file);
     if (uploadError) throw uploadError;
     const { error: insertError } = await supabase.from("job_photos").insert({
       job_id: jobId,
@@ -263,9 +262,9 @@ export default function NewJob() {
           console.error("Failed to send job-assignment notification", err)
         );
       }
-      if (photoFile) {
+      for (const { file } of photos) {
         try {
-          await uploadPhotoForJob(jobData.id);
+          await uploadPhotoForJob(jobData.id, file);
         } catch (photoErr) {
           console.error("Failed to attach photo to new job", photoErr);
         }
@@ -508,25 +507,26 @@ export default function NewJob() {
             </label>
           )}
 
-          <Field label="Photo (optional)" error={photoError}>
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
-              {photoPreviewUrl && (
-                <img
-                  src={photoPreviewUrl}
-                  alt=""
-                  style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
-                />
-              )}
-              <Button onClick={photoFile ? handleRemovePhoto : handleAddPhoto}>
-                {photoFile ? "Remove photo" : "Add photo"}
-              </Button>
+          <Field label="Photos (optional)" error={photoError}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: "var(--space-3)" }}>
+              {photos.map((p, i) => (
+                <div key={p.previewUrl} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
+                  <img
+                    src={p.previewUrl}
+                    alt=""
+                    style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+                  />
+                  <Button size="sm" onClick={() => handleRemovePhoto(i)}>Remove</Button>
+                </div>
+              ))}
+              <Button onClick={handleAddPhoto}>Add photo</Button>
             </div>
           </Field>
 
           {queuedNotice && (
             <Alert tone="warn" title="Saved for later">
               You are offline — this job will save once you are back online.
-              {photoFile && " The photo was not queued — add it from the job's detail screen after it syncs."}
+              {photos.length > 0 && ` The ${photos.length === 1 ? "photo was" : "photos were"} not queued — add ${photos.length === 1 ? "it" : "them"} from the job's detail screen after it syncs.`}
             </Alert>
           )}
 

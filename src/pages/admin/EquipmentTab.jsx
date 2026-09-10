@@ -3,6 +3,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
 import { Alert, Button, Card, EmptyState, Input, Modal, PageHeader, Select, Textarea } from "../../ui/index.js";
+import EquipmentDocumentsModal from "./EquipmentDocumentsModal.jsx";
 
 const statusLabels = { in_service: "In service", monitor: "Monitor", faulty: "Faulty", in_repair: "In repair", scrapped: "Scrapped", decommissioned: "Decommissioned" };
 
@@ -46,6 +47,7 @@ export default function EquipmentTab() {
   const [filterTypeId, setFilterTypeId] = useState("");
   const [form, setForm] = useState(null); // null = modal closed
   const [decommissionForm, setDecommissionForm] = useState(null); // null = modal closed
+  const [docsFor, setDocsFor] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
   const [openCheckouts, setOpenCheckouts] = useState({}); // equipment_id -> checkout row
 
@@ -211,6 +213,7 @@ export default function EquipmentTab() {
               <Button onClick={() => handleForceCheckIn(openCheckouts[eq.id].id)}>Force check-in</Button>
             )}
             <Button onClick={() => editItem(eq)}>Edit</Button>
+            <Button onClick={() => setDocsFor(eq)}>Documents</Button>
             {eq.status !== "decommissioned" && (
               <Button variant="danger" onClick={() => openDecommission(eq)} disabled={!!openCheckouts[eq.id]} title={openCheckouts[eq.id] ? "Force this item checked in first" : undefined}>
                 Decommission
@@ -319,6 +322,8 @@ export default function EquipmentTab() {
             </form>
                   </Modal>
       )}
+
+      {docsFor && <EquipmentDocumentsModal equipment={docsFor} orgId={org.id} onClose={() => setDocsFor(null)} />}
     </div>
   );
 }
