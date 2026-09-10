@@ -16,6 +16,14 @@ const FOCUSABLE =
 export default function Modal({ title, onClose, children, maxWidth = "440px", labelledBy }) {
   const panelRef = useRef(null);
   const previouslyFocused = useRef(null);
+  // Callers routinely pass an inline `onClose={() => ...}` -- a new
+  // function every render. Keeping only the latest one in a ref (rather
+  // than the effect below depending on onClose directly) means a parent
+  // re-render never re-runs the effect, so typing into a field whose
+  // state lives in the parent doesn't yank focus back onto the first
+  // focusable element (the header's close button) after every keystroke.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     previouslyFocused.current = document.activeElement;
@@ -34,7 +42,7 @@ export default function Modal({ title, onClose, children, maxWidth = "440px", la
     function handleKeyDown(e) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose?.();
+        onCloseRef.current?.();
         return;
       }
       if (e.key !== "Tab" || !panelRef.current) return;
@@ -57,7 +65,7 @@ export default function Modal({ title, onClose, children, maxWidth = "440px", la
       document.body.style.overflow = previousOverflow;
       previouslyFocused.current?.focus?.();
     };
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="tt-modal__scrim" onClick={onClose}>
