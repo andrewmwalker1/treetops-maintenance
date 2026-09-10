@@ -98,7 +98,8 @@ same pattern: a "Documents" button on the Equipment admin screen
 files per equipment item — pure reference (an invoice) or date-critical
 (Gas Test certs, MOT) — and `equipment-document-reminders` (deployed, cron
 **not yet scheduled** — see RUNBOOK.md §7) raises an Office job 7 days
-before expiry (no contractor-style email, since equipment has no contact).
+before expiry and emails every Office group member (resolved individually
+via the Auth Admin API, since a group has no email of its own).
 The New Job screen's photo field now accepts multiple photos, not just
 one (`job_photos` already supported this; only the create-screen UI was
 capped).

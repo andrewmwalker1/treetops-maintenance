@@ -88,11 +88,14 @@ supabase secrets set RESEND_API_KEY=<your Resend API key>
 ```
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected automatically
 for every Edge Function — no need to set those yourself. `RESEND_API_KEY`
-is needed by `send-contractor-job-email` and `contractor-document-reminders`
-(both send via Resend) — get one from resend.com and verify the
-`treetopscaravanpark.co.uk` sending domain there first, or emails will fail.
-`equipment-document-reminders` needs no Resend secret — equipment has no
-contact to email, so it only raises the Office job.
+is needed by `send-contractor-job-email`, `contractor-document-reminders`,
+and `equipment-document-reminders` (all three send via Resend) — get one
+from resend.com and verify the `treetopscaravanpark.co.uk` sending domain
+there first, or emails will fail. `equipment-document-reminders` emails
+every member of the Office group (looked up individually via the Auth
+Admin API, since a group has no email address of its own) rather than a
+single contact, since equipment has no one contractor-style address to
+notify.
 
 ## 7. Schedule the daily cron functions
 
