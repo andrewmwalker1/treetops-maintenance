@@ -40,12 +40,22 @@ function quickFilterFromParams(searchParams) {
   if (priority) return { type: "priority", value: priority };
   if (searchParams.get("overdue")) return { type: "overdue" };
   if (searchParams.get("open")) return { type: "open" };
+  // Office Hub's signal strip links here with ?assignee=person:<id> or
+  // ?assignee=group:<id> -- same "kind:id" encoding as the Filter panel's
+  // own assignee Select, so parseAssigneeFilter below handles both.
+  const assignee = searchParams.get("assignee");
+  if (assignee) return { type: "assignee", value: assignee };
   return null;
 }
 
 function quickFilterLabel(quickFilter) {
   if (quickFilter.type === "priority") return `${quickFilter.value} priority`;
   if (quickFilter.type === "overdue") return "Overdue";
+  // The only two sources of an assignee quick filter today are Office
+  // Hub's "My jobs" and "Office jobs" dials -- a person-kind value is
+  // always the signed-in user, a group-kind value is always the Office
+  // group, so the label can be this specific without resolving the id.
+  if (quickFilter.type === "assignee") return quickFilter.value.startsWith("group:") ? "Office jobs" : "My jobs";
   return "Open jobs";
 }
 
@@ -201,6 +211,11 @@ export default function JobsList() {
       queryFilters.priorities = [quickFilter.value];
     }
     if (quickFilter?.type === "overdue") queryFilters.dueBefore = new Date().toISOString().slice(0, 10);
+    if (quickFilter?.type === "assignee") {
+      const { kind, id } = parseAssigneeFilter(quickFilter.value);
+      if (kind === "person") queryFilters.assigneeProfileId = id;
+      else if (kind === "group") queryFilters.assigneeGroupId = id;
+    }
 
     queryJobs(activeSite.id, queryFilters)
       .then(setJobs)

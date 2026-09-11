@@ -1,7 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
+import { queryJobs } from "../lib/jobsQuery.js";
+import { queryOpenKeyCheckouts } from "../lib/keysOutSummary.js";
+import StatDial from "../components/StatDial.jsx";
 import { colors, space } from "../lib/theme.js";
 import {
   Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, IconButton,
@@ -43,14 +47,14 @@ const categoryName = (categories, id) => categories.find((c) => c.id === id)?.na
 // (App.jsx's ContractorsScreen/DirectoryScreen there) -- kept in step
 // deliberately rather than a plain unfiltered list, since staff have
 // exactly as much need to quickly find one contractor among many.
-function DirectoriesPanel() {
+function DirectoriesPanel({ initialQuery = "" }) {
   const [view, setView] = useState("contractors");
   const [loading, setLoading] = useState(true);
   const [contractors, setContractors] = useState([]);
   const [contractorCategories, setContractorCategories] = useState([]);
   const [directory, setDirectory] = useState([]);
   const [directoryCategories, setDirectoryCategories] = useState([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [categoryId, setCategoryId] = useState("all");
 
   useEffect(() => {
@@ -218,8 +222,8 @@ function BrowseList({ items, categories, isLink, dashboardItems, onPin, onUnpin 
   );
 }
 
-function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems, setDashboardItems, profileId }) {
-  const [section, setSection] = useState("links");
+function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems, setDashboardItems, profileId, initialSection = "links", initialQuery = "" }) {
+  const [section, setSection] = useState(initialSection);
 
   async function pin(itemType, itemId) {
     const nextPosition = dashboardItems.length ? Math.max(...dashboardItems.map((d) => d.position)) + 1 : 0;
@@ -250,14 +254,73 @@ function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems,
       {section === "documents" && (
         <BrowseList items={docs} categories={docCategories} isLink={false} dashboardItems={dashboardItems} onPin={(id) => pin("document", id)} onUnpin={(id) => unpin("document", id)} />
       )}
-      {section === "directories" && <DirectoriesPanel />}
+      {section === "directories" && <DirectoriesPanel initialQuery={initialQuery} />}
+    </div>
+  );
+}
+
+// The live "does anything need me today" strip -- dials reuse StatDial
+// as-is (same component the main Dashboard renders) so Office Hub reads
+// as part of the same system rather than a bolted-on bookmarks page.
+// "My jobs" sits first since it's the one number that's different for
+// every person who opens this page; the rest are office-wide signals
+// several of which (keys out, faulty equipment) the main Dashboard
+// already computes the same way. Sits above the tabs, not inside the
+// Dashboard tab, since "does anything need me" is relevant regardless of
+// which tab you're actually browsing.
+function SignalStrip({ counts, onSearch }) {
+  const [query, setQuery] = useState("");
+  return (
+    <div style={{ marginBottom: "var(--space-5)" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
+          gap: "var(--space-3)",
+          marginBottom: "var(--space-3)",
+        }}
+      >
+        <StatDial label="My jobs" value={counts.mine} onClick={counts.onMine} />
+        <StatDial label="Office jobs" value={counts.office} color={colors.gold} onClick={counts.onOffice} />
+        <StatDial label="Overdue" value={counts.overdue} color={counts.overdue ? colors.immediate : colors.moss} />
+        <StatDial label="Docs ≤14d" value={counts.docsExpiring} color={counts.docsExpiring ? colors.gold : colors.moss} />
+        <StatDial label="Keys out" value={counts.keysOut} />
+        <StatDial
+          label="Faulty kit"
+          value={counts.faulty}
+          color={counts.faulty ? colors.immediate : colors.moss}
+          onClick={counts.onFaulty}
+        />
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (query.trim()) onSearch(query.trim());
+        }}
+        style={{ display: "flex", gap: "var(--space-2)" }}
+      >
+        <div style={{ position: "relative", flex: 1 }}>
+          <IconSearch size={15} color={colors.inkSoft} style={{ position: "absolute", left: 10, top: 10 }} />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search contractors or places to eat…"
+            aria-label="Search contractors or places to eat"
+            style={{ paddingLeft: 32, width: "100%" }}
+          />
+        </div>
+        <Button type="submit" variant="primary" disabled={!query.trim()}>
+          Search
+        </Button>
+      </form>
     </div>
   );
 }
 
 export default function OfficeHub() {
-  const { org, profile } = useAuth();
+  const { org, profile, activeSite } = useAuth();
   const permissions = usePermissions();
+  const navigate = useNavigate();
   const canOfficeHub = permissions.has("can_use_office_hub");
   const canLicenseAgreement = permissions.has("can_use_license_agreement");
   const [tab, setTab] = useState(null);
@@ -268,6 +331,19 @@ export default function OfficeHub() {
   const [docs, setDocs] = useState([]);
   const [docCategories, setDocCategories] = useState([]);
   const [dashboardItems, setDashboardItems] = useState([]);
+
+  // Everything the signal strip's dials count -- kept separate from the
+  // links/docs/pins load above since none of it gates "is Office Hub
+  // usable at all" the way that data does, and a couple of these queries
+  // are permission-gated at the RLS level (equipment/contractor documents)
+  // rather than by can_use_office_hub.
+  const [myJobsOpen, setMyJobsOpen] = useState([]);
+  const [officeJobsOpen, setOfficeJobsOpen] = useState([]);
+  const [officeGroupId, setOfficeGroupId] = useState(null);
+  const [keysOutCount, setKeysOutCount] = useState(0);
+  const [faultyCount, setFaultyCount] = useState(0);
+  const [docsExpiringCount, setDocsExpiringCount] = useState(0);
+  const [directorySearch, setDirectorySearch] = useState("");
 
   const availableTabs = [
     canOfficeHub && "dashboard",
@@ -304,14 +380,99 @@ export default function OfficeHub() {
     });
   }, [org, profile?.id, canOfficeHub]);
 
+  useEffect(() => {
+    if (!activeSite || !canOfficeHub) return;
+    queryJobs(activeSite.id, { assigneeProfileId: profile.id })
+      .then((rows) => setMyJobsOpen(rows.filter((j) => !j.job_status?.is_completed)))
+      .catch(() => {});
+  }, [activeSite, profile?.id, canOfficeHub]);
+
+  useEffect(() => {
+    if (!org || !canOfficeHub) return;
+    supabase
+      .from("groups")
+      .select("id")
+      .eq("org_id", org.id)
+      .eq("name", "Office")
+      .maybeSingle()
+      .then(({ data }) => setOfficeGroupId(data?.id || null));
+  }, [org, canOfficeHub]);
+
+  useEffect(() => {
+    if (!activeSite || !officeGroupId) return;
+    queryJobs(activeSite.id, { assigneeGroupId: officeGroupId })
+      .then((rows) => setOfficeJobsOpen(rows.filter((j) => !j.job_status?.is_completed)))
+      .catch(() => {});
+  }, [activeSite, officeGroupId]);
+
+  useEffect(() => {
+    if (!activeSite || !canOfficeHub || !permissions.has("can_use_key_system")) return;
+    queryOpenKeyCheckouts(activeSite.id).then((rows) => setKeysOutCount(rows.length));
+  }, [activeSite, canOfficeHub, permissions]);
+
+  useEffect(() => {
+    if (!org || !canOfficeHub) return;
+    supabase
+      .from("equipment")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", org.id)
+      .eq("status", "faulty")
+      .then(({ count }) => setFaultyCount(count || 0));
+  }, [org, canOfficeHub]);
+
+  // Documents expiring soon -- a proactive look, earlier than the
+  // reminder job the two Edge Functions already raise 7 days out. Both
+  // tables gate SELECT on the same admin permission their own screen
+  // needs (see 65-equipment-documents.sql / 29-contractor-documents.sql),
+  // so someone without it correctly sees 0 here rather than an error.
+  useEffect(() => {
+    if (!org || !canOfficeHub) return;
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + 14);
+    const horizonDate = horizon.toISOString().slice(0, 10);
+    Promise.all([
+      permissions.has("can_manage_equipment_status")
+        ? supabase.from("equipment_documents").select("id", { count: "exact", head: true }).eq("org_id", org.id).not("expiry_date", "is", null).lte("expiry_date", horizonDate)
+        : Promise.resolve({ count: 0 }),
+      permissions.has("can_manage_contractors")
+        ? supabase.from("contractor_documents").select("id", { count: "exact", head: true }).eq("org_id", org.id).not("expiry_date", "is", null).lte("expiry_date", horizonDate)
+        : Promise.resolve({ count: 0 }),
+    ]).then(([eq, ct]) => setDocsExpiringCount((eq.count || 0) + (ct.count || 0)));
+  }, [org, canOfficeHub, permissions]);
+
+  function jumpToDirectorySearch(q) {
+    setDirectorySearch(q);
+    setTab("browse");
+  }
+
   if (!canOfficeHub && !canLicenseAgreement) {
     return <EmptyState title="No access">You don't have permission to see Office Hub. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
+
+  const overdueCount = [...myJobsOpen, ...officeJobsOpen].filter((j) => j.due_date && new Date(j.due_date) < new Date()).length;
 
   return (
     <div>
       <PageHeader title="Office Hub" />
       {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
+
+      {canOfficeHub && (
+        <SignalStrip
+          counts={{
+            mine: myJobsOpen.length,
+            onMine: () => navigate(`/?assignee=person:${profile.id}`),
+            office: officeJobsOpen.length,
+            onOffice: officeGroupId ? () => navigate(`/?assignee=group:${officeGroupId}`) : undefined,
+            overdue: overdueCount,
+            docsExpiring: docsExpiringCount,
+            keysOut: keysOutCount,
+            faulty: faultyCount,
+            onFaulty: () => navigate("/equipment?status=faulty"),
+          }}
+          onSearch={jumpToDirectorySearch}
+        />
+      )}
+
       <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
         {canOfficeHub && <Button variant={tab === "dashboard" ? "primary" : "secondary"} onClick={() => setTab("dashboard")}>My Dashboard</Button>}
         {canOfficeHub && <Button variant={tab === "browse" ? "primary" : "secondary"} onClick={() => setTab("browse")}>Browse</Button>}
@@ -326,7 +487,17 @@ export default function OfficeHub() {
       ) : tab === "dashboard" ? (
         <DashboardTab items={dashboardItems} setItems={setDashboardItems} links={links} docs={docs} linkCategories={linkCategories} docCategories={docCategories} />
       ) : tab === "browse" ? (
-        <BrowseTab links={links} linkCategories={linkCategories} docs={docs} docCategories={docCategories} dashboardItems={dashboardItems} setDashboardItems={setDashboardItems} profileId={profile.id} />
+        <BrowseTab
+          links={links}
+          linkCategories={linkCategories}
+          docs={docs}
+          docCategories={docCategories}
+          dashboardItems={dashboardItems}
+          setDashboardItems={setDashboardItems}
+          profileId={profile.id}
+          initialSection={directorySearch ? "directories" : "links"}
+          initialQuery={directorySearch}
+        />
       ) : null}
     </div>
   );
