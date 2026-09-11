@@ -68,8 +68,11 @@ truth — update it in the same commit as any token change).
   separate document these tokens never reach, so they carry a deliberate,
   duplicated copy of the few values they need.
 - `scripts/check-styles.mjs` checks changed files for the first two rules
-  on every push (see `.github/workflows/deploy.yml`) and is currently
-  non-blocking — read its warnings, don't wait for it to turn red.
+  on every push and **blocks the build** in `.github/workflows/deploy.yml`
+  (confirmed 2026-09-11: a push with violations failed CI and never
+  deployed) — fix its warnings before pushing, don't treat them as
+  advisory. You can run it locally against a specific base commit with
+  `CHECK_STYLES_BASE=<sha> node scripts/check-styles.mjs`.
 
 ## Current known state (from git log — confirm anything time-sensitive
 with Andy rather than assuming it's still accurate)
