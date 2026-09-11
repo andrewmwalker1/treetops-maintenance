@@ -19,29 +19,25 @@ function TileStyleFields({ color, icon, onChange }) {
         </label>
         <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
           {TILE_COLORS.map((c) => (
-            <button
+            <IconButton
               key={c.key}
-              type="button"
-              aria-label={c.label}
+              label={c.label}
               aria-pressed={color === c.key}
               onClick={() => onChange({ color: c.key })}
               style={{
                 width: 30,
                 height: 30,
+                padding: 0,
                 borderRadius: "var(--radius-sm)",
                 background: c.value,
                 border: color === c.key ? `2px solid ${colors.ink}` : "2px solid transparent",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
                 color: colors.onDark,
                 fontSize: "var(--text-sm)",
                 fontWeight: 700,
               }}
             >
               {color === c.key ? "✓" : ""}
-            </button>
+            </IconButton>
           ))}
         </div>
       </div>
@@ -51,27 +47,23 @@ function TileStyleFields({ color, icon, onChange }) {
         </label>
         <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
           {TILE_ICONS.map((emoji) => (
-            <button
+            <IconButton
               key={emoji}
-              type="button"
-              aria-label={`Icon ${emoji}`}
+              label={`Icon ${emoji}`}
               aria-pressed={icon === emoji}
               onClick={() => onChange({ icon: emoji })}
               style={{
                 width: 32,
                 height: 32,
+                padding: 0,
                 borderRadius: "var(--radius-sm)",
                 background: colors.paper,
                 border: icon === emoji ? `2px solid ${colors.moss}` : `1px solid ${colors.lineStrong}`,
-                cursor: "pointer",
                 fontSize: "var(--text-md)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
               }}
             >
               {emoji}
-            </button>
+            </IconButton>
           ))}
         </div>
       </div>

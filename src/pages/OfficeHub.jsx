@@ -13,7 +13,7 @@ import StatDial from "../components/StatDial.jsx";
 import { colors, space } from "../lib/theme.js";
 import {
   Alert, Button, Card, Chip, EmptyState,
-  IconClose, IconSearch, Input, PageHeader, SkeletonList,
+  IconButton, IconClose, IconSearch, Input, PageHeader, SkeletonList,
 } from "../ui/index.js";
 
 // Lazy: pulls in docxtemplater/pizzip, needed only by whoever actually
@@ -206,13 +206,13 @@ function DraggableTile({ row, tile, onRemove }) {
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.4 : 1,
-        outline: "2px dashed rgba(255,255,255,0.5)",
+        outline: `2px dashed ${colors.onDarkMuted}`,
         outlineOffset: 2,
       }}
     >
-      <button
-        type="button"
-        aria-label={`Unpin ${tile.title}`}
+      <IconButton
+        size="sm"
+        label={`Unpin ${tile.title}`}
         onClick={(e) => {
           e.stopPropagation();
           onRemove();
@@ -223,18 +223,14 @@ function DraggableTile({ row, tile, onRemove }) {
           left: -6,
           width: 20,
           height: 20,
+          padding: 0,
           borderRadius: "var(--radius-full)",
           background: colors.immediate,
           color: colors.onDark,
-          border: "none",
-          cursor: "pointer",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
         }}
       >
         <IconClose size={11} />
-      </button>
+      </IconButton>
       <span style={{ position: "absolute", top: "var(--space-2)", left: "var(--space-2)", fontSize: "var(--text-lg)" }}>{tile.item.icon}</span>
       <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, lineHeight: 1.25 }}>{tile.title}</span>
     </div>
@@ -299,8 +295,7 @@ function DashboardTab({ items, setItems, links, docs, pin, unpin }) {
                 )
               )}
               {editing && (
-                <button
-                  type="button"
+                <Button
                   onClick={() => setShowLibrary((s) => !s)}
                   style={{
                     ...TILE_BASE_STYLE,
@@ -310,11 +305,10 @@ function DashboardTab({ items, setItems, links, docs, pin, unpin }) {
                     color: colors.inkSoft,
                     alignItems: "center",
                     justifyContent: "center",
-                    cursor: "pointer",
                   }}
                 >
                   <span style={{ fontSize: "var(--text-2xl)", fontWeight: 300 }}>+</span>
-                </button>
+                </Button>
               )}
             </div>
           </SortableContext>
