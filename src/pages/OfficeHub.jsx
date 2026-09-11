@@ -434,12 +434,6 @@ function SignalStrip({ counts, onSearch }) {
           color={counts.overdue ? colors.immediate : colors.moss}
           onClick={counts.onOverdue}
         />
-        <StatDial
-          label="Docs ≤14d"
-          value={counts.docsExpiring}
-          color={counts.docsExpiring ? colors.gold : colors.moss}
-          onClick={counts.onDocsExpiring}
-        />
         <StatDial label="Keys out" value={counts.keysOut} onClick={counts.onKeysOut} />
         <StatDial
           label="Faulty kit"
@@ -498,7 +492,6 @@ export default function OfficeHub() {
   const [officeGroupId, setOfficeGroupId] = useState(null);
   const [keysOutCount, setKeysOutCount] = useState(0);
   const [faultyCount, setFaultyCount] = useState(0);
-  const [docsExpiringCount, setDocsExpiringCount] = useState(0);
   const [directorySearch, setDirectorySearch] = useState("");
 
   const availableTabs = [
@@ -576,26 +569,6 @@ export default function OfficeHub() {
       .then(({ count }) => setFaultyCount(count || 0));
   }, [org, canOfficeHub]);
 
-  // Documents expiring soon -- a proactive look, earlier than the
-  // reminder job the two Edge Functions already raise 7 days out. Both
-  // tables gate SELECT on the same admin permission their own screen
-  // needs (see 65-equipment-documents.sql / 29-contractor-documents.sql),
-  // so someone without it correctly sees 0 here rather than an error.
-  useEffect(() => {
-    if (!org || !canOfficeHub) return;
-    const horizon = new Date();
-    horizon.setDate(horizon.getDate() + 14);
-    const horizonDate = horizon.toISOString().slice(0, 10);
-    Promise.all([
-      permissions.has("can_manage_equipment_status")
-        ? supabase.from("equipment_documents").select("id", { count: "exact", head: true }).eq("org_id", org.id).not("expiry_date", "is", null).lte("expiry_date", horizonDate)
-        : Promise.resolve({ count: 0 }),
-      permissions.has("can_manage_contractors")
-        ? supabase.from("contractor_documents").select("id", { count: "exact", head: true }).eq("org_id", org.id).not("expiry_date", "is", null).lte("expiry_date", horizonDate)
-        : Promise.resolve({ count: 0 }),
-    ]).then(([eq, ct]) => setDocsExpiringCount((eq.count || 0) + (ct.count || 0)));
-  }, [org, canOfficeHub, permissions]);
-
   function jumpToDirectorySearch(q) {
     setDirectorySearch(q);
     setTab("browse");
@@ -645,13 +618,6 @@ export default function OfficeHub() {
             // the Jobs list doesn't support.
             overdue: overdueCount,
             onOverdue: () => navigate("/?overdue=1"),
-            // No dedicated "documents expiring" list exists yet (equipment
-            // docs and contractor docs each live inside their own admin
-            // screen's per-item modal) -- Equipment is the more frequent,
-            // safety-critical case (Gas Test/MOT certs), so it's the
-            // closer of the two starting points.
-            docsExpiring: docsExpiringCount,
-            onDocsExpiring: () => navigate("/equipment"),
             keysOut: keysOutCount,
             onKeysOut: () => navigate("/dashboard"),
             faulty: faultyCount,
