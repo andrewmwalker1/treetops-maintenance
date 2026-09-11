@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { Link, useSearchParams, useNavigationType } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams, useNavigationType } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { queryJobs } from "../lib/jobsQuery.js";
@@ -89,6 +89,9 @@ export default function JobsList() {
   const { org, profile, activeSite, terminology } = useAuth();
   const permissions = usePermissions();
   const viewAsFilter = useViewAsJobFilter();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [justCreated, setJustCreated] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const quickFilter = useMemo(() => quickFilterFromParams(searchParams), [searchParams]);
   const [jobs, setJobs] = useState([]);
@@ -110,6 +113,21 @@ export default function JobsList() {
   useEffect(() => {
     sessionStorage.setItem(SELECTED_IDS_STORAGE_KEY, JSON.stringify([...selectedIds]));
   }, [selectedIds]);
+
+  // NewJob hands off a brief "what just happened" toast via router state
+  // (rather than a query param) so it survives exactly one arrival and
+  // never resurfaces on refresh or back-navigation -- consumed once here,
+  // then immediately stripped from history so a POP back to this page
+  // doesn't replay it.
+  useEffect(() => {
+    if (location.state?.justCreated) {
+      setJustCreated(location.state.justCreated);
+      navigate(location.pathname + location.search, { replace: true, state: {} });
+      const timer = setTimeout(() => setJustCreated(null), 6000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!activeSite) return;
@@ -361,6 +379,12 @@ export default function JobsList() {
           zIndex: 5,
         }}
       >
+        {justCreated && (
+          <Alert tone={justCreated.tone} title={justCreated.title} style={{ marginBottom: "var(--space-3)" }}>
+            {justCreated.summary}
+          </Alert>
+        )}
+
         <PageHeader
           title="Jobs"
           actions={
@@ -602,6 +626,7 @@ export default function JobsList() {
           selectable
           selected={selectedIds.has(job.id)}
           onToggleSelect={toggleSelect}
+          highlighted={justCreated?.tone === "ok" && justCreated.id === job.id}
         />
       ))}
     </div>

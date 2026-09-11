@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { getAssignableTargets } from "../lib/assignableTargets.js";
-import PitchPicker from "../components/PitchPicker.jsx";
+import SearchPicker from "../components/SearchPicker.jsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
@@ -1300,7 +1300,16 @@ export default function JobDetail() {
                       <input type="radio" checked={locationKind === "none"} onChange={() => handleLocationKindChange("none")} /> None
                     </label>
                   </div>
-                  {locationKind === "pitch" && <PitchPicker pitches={pitches} value={job.pitch_id || ""} onChange={handlePitchChange} />}
+                  {locationKind === "pitch" && (
+                    <SearchPicker
+                      items={pitches}
+                      getLabel={(p) => p.pitch_number_or_name}
+                      value={job.pitch_id || ""}
+                      onChange={handlePitchChange}
+                      placeholder="Type to search pitches…"
+                      ariaLabel={terminology.pitch || "Pitch"}
+                    />
+                  )}
                   {locationKind === "area" && (
                     <>
                       <Input

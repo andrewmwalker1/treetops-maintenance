@@ -4,7 +4,7 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, text, space, priorityBarStyle } from "../../lib/theme.js";
 import { Alert, Button, Card, EmptyState, Input, PageHeader, Select, Textarea } from "../../ui/index.js";
-import PitchPicker from "../../components/PitchPicker.jsx";
+import SearchPicker from "../../components/SearchPicker.jsx";
 
 
 const WEEKDAYS = [
@@ -343,13 +343,16 @@ export default function SchedulesTab() {
       <div>
         <PageHeader title={form.id ? "Edit recurring job" : "New recurring job"} level={2} />
         <Card as="form" pad="md" onSubmit={handleSave}>
-          <label className="tt-field__label">Job template (optional)</label>
-          <Select value={form.jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)} style={{ marginBottom: "var(--space-3)" }}>
-            <option value="">—</option>
-            {jobTypes.map((jt) => (
-              <option key={jt.id} value={jt.id}>{jt.name}</option>
-            ))}
-          </Select>
+          <label className="tt-field__label" htmlFor="schedule-job-type">Job template (optional)</label>
+          <SearchPicker
+            id="schedule-job-type"
+            items={jobTypes}
+            value={form.jobTypeId}
+            onChange={handleJobTypeChange}
+            placeholder="Type to search job templates…"
+            ariaLabel="Job template"
+            style={{ marginBottom: "var(--space-3)" }}
+          />
 
           <label className="tt-field__label">Description</label>
           <Textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} style={{ marginBottom: "var(--space-3)" }} />
@@ -408,7 +411,15 @@ export default function SchedulesTab() {
             <label><input type="radio" checked={form.locationKind === "none"} onChange={() => setForm({ ...form, locationKind: "none", locationId: "", areaName: "" })} /> None</label>
           </div>
           {form.locationKind === "pitch" && (
-            <PitchPicker pitches={pitches} value={form.locationId} onChange={(id) => setForm({ ...form, locationId: id })} style={{ marginBottom: "var(--space-3)" }} />
+            <SearchPicker
+              items={pitches}
+              getLabel={(p) => p.pitch_number_or_name}
+              value={form.locationId}
+              onChange={(id) => setForm({ ...form, locationId: id })}
+              placeholder="Type to search pitches…"
+              ariaLabel={terminology.pitch || "Pitch"}
+              style={{ marginBottom: "var(--space-3)" }}
+            />
           )}
           {form.locationKind === "area" && (
             <>

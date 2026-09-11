@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import RfidScanListener from "../../components/RfidScanListener.jsx";
-import PitchPicker from "../../components/PitchPicker.jsx";
+import SearchPicker from "../../components/SearchPicker.jsx";
 import { formatKeyLocation } from "../../keys/KeySelector.jsx";
 import { colors, fonts, text, space, radius, shadow } from "../../lib/theme.js";
 import { Alert, Button, Card, Chip, EmptyState, Input, PageHeader, Select } from "../../ui/index.js";
@@ -33,7 +33,7 @@ function highlightMatch(text, query) {
 // plain substring match against these already supports searching by area
 // ("YH"), area + row ("YH-D"), or one exact pitch ("YH-D6") with no extra
 // parsing needed -- what's here just surfaces suggestions as you type,
-// same look as PitchPicker.jsx, but picking one only fills in the text
+// same look as SearchPicker.jsx, but picking one only fills in the text
 // (there's no single id to resolve to -- a prefix like "YH-D" is a valid,
 // useful search all on its own, matching many tags at once).
 function locationSuggestions(pitches, specialLocations, query) {
@@ -47,7 +47,7 @@ function locationSuggestions(pitches, specialLocations, query) {
 // Replaces a plain text search box -- with 100-200+ tags, browsing the
 // full list at once made the screen unmanageably long (Andy, 2026-08-25),
 // so tags are now only ever shown in response to a search. This is that
-// search box: type-ahead suggestions like PitchPicker.jsx, but `onChange`
+// search box: type-ahead suggestions like SearchPicker.jsx, but `onChange`
 // always receives the raw typed text (never clears on a partial match) --
 // the parent filters its list off whatever's currently typed, suggestion
 // picked or not.
@@ -166,7 +166,16 @@ function LocationPicker({ pitches, specialLocations, pitchId, setPitchId, specia
   return (
     <>
       <label style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>Home pitch</label>
-      <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={{ marginBottom: "var(--space-3)" }} autoFocus={autoFocus} />
+      <SearchPicker
+        items={pitches}
+        getLabel={(p) => p.pitch_number_or_name}
+        value={pitchId}
+        onChange={setPitchId}
+        placeholder="Type to search pitches…"
+        ariaLabel="Home pitch"
+        style={{ marginBottom: "var(--space-3)" }}
+        autoFocus={autoFocus}
+      />
       <label style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>Currently at a special location</label>
       <Select value={specialLocationId} onChange={(e) => setSpecialLocationId(e.target.value)} style={{ marginBottom: "var(--space-3)" }}>
         <option value="">— in the cupboard at its pitch —</option>
@@ -594,7 +603,16 @@ export default function KeyTagsTab() {
                 physically, use Relocate instead.
               </p>
               <label style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, display: "block", marginBottom: "var(--space-1)" }}>New pitch</label>
-              <PitchPicker pitches={pitches} value={movePitchId} onChange={setMovePitchId} style={{ marginBottom: "var(--space-3)" }} autoFocus />
+              <SearchPicker
+                items={pitches}
+                getLabel={(p) => p.pitch_number_or_name}
+                value={movePitchId}
+                onChange={setMovePitchId}
+                placeholder="Type to search pitches…"
+                ariaLabel="New pitch"
+                style={{ marginBottom: "var(--space-3)" }}
+                autoFocus
+              />
               <div style={{ display: "flex", gap: "var(--space-2)" }}>
                 <Button variant="primary" type="submit">Save</Button>
                 <Button onClick={() => setMovingTagId(null)}>Cancel</Button>

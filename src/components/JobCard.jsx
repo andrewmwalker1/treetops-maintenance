@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { colors, fonts, priorityBarStyle, priorityColor, statusPillStyle } from "../lib/theme.js";
 import { Card, Pill } from "../ui/index.js";
 
-export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect }) {
+export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect, highlighted = false }) {
   const location = job.pitch
     ? `${terminology.pitch || "Pitch"} ${job.pitch.pitch_number_or_name}`
     : job.area
@@ -26,6 +26,11 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
         marginBottom: "var(--space-2)",
         textDecoration: "none",
         color: colors.ink,
+        ...(highlighted && {
+          background: colors.okSurface,
+          boxShadow: `0 0 0 2px ${colors.okBorder}`,
+          transition: "background var(--dur), box-shadow var(--dur)",
+        }),
       }}
     >
       {selectable && (

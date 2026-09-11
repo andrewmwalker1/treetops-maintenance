@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { usePermissions } from "../lib/permissions.js";
 import { useKeyRelocate } from "../lib/useKeyRelocate.js";
 import KeySelector, { locationLabel, formatKeyLocation } from "./KeySelector.jsx";
-import PitchPicker from "../components/PitchPicker.jsx";
+import SearchPicker from "../components/SearchPicker.jsx";
 import { colors } from "../lib/theme.js";
 import { Alert, Button, Card, Field, IconArrowLeft, PageHeader, Select } from "../ui/index.js";
 
@@ -76,7 +76,17 @@ export default function KeyStationRelocate() {
 
         <Card pad="lg" style={{ marginBottom: "var(--space-4)" }}>
           <Field label="Home pitch" style={{ marginBottom: "var(--space-4)" }}>
-            <PitchPicker pitches={pitches} value={pitchId} onChange={setPitchId} style={{ minHeight: "72px" }} />
+            {({ id }) => (
+              <SearchPicker
+                id={id}
+                items={pitches}
+                getLabel={(p) => p.pitch_number_or_name}
+                value={pitchId}
+                onChange={setPitchId}
+                placeholder="Type to search pitches…"
+                style={{ minHeight: "72px" }}
+              />
+            )}
           </Field>
           <Field label="Currently at a special location">
             {({ id }) => (

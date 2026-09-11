@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { colors, fonts, radius, shadow } from "../lib/theme.js";
 
-// A searchable, keyboard-navigable dropdown for picking one pitch out of a
-// (100-200+) list -- a plain <select> that long makes finding one tedious.
-// Type to filter, arrow keys to move, Enter to pick -- one implementation
-// shared by every screen that needs to pick a pitch, rather than a giant
-// <select> duplicated in each one. Pitches are a fixed reference table (not
-// something a user can type a new one into), so the input always resolves
-// back to a real pitch id or nothing -- never a free-typed string.
-const MAX_RESULTS = 50; // plenty to scroll through; keeps the DOM light with 200+ pitches
+// A generic searchable, keyboard-navigable combobox for picking one item out
+// of a longer list than a plain <select> is comfortable with (type to
+// filter, arrow keys to move, Enter to pick). The one picker used
+// throughout the app for every "pick 1 of many" field -- pitches, job
+// templates, and anything else that would otherwise be a giant <select>.
+const MAX_RESULTS = 50;
 
 function highlightMatch(text, query) {
   if (!query) return text;
@@ -23,39 +21,48 @@ function highlightMatch(text, query) {
   );
 }
 
-export default function PitchPicker({ pitches, value, onChange, placeholder = "Type to search…", style, autoFocus = false }) {
-  const selected = pitches.find((p) => p.id === value);
-  const [query, setQuery] = useState(selected?.pitch_number_or_name || "");
+export default function SearchPicker({
+  items,
+  getId = (item) => item.id,
+  getLabel = (item) => item.name,
+  value,
+  onChange,
+  placeholder = "Type to search…",
+  ariaLabel,
+  id,
+  style,
+  autoFocus = false,
+}) {
+  const selected = items.find((item) => getId(item) === value);
+  const [query, setQuery] = useState(selected ? getLabel(selected) : "");
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const wrapperRef = useRef(null);
   const inputRef = useRef(null);
 
-  // For screens where this appears right after a triggering action (e.g.
-  // scanning an RFID tag) -- lets the user start typing the pitch straight
-  // away instead of having to click into the box first.
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Keep the visible text in sync when the selection changes from outside
-  // (parent resets it, or switches which record is being edited) -- keyed
-  // only on `value`, never on `pitches`/`selected` recomputing, or this
-  // would fight the user's cursor on every keystroke.
+  // (parent resets it, or a "recent" chip sets it directly) -- keyed only on
+  // `value`, never on `items`/`selected` recomputing, or this would fight
+  // the user's cursor on every keystroke.
   useEffect(() => {
-    setQuery(selected?.pitch_number_or_name || "");
+    const match = items.find((item) => getId(item) === value);
+    setQuery(match ? getLabel(match) : "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   const matches = query.trim()
-    ? pitches.filter((p) => p.pitch_number_or_name.toLowerCase().includes(query.trim().toLowerCase())).slice(0, MAX_RESULTS)
-    : pitches.slice(0, MAX_RESULTS);
+    ? items.filter((item) => getLabel(item).toLowerCase().includes(query.trim().toLowerCase())).slice(0, MAX_RESULTS)
+    : items.slice(0, MAX_RESULTS);
 
-  function selectPitch(p) {
-    setQuery(p.pitch_number_or_name);
+  function selectItem(item) {
+    setQuery(getLabel(item));
     setOpen(false);
-    onChange(p.id);
+    onChange(getId(item));
   }
 
   function handleChange(e) {
@@ -63,8 +70,8 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
     setOpen(true);
     setHighlightedIndex(0);
     // Only resolves to an id on an exact match -- otherwise this is a
-    // partial, not-yet-a-real-pitch string, so the selection clears until
-    // the user actually picks something.
+    // partial, not-yet-a-real-selection string, so the selection clears
+    // until the user actually picks something.
     onChange("");
   }
 
@@ -82,16 +89,13 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
       setHighlightedIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       e.preventDefault();
-      selectPitch(matches[highlightedIndex]);
+      selectItem(matches[highlightedIndex]);
     } else if (e.key === "Escape") {
       setOpen(false);
-      setQuery(selected?.pitch_number_or_name || "");
+      setQuery(selected ? getLabel(selected) : "");
     }
   }
 
-  // Close on any click outside this component -- a real selection has
-  // already been committed via selectPitch/onChange by then, so there's
-  // nothing to lose by just dropping the open list.
   useEffect(() => {
     if (!open) return;
     function handleDocClick(e) {
@@ -104,21 +108,20 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
   return (
     <div ref={wrapperRef} style={{ position: "relative" }}>
       <input
+        id={id}
         ref={inputRef}
         value={query}
         onChange={handleChange}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        // Carries the shared input styling (and with it the hover/focus
-        // states an inline style cannot express). `style` is still merged
-        // on top for callers that need a width or a margin.
         className="tt-input"
         style={style}
         autoComplete="off"
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
+        aria-label={ariaLabel}
       />
       {open && matches.length > 0 && (
         <div
@@ -137,14 +140,11 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
             boxShadow: shadow.overlay,
           }}
         >
-          {matches.map((p, i) => (
+          {matches.map((item, i) => (
             <div
-              key={p.id}
-              // Prevents the input from blurring on click at all, so the
-              // dropdown never closes out from under the click before this
-              // handler runs (the standard fix for the combobox blur race).
+              key={getId(item)}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => selectPitch(p)}
+              onClick={() => selectItem(item)}
               onMouseEnter={() => setHighlightedIndex(i)}
               style={{
                 padding: "var(--space-3) var(--space-3)",
@@ -155,10 +155,10 @@ export default function PitchPicker({ pitches, value, onChange, placeholder = "T
                 background: i === highlightedIndex ? colors.line : "transparent",
               }}
             >
-              {highlightMatch(p.pitch_number_or_name, query.trim())}
+              {highlightMatch(getLabel(item), query.trim())}
             </div>
           ))}
-          {pitches.length > MAX_RESULTS && matches.length === MAX_RESULTS && (
+          {items.length > MAX_RESULTS && matches.length === MAX_RESULTS && (
             <div style={{ padding: "var(--space-2) var(--space-3)", fontSize: "var(--text-xs)", color: colors.inkSoft, fontStyle: "italic" }}>
               Keep typing to narrow it down…
             </div>
