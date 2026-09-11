@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { colors, fonts, priorityBarStyle, priorityColor, statusPillStyle } from "../lib/theme.js";
+import { formatDueDate } from "../lib/formatDueDate.js";
 import { Card, Pill } from "../ui/index.js";
 
 export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect, highlighted = false }) {
@@ -15,64 +16,71 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
   const isOverdue = Boolean(job.due_date) && !job.job_status?.is_completed && job.due_date < new Date().toISOString().slice(0, 10);
 
   return (
-    <Card
-      as={Link}
-      to={`/jobs/${job.id}`}
-      pad="sm"
-      interactive
-      style={{
-        display: "flex",
-        gap: "var(--space-3)",
-        marginBottom: "var(--space-2)",
-        textDecoration: "none",
-        color: colors.ink,
-        ...(highlighted && {
-          background: colors.okSurface,
-          boxShadow: `0 0 0 2px ${colors.okBorder}`,
-          transition: "background var(--dur), box-shadow var(--dur)",
-        }),
-      }}
-    >
+    <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
       {selectable && (
+        // A sibling of the card link, not a descendant of it -- interactive
+        // content nested inside an <a> (the previous structure, with the
+        // card itself as the link) is invalid HTML and left this checkbox
+        // unreachable in a sane way for a screen reader.
         <input
           type="checkbox"
           checked={selected}
-          onClick={(e) => e.stopPropagation()}
           onChange={() => onToggleSelect?.(job.id)}
+          aria-label={`Select ${job.description}`}
           style={{ alignSelf: "center", width: "var(--checkbox-size-sm)", height: "var(--checkbox-size-sm)", flexShrink: 0, cursor: "pointer" }}
         />
       )}
-      <div style={priorityBarStyle(job.priority)} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
-          <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{job.description}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
-            {isOverdue && <Pill tone="danger">Overdue</Pill>}
-            <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
+      <Card
+        as={Link}
+        to={`/jobs/${job.id}`}
+        pad="sm"
+        interactive
+        style={{
+          display: "flex",
+          gap: "var(--space-3)",
+          flex: 1,
+          minWidth: 0,
+          textDecoration: "none",
+          color: colors.ink,
+          ...(highlighted && {
+            background: colors.okSurface,
+            boxShadow: `0 0 0 2px ${colors.okBorder}`,
+            transition: "background var(--dur), box-shadow var(--dur)",
+          }),
+        }}
+      >
+        <div style={priorityBarStyle(job.priority)} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
+            <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis" }}>{job.description}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+              {isOverdue && <Pill tone="danger">Overdue</Pill>}
+              <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
+            </div>
+          </div>
+          <div
+            style={{
+              fontSize: "var(--text-sm)",
+              color: colors.inkSoft,
+              marginTop: "var(--space-1)",
+              display: "flex",
+              gap: "var(--space-2)",
+              flexWrap: "wrap",
+            }}
+          >
+            {location && <span>{location}</span>}
+            {job.assignee && <span>{job.assignee.display_name}</span>}
+            {job.assignee_group && <span>{job.assignee_group.name}</span>}
+            {job.assignee_contractor && <span>{job.assignee_contractor.name}</span>}
+            {job.due_date && (
+              <span style={{ fontFamily: fonts.mono, ...(isOverdue ? { color: priorityColor.immediate, fontWeight: 700 } : null) }}>
+                {isOverdue ? "Overdue since " : "Due "}
+                {formatDueDate(job.due_date)}
+              </span>
+            )}
           </div>
         </div>
-        <div
-          style={{
-            fontSize: "var(--text-sm)",
-            color: colors.inkSoft,
-            marginTop: "var(--space-1)",
-            display: "flex",
-            gap: "var(--space-2)",
-            flexWrap: "wrap",
-          }}
-        >
-          {location && <span>{location}</span>}
-          {job.assignee && <span>{job.assignee.display_name}</span>}
-          {job.assignee_group && <span>{job.assignee_group.name}</span>}
-          {job.assignee_contractor && <span>{job.assignee_contractor.name}</span>}
-          {job.due_date && (
-            <span style={{ fontFamily: fonts.mono, ...(isOverdue ? { color: priorityColor.immediate, fontWeight: 700 } : null) }}>
-              {isOverdue ? "Overdue since " : "Due "}
-              {job.due_date}
-            </span>
-          )}
-        </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }

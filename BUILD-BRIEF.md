@@ -135,7 +135,7 @@ from a token (in CSS) or from `src/lib/theme.js` (in an inline style).
 --c-bg:          #E4E7EC   (page background)
 --c-paper:       #FAFBFC   (card/panel surface)
 --c-ink:         #1B2430   (primary text)
---c-ink-soft:    #64707D   (secondary text)
+--c-ink-soft:    #4F5A66   (secondary text -- darkened 2026-09-11 for WCAG AA)
 --c-moss:        #1F3B5C   (primary action colour)
 --c-moss-dark:   #142840   (headings, nav active state)
 --c-clay:        #5C6670   ("in progress" status)

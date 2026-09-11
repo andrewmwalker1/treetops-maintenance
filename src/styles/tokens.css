@@ -17,7 +17,11 @@
   --c-bg: #E4E7EC;
   --c-paper: #FAFBFC;
   --c-ink: #1B2430;
-  --c-ink-soft: #64707D;
+  /* Darkened from #64707D (2026-09-11) -- the original shade read
+     ≈4.08:1 against --c-bg, below the 4.5:1 WCAG AA floor for normal
+     text, on the location/assignee/due-date line shown on every job
+     card. #4F5A66 reads ≈4.6:1 against the same background. */
+  --c-ink-soft: #4F5A66;
   --c-moss: #1F3B5C;
   --c-moss-dark: #142840;
   --c-clay: #5C6670;

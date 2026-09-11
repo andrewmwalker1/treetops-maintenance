@@ -19,6 +19,8 @@ import {
   IconFilter,
   IconPlus,
   Input,
+  Menu,
+  MenuItem,
   Modal,
   ModalFooter,
   PageHeader,
@@ -48,6 +50,12 @@ function quickFilterLabel(quickFilter) {
 }
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
+
+// job_statuses is admin-configurable with no cap, so the chip strip below
+// caps at this many named statuses (plus "All") and collapses the rest
+// into an overflow menu -- otherwise it grows past the app's own ≤4
+// visible-options rule the moment a fifth status gets added.
+const MAX_VISIBLE_STATUS_CHIPS = 3;
 
 // Shared by visibleJobs' filtering and the filter-summary text below --
 // same "kind:id" encoding (person/group/contractor) either way, so the
@@ -85,6 +93,28 @@ function initialSelectedIds(navigationType) {
   return new Set();
 }
 
+// Same round trip as selectedIds above, and the same reasoning -- status,
+// priority, assignee and search used to reset to nothing on every "open a
+// job, come back" trip, which is the single most-repeated action for
+// someone checking this list many times a day.
+const FILTERS_STORAGE_KEY = "jobsList:filters";
+const DEFAULT_FILTERS = { activeStatusId: null, activePriority: null, assigneeFilter: "", search: "" };
+
+function loadStoredFilters() {
+  try {
+    const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY);
+    return raw ? { ...DEFAULT_FILTERS, ...JSON.parse(raw) } : DEFAULT_FILTERS;
+  } catch {
+    return DEFAULT_FILTERS;
+  }
+}
+
+function initialFilters(navigationType) {
+  if (navigationType === "POP") return loadStoredFilters();
+  sessionStorage.removeItem(FILTERS_STORAGE_KEY);
+  return DEFAULT_FILTERS;
+}
+
 export default function JobsList() {
   const { org, profile, activeSite, terminology } = useAuth();
   const permissions = usePermissions();
@@ -96,15 +126,15 @@ export default function JobsList() {
   const quickFilter = useMemo(() => quickFilterFromParams(searchParams), [searchParams]);
   const [jobs, setJobs] = useState([]);
   const [statuses, setStatuses] = useState([]);
-  const [activeStatusId, setActiveStatusId] = useState(null);
-  const [activePriority, setActivePriority] = useState(null);
-  // "" = everyone; "person:<id>" or "role:<name>" -- narrows the
-  // already-loaded (RLS-visible) jobs client-side, no extra query needed.
-  const [assigneeFilter, setAssigneeFilter] = useState("");
-  const [search, setSearch] = useState("");
+  const navigationType = useNavigationType();
+  // activeStatusId/activePriority/assigneeFilter/search, kept as one object
+  // so a single sessionStorage read/write covers all four -- see
+  // initialFilters above for why they survive a back-nav round trip.
+  const [filters, setFilters] = useState(() => initialFilters(navigationType));
+  const { activeStatusId, activePriority, assigneeFilter, search } = filters;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigationType = useNavigationType();
+  const [loadError, setLoadError] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => initialSelectedIds(navigationType));
   const [printing, setPrinting] = useState(false);
   const [exportingCsv, setExportingCsv] = useState(false);
@@ -113,6 +143,10 @@ export default function JobsList() {
   useEffect(() => {
     sessionStorage.setItem(SELECTED_IDS_STORAGE_KEY, JSON.stringify([...selectedIds]));
   }, [selectedIds]);
+
+  useEffect(() => {
+    sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filters));
+  }, [filters]);
 
   // NewJob hands off a brief "what just happened" toast via router state
   // (rather than a query param) so it survives exactly one arrival and
@@ -149,27 +183,31 @@ export default function JobsList() {
     // Completed until statuses arrives and this re-runs.
     if (!activeStatusId && statuses.length === 0) return;
     setLoading(true);
-    const filters = {};
+    setLoadError(false);
+    const queryFilters = {};
     if (activeStatusId) {
-      filters.statusIds = [activeStatusId];
+      queryFilters.statusIds = [activeStatusId];
     } else {
       // Default "All" view (and the Dashboard's "open"/"overdue"/"priority"
       // quick filters) only ever means open + in-progress -- Completed and
       // Cancelled each have their own status chip already, so "All" is not
       // literally every job or it would bury the active work under history.
       const openStatusIds = statuses.filter((s) => !s.is_completed).map((s) => s.id);
-      if (openStatusIds.length) filters.statusIds = openStatusIds;
+      if (openStatusIds.length) queryFilters.statusIds = openStatusIds;
     }
     if (activePriority) {
-      filters.priorities = [activePriority];
+      queryFilters.priorities = [activePriority];
     } else if (quickFilter?.type === "priority") {
-      filters.priorities = [quickFilter.value];
+      queryFilters.priorities = [quickFilter.value];
     }
-    if (quickFilter?.type === "overdue") filters.dueBefore = new Date().toISOString().slice(0, 10);
+    if (quickFilter?.type === "overdue") queryFilters.dueBefore = new Date().toISOString().slice(0, 10);
 
-    queryJobs(activeSite.id, filters)
+    queryJobs(activeSite.id, queryFilters)
       .then(setJobs)
-      .catch((err) => setError(err.message))
+      .catch((err) => {
+        console.error("Failed to load jobs", err);
+        setLoadError(true);
+      })
       .finally(() => setLoading(false));
   }, [activeSite, activeStatusId, activePriority, quickFilter, statuses]);
 
@@ -255,9 +293,7 @@ export default function JobsList() {
   }, [activeStatusId, activePriority, assigneeFilter, statuses, assigneeOptions]);
 
   function clearAllFilters() {
-    setActiveStatusId(null);
-    setActivePriority(null);
-    setAssigneeFilter("");
+    setFilters((f) => ({ ...f, activeStatusId: null, activePriority: null, assigneeFilter: "" }));
   }
 
   function toggleSelect(jobId) {
@@ -468,7 +504,7 @@ export default function JobsList() {
           </Button>
           <Input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
             placeholder="Search jobs, people, or groups…"
             aria-label="Search jobs"
             style={{ flex: 1, minWidth: 0 }}
@@ -498,23 +534,51 @@ export default function JobsList() {
         <Modal title="Filter jobs" onClose={() => setShowFilterPanel(false)}>
           <SectionLabel>Status</SectionLabel>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
-            <Chip active={activeStatusId === null} onClick={() => setActiveStatusId(null)}>
+            <Chip active={activeStatusId === null} onClick={() => setFilters((f) => ({ ...f, activeStatusId: null }))}>
               All
             </Chip>
-            {statuses.map((s) => (
-              <Chip key={s.id} active={activeStatusId === s.id} onClick={() => setActiveStatusId(s.id)}>
+            {statuses.slice(0, MAX_VISIBLE_STATUS_CHIPS).map((s) => (
+              <Chip key={s.id} active={activeStatusId === s.id} onClick={() => setFilters((f) => ({ ...f, activeStatusId: s.id }))}>
                 {s.name}
               </Chip>
             ))}
+            {statuses.length > MAX_VISIBLE_STATUS_CHIPS && (
+              <Menu
+                trigger={(triggerProps) => (
+                  <Chip
+                    {...triggerProps}
+                    active={statuses.slice(MAX_VISIBLE_STATUS_CHIPS).some((s) => s.id === activeStatusId)}
+                  >
+                    +{statuses.length - MAX_VISIBLE_STATUS_CHIPS} more ▾
+                  </Chip>
+                )}
+              >
+                {({ close }) => (
+                  <>
+                    {statuses.slice(MAX_VISIBLE_STATUS_CHIPS).map((s) => (
+                      <MenuItem
+                        key={s.id}
+                        onSelect={() => {
+                          setFilters((f) => ({ ...f, activeStatusId: s.id }));
+                          close();
+                        }}
+                      >
+                        {s.name}
+                      </MenuItem>
+                    ))}
+                  </>
+                )}
+              </Menu>
+            )}
           </div>
 
           <SectionLabel>Priority</SectionLabel>
           <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-4)" }}>
-            <Chip active={activePriority === null} onClick={() => setActivePriority(null)}>
+            <Chip active={activePriority === null} onClick={() => setFilters((f) => ({ ...f, activePriority: null }))}>
               All priorities
             </Chip>
             {PRIORITIES.map((p) => (
-              <Chip key={p} active={activePriority === p} onClick={() => setActivePriority(p)}>
+              <Chip key={p} active={activePriority === p} onClick={() => setFilters((f) => ({ ...f, activePriority: p }))}>
                 {p.charAt(0).toUpperCase() + p.slice(1)}
               </Chip>
             ))}
@@ -527,7 +591,11 @@ export default function JobsList() {
           {assigneeOptions.people.length + assigneeOptions.groups.length + assigneeOptions.contractors.length > 1 && (
             <div style={{ marginBottom: "var(--space-4)" }}>
               <SectionLabel>Assigned to</SectionLabel>
-              <Select value={assigneeFilter} onChange={(e) => setAssigneeFilter(e.target.value)} aria-label="Assigned to">
+              <Select
+                value={assigneeFilter}
+                onChange={(e) => setFilters((f) => ({ ...f, assigneeFilter: e.target.value }))}
+                aria-label="Assigned to"
+              >
                 <option value="">Everyone</option>
                 {assigneeOptions.groups.length > 0 && (
                   <optgroup label="By group">
@@ -568,12 +636,22 @@ export default function JobsList() {
       )}
 
       {loading && <SkeletonList rows={4} height={92} />}
+      {loadError && (
+        <Alert tone="danger" title="Couldn't load your jobs">
+          Check your connection and try again.
+          <div style={{ marginTop: "var(--space-2)" }}>
+            <Button size="sm" onClick={refresh}>
+              Try again
+            </Button>
+          </div>
+        </Alert>
+      )}
       {error && (
         <Alert tone="danger" title="Could not load jobs">
           {error}
         </Alert>
       )}
-      {!loading && !error && visibleJobs.length === 0 && (
+      {!loading && !error && !loadError && visibleJobs.length === 0 && (
         <EmptyState
           title="No jobs match this view"
           action={
@@ -581,8 +659,7 @@ export default function JobsList() {
               <Button
                 variant="primary"
                 onClick={() => {
-                  clearAllFilters();
-                  setSearch("");
+                  setFilters(() => DEFAULT_FILTERS);
                   setSearchParams({});
                 }}
               >

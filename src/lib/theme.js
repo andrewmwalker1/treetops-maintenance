@@ -166,12 +166,33 @@ export function priorityBarStyle(priority) {
 }
 
 export function statusPillStyle(statusName) {
+  const fill = statusColor[statusName];
+  if (fill) {
+    return {
+      display: "inline-block",
+      padding: "3px 12px",
+      borderRadius: radius.full,
+      background: fill,
+      color: colors.onDark,
+      fontFamily: fonts.body,
+      fontSize: text.xs,
+      fontWeight: 600,
+      whiteSpace: "nowrap",
+    };
+  }
+  // job_statuses is admin-configurable and this map only names the three
+  // built-in statuses -- an org-added status (Cancelled, On Hold, ...)
+  // used to fall back to a solid grey fill indistinguishable from every
+  // other unmapped status. An outlined pill reads as "a real, named
+  // status" instead of a rendering gap, without inventing an arbitrary
+  // new colour for a name this map doesn't know.
   return {
     display: "inline-block",
-    padding: "3px 12px",
+    padding: "2px 11px",
     borderRadius: radius.full,
-    background: statusColor[statusName] || colors.inkSoft,
-    color: colors.onDark,
+    background: "transparent",
+    color: colors.ink,
+    border: `1px solid ${colors.lineStrong}`,
     fontFamily: fonts.body,
     fontSize: text.xs,
     fontWeight: 600,
