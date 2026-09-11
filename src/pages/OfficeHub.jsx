@@ -9,7 +9,7 @@ import StatDial from "../components/StatDial.jsx";
 import { colors, space } from "../lib/theme.js";
 import {
   Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, IconButton,
-  IconSearch, Input, PageHeader, SkeletonList,
+  IconClose, IconSearch, Input, PageHeader, SkeletonList,
 } from "../ui/index.js";
 
 // Lazy: pulls in docxtemplater/pizzip, needed only by whoever actually
@@ -167,26 +167,48 @@ function DashboardTab({ items, setItems, links, docs, linkCategories, docCategor
   }
 
   return (
-    <div style={{ display: "grid", gap: space[3], gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+    <div style={{ display: "grid", gap: space[3], gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
       {sorted.map((row, i) => {
         const isLink = row.item_type === "link";
         const item = isLink ? links.find((l) => l.id === row.item_id) : docs.find((d) => d.id === row.item_id);
         if (!item) return null;
+        const title = isLink ? item.label : item.title;
         return (
           <Card pad="sm" key={row.id}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "var(--space-2)" }}>
-              <div style={{ fontWeight: 600 }}>{isLink ? item.label : item.title}</div>
-              <IconButton size="sm" label="Unpin" onClick={() => unpin(row)}><IconArrowDown size={14} /></IconButton>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  flexShrink: 0,
+                  borderRadius: "var(--radius-sm)",
+                  background: colors.moss,
+                  color: colors.onDark,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 700,
+                  fontSize: "var(--text-sm)",
+                }}
+              >
+                {title.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {title}
+                </div>
+                <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
+                  {categoryName(isLink ? linkCategories : docCategories, item.category_id)}
+                </div>
+              </div>
+              <IconButton size="sm" label="Unpin" onClick={() => unpin(row)}><IconClose size={13} /></IconButton>
             </div>
-            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginBottom: "var(--space-2)" }}>
-              {categoryName(isLink ? linkCategories : docCategories, item.category_id)}
-            </div>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <Button as="a" href={isLink ? item.url : item.file_url} target="_blank" rel="noreferrer" variant="primary">
+            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+              <Button as="a" href={isLink ? item.url : item.file_url} target="_blank" rel="noreferrer" variant="primary" size="sm" style={{ flex: 1 }}>
                 {isLink ? "Open" : "View"}
               </Button>
-              <IconButton size="sm" label="Move up" onClick={() => move(i, -1)} disabled={i === 0}><IconArrowUp size={14} /></IconButton>
-              <IconButton size="sm" label="Move down" onClick={() => move(i, 1)} disabled={i === sorted.length - 1}><IconArrowDown size={14} /></IconButton>
+              <IconButton size="sm" label="Move up" onClick={() => move(i, -1)} disabled={i === 0}><IconArrowUp size={13} /></IconButton>
+              <IconButton size="sm" label="Move down" onClick={() => move(i, 1)} disabled={i === sorted.length - 1}><IconArrowDown size={13} /></IconButton>
             </div>
           </Card>
         );
