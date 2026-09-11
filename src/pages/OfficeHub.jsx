@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
@@ -46,32 +46,30 @@ async function loadHubData(key, fallback) {
 
 const categoryName = (categories, id) => categories.find((c) => c.id === id)?.name || "Uncategorised";
 
+// Shared by DirectoriesPanel's own category-scoped search and the signal
+// strip's cross-category quick search below.
+function matchesQuery(row, categories, q) {
+  return (
+    row.name.toLowerCase().includes(q) ||
+    (row.address || "").toLowerCase().includes(q) ||
+    categoryName(categories, row.categoryId).toLowerCase().includes(q)
+  );
+}
+
 // Same search-by-name/address/category + category-chip filtering Hub's
 // own guest-facing Contractors/Explore screens already give customers
 // (App.jsx's ContractorsScreen/DirectoryScreen there) -- kept in step
 // deliberately rather than a plain unfiltered list, since staff have
 // exactly as much need to quickly find one contractor among many.
-function DirectoriesPanel({ initialQuery = "" }) {
+// `hub` (contractors/contractorCategories/directory/directoryCategories/
+// loading) is loaded once at the top level, not here -- the signal
+// strip's quick search needs the same data before this tab is ever
+// opened, so fetching it twice would just be wasted, duplicate work.
+function DirectoriesPanel({ hub, initialQuery = "" }) {
   const [view, setView] = useState("contractors");
-  const [loading, setLoading] = useState(true);
-  const [contractors, setContractors] = useState([]);
-  const [contractorCategories, setContractorCategories] = useState([]);
-  const [directory, setDirectory] = useState([]);
-  const [directoryCategories, setDirectoryCategories] = useState([]);
   const [query, setQuery] = useState(initialQuery);
   const [categoryId, setCategoryId] = useState("all");
-
-  useEffect(() => {
-    Promise.all([
-      loadHubData("contractors", []),
-      loadHubData("contractorCategories", []),
-      loadHubData("directory", []),
-      loadHubData("directoryCategories", []),
-    ]).then(([ct, ctc, d, dc]) => {
-      setContractors(ct); setContractorCategories(ctc); setDirectory(d); setDirectoryCategories(dc);
-      setLoading(false);
-    });
-  }, []);
+  const { contractors, contractorCategories, directory, directoryCategories, loading } = hub;
 
   function switchView(next) {
     setView(next);
@@ -86,14 +84,7 @@ function DirectoriesPanel({ initialQuery = "" }) {
   const q = query.trim().toLowerCase();
   const filtered = rows
     .filter((r) => categoryId === "all" || r.categoryId === categoryId)
-    .filter((r) => {
-      if (!q) return true;
-      return (
-        r.name.toLowerCase().includes(q) ||
-        (r.address || "").toLowerCase().includes(q) ||
-        categoryName(categories, r.categoryId).toLowerCase().includes(q)
-      );
-    })
+    .filter((r) => !q || matchesQuery(r, categories, q))
     .sort((a, b) => (view === "explore" ? (a.mins ?? 9999) - (b.mins ?? 9999) : 0));
 
   return (
@@ -384,7 +375,7 @@ function BrowseList({ items, categories, isLink, dashboardItems, onPin, onUnpin 
   );
 }
 
-function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems, pin, unpin, initialSection = "links", initialQuery = "" }) {
+function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems, pin, unpin, hub, initialSection = "links", initialQuery = "" }) {
   const [section, setSection] = useState(initialSection);
 
   return (
@@ -400,7 +391,7 @@ function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems,
       {section === "documents" && (
         <BrowseList items={docs} categories={docCategories} isLink={false} dashboardItems={dashboardItems} onPin={(id) => pin("document", id)} onUnpin={(id) => unpin("document", id)} />
       )}
-      {section === "directories" && <DirectoriesPanel initialQuery={initialQuery} />}
+      {section === "directories" && <DirectoriesPanel hub={hub} initialQuery={initialQuery} />}
     </div>
   );
 }
@@ -414,8 +405,52 @@ function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems,
 // already computes the same way. Sits above the tabs, not inside the
 // Dashboard tab, since "does anything need me" is relevant regardless of
 // which tab you're actually browsing.
-function SignalStrip({ counts, onSearch }) {
+// Quick search -- results appear inline under the box as you type,
+// dashboard tiles stay visible underneath the whole time. Deliberately
+// not a navigation: clearing the box or clicking away just closes the
+// dropdown, because nothing ever left. "See all results in Directories"
+// is the one opt-in escape hatch into the full Browse tab, for someone
+// who actually wants to browse rather than glance something up.
+function SignalStrip({ counts, hub, onSeeAll }) {
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleDocClick(e) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    }
+    function handleKeyDown(e) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handleDocClick);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleDocClick);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const results = !q
+    ? []
+    : [
+        ...hub.contractors
+          .filter((r) => matchesQuery(r, hub.contractorCategories, q))
+          .map((r) => ({ ...r, kind: "Contractor", categoryLabel: categoryName(hub.contractorCategories, r.categoryId) })),
+        ...hub.directory
+          .filter((r) => matchesQuery(r, hub.directoryCategories, q))
+          .map((r) => ({ ...r, kind: "Place", categoryLabel: categoryName(hub.directoryCategories, r.categoryId) })),
+      ].slice(0, 6);
+
+  function handleSeeAll() {
+    if (!query.trim()) return;
+    onSeeAll(query.trim());
+    setQuery("");
+    setOpen(false);
+  }
+
   return (
     <div style={{ marginBottom: "var(--space-5)" }}>
       <div
@@ -442,27 +477,89 @@ function SignalStrip({ counts, onSearch }) {
           onClick={counts.onFaulty}
         />
       </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (query.trim()) onSearch(query.trim());
-        }}
-        style={{ display: "flex", gap: "var(--space-2)" }}
-      >
-        <div style={{ position: "relative", flex: 1 }}>
-          <IconSearch size={15} color={colors.inkSoft} style={{ position: "absolute", left: 10, top: 10 }} />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search contractors or places to eat…"
-            aria-label="Search contractors or places to eat"
-            style={{ paddingLeft: 32, width: "100%" }}
-          />
-        </div>
-        <Button type="submit" variant="primary" disabled={!query.trim()}>
-          Search
-        </Button>
-      </form>
+      <div ref={wrapperRef} style={{ position: "relative" }}>
+        <IconSearch size={15} color={colors.inkSoft} style={{ position: "absolute", left: 10, top: 10, zIndex: 1 }} />
+        <Input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onFocus={() => query.trim() && setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSeeAll();
+            }
+          }}
+          placeholder="Search contractors or places to eat…"
+          aria-label="Search contractors or places to eat"
+          style={{ paddingLeft: 32, width: "100%" }}
+        />
+        {open && q && (
+          <div
+            style={{
+              position: "absolute",
+              top: "100%",
+              left: 0,
+              right: 0,
+              marginTop: "var(--space-1)",
+              zIndex: 20,
+              background: colors.paper,
+              border: `1px solid ${colors.lineStrong}`,
+              borderRadius: "var(--radius-md)",
+              boxShadow: "var(--shadow-overlay)",
+              overflow: "hidden",
+            }}
+          >
+            {hub.loading ? (
+              <div style={{ padding: "var(--space-3)", fontSize: "var(--text-sm)", color: colors.inkSoft }}>Loading…</div>
+            ) : results.length === 0 ? (
+              <div style={{ padding: "var(--space-3)", fontSize: "var(--text-sm)", color: colors.inkSoft }}>No matches.</div>
+            ) : (
+              results.map((r) => (
+                <div
+                  key={`${r.kind}-${r.id}`}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: "var(--space-2)",
+                    padding: "var(--space-2) var(--space-3)",
+                    borderBottom: `1px solid ${colors.line}`,
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {r.name}
+                    </div>
+                    <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
+                      {r.categoryLabel}
+                      {r.phone ? ` · ${r.phone}` : ""}
+                      {r.address ? ` · ${r.address}` : ""}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: "var(--text-xs)", fontFamily: "var(--font-mono)", color: colors.inkSoft, flexShrink: 0 }}>{r.kind}</span>
+                </div>
+              ))
+            )}
+            <Button
+              onClick={handleSeeAll}
+              style={{
+                width: "100%",
+                justifyContent: "flex-start",
+                borderRadius: 0,
+                borderTop: `1px solid ${colors.line}`,
+                background: colors.bg,
+                color: colors.moss,
+                fontWeight: 600,
+              }}
+            >
+              See all results in Directories →
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -493,6 +590,16 @@ export default function OfficeHub() {
   const [keysOutCount, setKeysOutCount] = useState(0);
   const [faultyCount, setFaultyCount] = useState(0);
   const [directorySearch, setDirectorySearch] = useState("");
+
+  // Hub's contractors/places -- loaded once here, up front, rather than
+  // inside DirectoriesPanel, so the signal strip's quick search has data
+  // to search the moment someone types, not just after they've opened
+  // Browse -> Directories.
+  const [hubContractors, setHubContractors] = useState([]);
+  const [hubContractorCategories, setHubContractorCategories] = useState([]);
+  const [hubDirectory, setHubDirectory] = useState([]);
+  const [hubDirectoryCategories, setHubDirectoryCategories] = useState([]);
+  const [hubLoading, setHubLoading] = useState(true);
 
   const availableTabs = [
     canOfficeHub && "dashboard",
@@ -569,6 +676,30 @@ export default function OfficeHub() {
       .then(({ count }) => setFaultyCount(count || 0));
   }, [org, canOfficeHub]);
 
+  useEffect(() => {
+    if (!canOfficeHub) return;
+    Promise.all([
+      loadHubData("contractors", []),
+      loadHubData("contractorCategories", []),
+      loadHubData("directory", []),
+      loadHubData("directoryCategories", []),
+    ]).then(([ct, ctc, d, dc]) => {
+      setHubContractors(ct);
+      setHubContractorCategories(ctc);
+      setHubDirectory(d);
+      setHubDirectoryCategories(dc);
+      setHubLoading(false);
+    });
+  }, [canOfficeHub]);
+
+  const hub = {
+    contractors: hubContractors,
+    contractorCategories: hubContractorCategories,
+    directory: hubDirectory,
+    directoryCategories: hubDirectoryCategories,
+    loading: hubLoading,
+  };
+
   function jumpToDirectorySearch(q) {
     setDirectorySearch(q);
     setTab("browse");
@@ -623,7 +754,8 @@ export default function OfficeHub() {
             faulty: faultyCount,
             onFaulty: () => navigate("/equipment?status=faulty"),
           }}
-          onSearch={jumpToDirectorySearch}
+          hub={hub}
+          onSeeAll={jumpToDirectorySearch}
         />
       )}
 
@@ -649,6 +781,7 @@ export default function OfficeHub() {
           dashboardItems={dashboardItems}
           pin={pin}
           unpin={unpin}
+          hub={hub}
           initialSection={directorySearch ? "directories" : "links"}
           initialQuery={directorySearch}
         />
