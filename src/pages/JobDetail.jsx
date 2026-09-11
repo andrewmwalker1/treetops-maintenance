@@ -421,7 +421,34 @@ export default function JobDetail() {
     }
 
     const startOrder = mode === "append" && subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
-    const rows = items.map((item, i) => ({ job_id: job.id, label: item.label, requires_photo: item.requiresPhoto, sort_order: startOrder + i }));
+    // A heading row (see ChecklistBuilder.jsx) is never itself a real
+    // checklist item -- it just names the section for whatever items
+    // follow it, same as NewJob.jsx's identical build. Inserting it
+    // as-is used to send a job_subtasks row with no `requires_photo`
+    // key while sibling rows had one; PostgREST unions the keys across
+    // a bulk insert, so the heading row got an explicit NULL for that
+    // not-null column instead of its default, violating the constraint.
+    let currentSection = null;
+    const rows = [];
+    for (const item of items) {
+      if (item.type === "heading") {
+        currentSection = item.label;
+        continue;
+      }
+      rows.push({
+        job_id: job.id,
+        label: item.label,
+        requires_photo: item.requiresPhoto,
+        section: currentSection,
+        sort_order: startOrder + rows.length,
+      });
+    }
+    if (rows.length === 0) {
+      setRecalling(false);
+      setShowRecallModal(false);
+      setRecallTemplateId("");
+      return;
+    }
     const { error: insErr } = await supabase.from("job_subtasks").insert(rows);
     setRecalling(false);
     if (insErr) {
