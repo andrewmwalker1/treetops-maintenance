@@ -428,9 +428,19 @@ function SignalStrip({ counts, onSearch }) {
       >
         <StatDial label="My jobs" value={counts.mine} onClick={counts.onMine} />
         <StatDial label="Office jobs" value={counts.office} color={colors.gold} onClick={counts.onOffice} />
-        <StatDial label="Overdue" value={counts.overdue} color={counts.overdue ? colors.immediate : colors.moss} />
-        <StatDial label="Docs ≤14d" value={counts.docsExpiring} color={counts.docsExpiring ? colors.gold : colors.moss} />
-        <StatDial label="Keys out" value={counts.keysOut} />
+        <StatDial
+          label="Overdue"
+          value={counts.overdue}
+          color={counts.overdue ? colors.immediate : colors.moss}
+          onClick={counts.onOverdue}
+        />
+        <StatDial
+          label="Docs ≤14d"
+          value={counts.docsExpiring}
+          color={counts.docsExpiring ? colors.gold : colors.moss}
+          onClick={counts.onDocsExpiring}
+        />
+        <StatDial label="Keys out" value={counts.keysOut} onClick={counts.onKeysOut} />
         <StatDial
           label="Faulty kit"
           value={counts.faulty}
@@ -628,9 +638,22 @@ export default function OfficeHub() {
             onMine: () => navigate(`/?assignee=person:${profile.id}`),
             office: officeJobsOpen.length,
             onOffice: officeGroupId ? () => navigate(`/?assignee=group:${officeGroupId}`) : undefined,
+            // Scoped to mine + Office's above, but a single assignee filter
+            // can't express "either of two assignees" at once -- links to
+            // the same overdue view the main Dashboard's own tile uses
+            // (a superset of what's counted) rather than a filter combo
+            // the Jobs list doesn't support.
             overdue: overdueCount,
+            onOverdue: () => navigate("/?overdue=1"),
+            // No dedicated "documents expiring" list exists yet (equipment
+            // docs and contractor docs each live inside their own admin
+            // screen's per-item modal) -- Equipment is the more frequent,
+            // safety-critical case (Gas Test/MOT certs), so it's the
+            // closer of the two starting points.
             docsExpiring: docsExpiringCount,
+            onDocsExpiring: () => navigate("/equipment"),
             keysOut: keysOutCount,
+            onKeysOut: () => navigate("/dashboard"),
             faulty: faultyCount,
             onFaulty: () => navigate("/equipment?status=faulty"),
           }}
