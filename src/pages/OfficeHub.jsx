@@ -1,14 +1,18 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
+import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { queryOpenKeyCheckouts } from "../lib/keysOutSummary.js";
+import { tileColorValue } from "../lib/officeHubTiles.js";
 import StatDial from "../components/StatDial.jsx";
 import { colors, space } from "../lib/theme.js";
 import {
-  Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, IconButton,
+  Alert, Button, Card, Chip, EmptyState,
   IconClose, IconSearch, Input, PageHeader, SkeletonList,
 } from "../ui/index.js";
 
@@ -143,76 +147,218 @@ function DirectoriesPanel({ initialQuery = "" }) {
   );
 }
 
-function DashboardTab({ items, setItems, links, docs, linkCategories, docCategories }) {
+// Resolves a pinned row (which only knows item_type/item_id) to the
+// actual link or document it points at, plus that item's tile styling.
+function resolveTile(row, links, docs) {
+  const isLink = row.item_type === "link";
+  const item = isLink ? links.find((l) => l.id === row.item_id) : docs.find((d) => d.id === row.item_id);
+  if (!item) return null;
+  return {
+    isLink,
+    item,
+    title: isLink ? item.label : item.title,
+    href: isLink ? item.url : item.file_url,
+    color: tileColorValue(item.color),
+  };
+}
+
+const TILE_BASE_STYLE = {
+  aspectRatio: "1",
+  borderRadius: "var(--radius-md)",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "flex-end",
+  padding: "var(--space-2)",
+  color: colors.onDark,
+  boxShadow: "var(--shadow-card)",
+  position: "relative",
+  textDecoration: "none",
+};
+
+// Normal (non-editing) view -- the whole tile is a plain link, nothing
+// else to click. Solid colour + a large icon glyph + label, launcher
+// style, rather than the previous card-with-buttons treatment.
+function StaticTile({ tile }) {
+  return (
+    <a href={tile.href} target="_blank" rel="noreferrer" style={{ ...TILE_BASE_STYLE, background: tile.color }}>
+      <span style={{ position: "absolute", top: "var(--space-2)", left: "var(--space-2)", fontSize: "var(--text-lg)" }}>{tile.item.icon}</span>
+      <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, lineHeight: 1.25 }}>{tile.title}</span>
+    </a>
+  );
+}
+
+// Edit-mode tile -- draggable (the whole tile is the drag surface; a
+// short activation distance on the sensor, set where DndContext is
+// created, keeps the Remove button clickable without starting a drag),
+// with a remove button. Not a real link while editing, since "drag to
+// reorder" and "tap to open a new tab" can't both own a plain tap.
+function DraggableTile({ row, tile, onRemove }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{
+        ...TILE_BASE_STYLE,
+        background: tile.color,
+        cursor: "grab",
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.4 : 1,
+        outline: "2px dashed rgba(255,255,255,0.5)",
+        outlineOffset: 2,
+      }}
+    >
+      <button
+        type="button"
+        aria-label={`Unpin ${tile.title}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        style={{
+          position: "absolute",
+          top: -6,
+          left: -6,
+          width: 20,
+          height: 20,
+          borderRadius: "var(--radius-full)",
+          background: colors.immediate,
+          color: colors.onDark,
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <IconClose size={11} />
+      </button>
+      <span style={{ position: "absolute", top: "var(--space-2)", left: "var(--space-2)", fontSize: "var(--text-lg)" }}>{tile.item.icon}</span>
+      <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, lineHeight: 1.25 }}>{tile.title}</span>
+    </div>
+  );
+}
+
+function DashboardTab({ items, setItems, links, docs, pin, unpin }) {
+  const [editing, setEditing] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
   const sorted = [...items].sort((a, b) => a.position - b.position);
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  async function unpin(row) {
+  const pinnedKeys = new Set(items.map((i) => `${i.item_type}:${i.item_id}`));
+  const availableLinks = links.filter((l) => !pinnedKeys.has(`link:${l.id}`));
+  const availableDocs = docs.filter((d) => !pinnedKeys.has(`document:${d.id}`));
+
+  async function handleUnpin(row) {
     setItems(items.filter((i) => i.id !== row.id));
-    await supabase.from("office_hub_dashboard_items").delete().eq("id", row.id);
+    await unpin(row.item_type, row.item_id);
   }
 
-  async function move(index, direction) {
-    const target = index + direction;
-    if (target < 0 || target >= sorted.length) return;
-    const a = sorted[index], b = sorted[target];
-    setItems(items.map((i) => (i.id === a.id ? { ...i, position: b.position } : i.id === b.id ? { ...i, position: a.position } : i)));
-    await Promise.all([
-      supabase.from("office_hub_dashboard_items").update({ position: b.position }).eq("id", a.id),
-      supabase.from("office_hub_dashboard_items").update({ position: a.position }).eq("id", b.id),
-    ]);
+  function handleDragEnd(event) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = sorted.findIndex((r) => r.id === active.id);
+    const newIndex = sorted.findIndex((r) => r.id === over.id);
+    const reordered = arrayMove(sorted, oldIndex, newIndex).map((row, i) => ({ ...row, position: i }));
+    setItems(items.map((r) => reordered.find((u) => u.id === r.id) || r));
+    Promise.all(reordered.map((row) => supabase.from("office_hub_dashboard_items").update({ position: row.position }).eq("id", row.id)));
   }
 
-  if (sorted.length === 0) {
-    return <EmptyState title="Nothing pinned yet">Go to Browse and pin the links or documents you use most.</EmptyState>;
-  }
+  const tiles = sorted.map((row) => ({ row, tile: resolveTile(row, links, docs) })).filter((t) => t.tile);
 
   return (
-    <div style={{ display: "grid", gap: space[3], gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
-      {sorted.map((row, i) => {
-        const isLink = row.item_type === "link";
-        const item = isLink ? links.find((l) => l.id === row.item_id) : docs.find((d) => d.id === row.item_id);
-        if (!item) return null;
-        const title = isLink ? item.label : item.title;
-        return (
-          <Card pad="sm" key={row.id}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
-              <div
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-3)" }}>
+        <PageHeader title="My Dashboard" level={2} />
+        <Button
+          variant={editing ? "primary" : "secondary"}
+          onClick={() => {
+            setEditing((e) => !e);
+            setShowLibrary(false);
+          }}
+        >
+          {editing ? "Done" : "✎ Edit layout"}
+        </Button>
+      </div>
+
+      {tiles.length === 0 && !editing && (
+        <EmptyState title="Nothing pinned yet">Tap "Edit layout" to add the links or documents you use most.</EmptyState>
+      )}
+
+      {(tiles.length > 0 || editing) && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={editing ? handleDragEnd : undefined}>
+          <SortableContext items={tiles.map((t) => t.row.id)} strategy={rectSortingStrategy}>
+            <div style={{ display: "grid", gap: space[3], gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))" }}>
+              {tiles.map(({ row, tile }) =>
+                editing ? (
+                  <DraggableTile key={row.id} row={row} tile={tile} onRemove={() => handleUnpin(row)} />
+                ) : (
+                  <StaticTile key={row.id} tile={tile} />
+                )
+              )}
+              {editing && (
+                <button
+                  type="button"
+                  onClick={() => setShowLibrary((s) => !s)}
+                  style={{
+                    ...TILE_BASE_STYLE,
+                    background: "transparent",
+                    border: `1.5px dashed ${colors.lineStrong}`,
+                    boxShadow: "none",
+                    color: colors.inkSoft,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ fontSize: "var(--text-2xl)", fontWeight: 300 }}>+</span>
+                </button>
+              )}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+
+      {editing && showLibrary && (
+        <Card pad="sm" style={{ marginTop: "var(--space-3)" }}>
+          <div style={{ fontSize: "var(--text-xs)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>
+            Add from library
+          </div>
+          {availableLinks.length === 0 && availableDocs.length === 0 && (
+            <p style={{ margin: 0, fontSize: "var(--text-sm)", color: colors.inkSoft }}>Everything's already pinned.</p>
+          )}
+          {availableLinks.map((l) => (
+            <div key={l.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-2) 0", borderTop: `1px solid ${colors.line}` }}>
+              <span
                 style={{
-                  width: 28,
-                  height: 28,
-                  flexShrink: 0,
-                  borderRadius: "var(--radius-sm)",
-                  background: colors.moss,
-                  color: colors.onDark,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 700,
-                  fontSize: "var(--text-sm)",
+                  width: 24, height: 24, borderRadius: "var(--radius-sm)", background: tileColorValue(l.color),
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-sm)", flexShrink: 0,
                 }}
               >
-                {title.charAt(0).toUpperCase()}
-              </div>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: "var(--text-sm)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {title}
-                </div>
-                <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
-                  {categoryName(isLink ? linkCategories : docCategories, item.category_id)}
-                </div>
-              </div>
-              <IconButton size="sm" label="Unpin" onClick={() => unpin(row)}><IconClose size={13} /></IconButton>
+                {l.icon}
+              </span>
+              <span style={{ fontSize: "var(--text-sm)", flex: 1, minWidth: 0 }}>{l.label}</span>
+              <Button size="sm" variant="primary" onClick={() => pin("link", l.id)}>+ Add</Button>
             </div>
-            <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
-              <Button as="a" href={isLink ? item.url : item.file_url} target="_blank" rel="noreferrer" variant="primary" size="sm" style={{ flex: 1 }}>
-                {isLink ? "Open" : "View"}
-              </Button>
-              <IconButton size="sm" label="Move up" onClick={() => move(i, -1)} disabled={i === 0}><IconArrowUp size={13} /></IconButton>
-              <IconButton size="sm" label="Move down" onClick={() => move(i, 1)} disabled={i === sorted.length - 1}><IconArrowDown size={13} /></IconButton>
+          ))}
+          {availableDocs.map((d) => (
+            <div key={d.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-2) 0", borderTop: `1px solid ${colors.line}` }}>
+              <span
+                style={{
+                  width: 24, height: 24, borderRadius: "var(--radius-sm)", background: tileColorValue(d.color),
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: "var(--text-sm)", flexShrink: 0,
+                }}
+              >
+                {d.icon}
+              </span>
+              <span style={{ fontSize: "var(--text-sm)", flex: 1, minWidth: 0 }}>{d.title}</span>
+              <Button size="sm" variant="primary" onClick={() => pin("document", d.id)}>+ Add</Button>
             </div>
-          </Card>
-        );
-      })}
+          ))}
+        </Card>
+      )}
     </div>
   );
 }
@@ -244,24 +390,8 @@ function BrowseList({ items, categories, isLink, dashboardItems, onPin, onUnpin 
   );
 }
 
-function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems, setDashboardItems, profileId, initialSection = "links", initialQuery = "" }) {
+function BrowseTab({ links, linkCategories, docs, docCategories, dashboardItems, pin, unpin, initialSection = "links", initialQuery = "" }) {
   const [section, setSection] = useState(initialSection);
-
-  async function pin(itemType, itemId) {
-    const nextPosition = dashboardItems.length ? Math.max(...dashboardItems.map((d) => d.position)) + 1 : 0;
-    const { data, error } = await supabase
-      .from("office_hub_dashboard_items")
-      .insert({ profile_id: profileId, item_type: itemType, item_id: itemId, position: nextPosition })
-      .select()
-      .single();
-    if (!error && data) setDashboardItems([...dashboardItems, data]);
-  }
-  async function unpin(itemType, itemId) {
-    const row = dashboardItems.find((d) => d.item_type === itemType && d.item_id === itemId);
-    if (!row) return;
-    setDashboardItems(dashboardItems.filter((d) => d.id !== row.id));
-    await supabase.from("office_hub_dashboard_items").delete().eq("id", row.id);
-  }
 
   return (
     <div>
@@ -467,6 +597,25 @@ export default function OfficeHub() {
     setTab("browse");
   }
 
+  // Shared by the Dashboard tab's tile grid (edit mode's "+" library
+  // panel) and the Browse tab's Pin buttons -- one implementation of
+  // "add/remove this item from my personal dashboard" for both.
+  async function pin(itemType, itemId) {
+    const nextPosition = dashboardItems.length ? Math.max(...dashboardItems.map((d) => d.position)) + 1 : 0;
+    const { data, error: err } = await supabase
+      .from("office_hub_dashboard_items")
+      .insert({ profile_id: profile.id, item_type: itemType, item_id: itemId, position: nextPosition })
+      .select()
+      .single();
+    if (!err && data) setDashboardItems((prev) => [...prev, data]);
+  }
+  async function unpin(itemType, itemId) {
+    const row = dashboardItems.find((d) => d.item_type === itemType && d.item_id === itemId);
+    if (!row) return;
+    setDashboardItems((prev) => prev.filter((d) => d.id !== row.id));
+    await supabase.from("office_hub_dashboard_items").delete().eq("id", row.id);
+  }
+
   if (!canOfficeHub && !canLicenseAgreement) {
     return <EmptyState title="No access">You don't have permission to see Office Hub. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
@@ -507,7 +656,7 @@ export default function OfficeHub() {
       ) : loading && canOfficeHub ? (
         <SkeletonList rows={3} height={80} />
       ) : tab === "dashboard" ? (
-        <DashboardTab items={dashboardItems} setItems={setDashboardItems} links={links} docs={docs} linkCategories={linkCategories} docCategories={docCategories} />
+        <DashboardTab items={dashboardItems} setItems={setDashboardItems} links={links} docs={docs} pin={pin} unpin={unpin} />
       ) : tab === "browse" ? (
         <BrowseTab
           links={links}
@@ -515,8 +664,8 @@ export default function OfficeHub() {
           docs={docs}
           docCategories={docCategories}
           dashboardItems={dashboardItems}
-          setDashboardItems={setDashboardItems}
-          profileId={profile.id}
+          pin={pin}
+          unpin={unpin}
           initialSection={directorySearch ? "directories" : "links"}
           initialQuery={directorySearch}
         />

@@ -67,6 +67,18 @@
   --c-priority-immediate: #C62828;
   --c-priority-immediate-alt: #7A1710;
 
+  /* Office Hub tile palette: a curated set an admin picks from when
+     creating a link/document tile (src/lib/officeHubTiles.js), not a
+     free colour picker. "Navy" and "Gold" below are deliberately the
+     same --c-moss/--c-gold already used everywhere else -- the six
+     here are the only genuinely new hues. */
+  --c-tile-teal: #2E6B6B;
+  --c-tile-plum: #7A4A6B;
+  --c-tile-rust: #8A4A2E;
+  --c-tile-slate: #4B5A6E;
+  --c-tile-olive: #5C6B3C;
+  --c-tile-violet: #6B4E8A;
+
   /* ---- Type -------------------------------------------------------- */
   --font-display: 'Lora', Georgia, serif;
   --font-body: 'Work Sans', system-ui, -apple-system, sans-serif;

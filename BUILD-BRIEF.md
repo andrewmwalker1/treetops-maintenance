@@ -147,6 +147,19 @@ from a token (in CSS) or from `src/lib/theme.js` (in an inline style).
 Plus derived surfaces (`--c-surface-hover`, `--c-scrim`) and semantic
 sets (`--c-info-*`, `--c-warn-*`, `--c-danger-*`, `--c-ok-*`) for alerts.
 
+**Office Hub tile palette** — `--c-tile-*`, the curated colour set an
+admin picks from per link/document tile (`src/lib/officeHubTiles.js`
+maps a stored key to the token; "Navy"/"Gold" reuse `--c-moss`/`--c-gold`
+rather than adding new tokens for them):
+```
+--c-tile-teal:   #2E6B6B
+--c-tile-plum:   #7A4A6B
+--c-tile-rust:   #8A4A2E
+--c-tile-slate:  #4B5A6E
+--c-tile-olive:  #5C6B3C
+--c-tile-violet: #6B4E8A
+```
+
 **Priority** is its own escalating scale, deliberately NOT aliased to the
 brand tokens above — low `#1B7A4D`, medium `#C68A00`, high `#C2571A`,
 immediate `#C62828` (with `#7A1710` for its hazard stripe). Andy confirmed

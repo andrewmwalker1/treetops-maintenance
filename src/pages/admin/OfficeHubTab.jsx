@@ -2,10 +2,104 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors } from "../../lib/theme.js";
+import { TILE_COLORS, TILE_ICONS, tileColorValue } from "../../lib/officeHubTiles.js";
 import {
   Alert, Button, Card, EmptyState, IconArrowDown, IconArrowUp, IconButton,
   Input, Modal, PageHeader, Select, Textarea,
 } from "../../ui/index.js";
+
+// Shared by the Links and Documents forms below -- picking a tile's
+// colour and icon is the same interaction either way.
+function TileStyleFields({ color, icon, onChange }) {
+  return (
+    <>
+      <div style={{ marginBottom: "var(--space-3)" }}>
+        <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>
+          Tile colour
+        </label>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+          {TILE_COLORS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              aria-label={c.label}
+              aria-pressed={color === c.key}
+              onClick={() => onChange({ color: c.key })}
+              style={{
+                width: 30,
+                height: 30,
+                borderRadius: "var(--radius-sm)",
+                background: c.value,
+                border: color === c.key ? `2px solid ${colors.ink}` : "2px solid transparent",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: colors.onDark,
+                fontSize: "var(--text-sm)",
+                fontWeight: 700,
+              }}
+            >
+              {color === c.key ? "✓" : ""}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{ marginBottom: "var(--space-3)" }}>
+        <label style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>
+          Icon
+        </label>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+          {TILE_ICONS.map((emoji) => (
+            <button
+              key={emoji}
+              type="button"
+              aria-label={`Icon ${emoji}`}
+              aria-pressed={icon === emoji}
+              onClick={() => onChange({ icon: emoji })}
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "var(--radius-sm)",
+                background: colors.paper,
+                border: icon === emoji ? `2px solid ${colors.moss}` : `1px solid ${colors.lineStrong}`,
+                cursor: "pointer",
+                fontSize: "var(--text-md)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {emoji}
+            </button>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// The small colour+icon preview shown next to each row in the admin
+// list, so an admin can tell tiles apart without opening each one.
+function TileSwatch({ color, icon }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 28,
+        height: 28,
+        borderRadius: "var(--radius-sm)",
+        background: tileColorValue(color),
+        fontSize: "var(--text-sm)",
+        flexShrink: 0,
+      }}
+    >
+      {icon}
+    </span>
+  );
+}
 
 const UPLOAD_BUCKET = "office-hub-files";
 const ATTACHMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
@@ -81,7 +175,7 @@ function CategoriesPanel({ table, categories, items, orgId, itemLabel, onSaved }
   );
 }
 
-const blankLink = { id: null, category_id: "", label: "", url: "", description: "" };
+const blankLink = { id: null, category_id: "", label: "", url: "", description: "", color: TILE_COLORS[0].key, icon: TILE_ICONS[0] };
 
 function LinksPanel({ links, categories, orgId, onSaved }) {
   const [form, setForm] = useState(null);
@@ -89,13 +183,29 @@ function LinksPanel({ links, categories, orgId, onSaved }) {
 
   function editLink(l) {
     setError(null);
-    setForm({ id: l.id, category_id: l.category_id || "", label: l.label, url: l.url, description: l.description || "" });
+    setForm({
+      id: l.id,
+      category_id: l.category_id || "",
+      label: l.label,
+      url: l.url,
+      description: l.description || "",
+      color: l.color || TILE_COLORS[0].key,
+      icon: l.icon || TILE_ICONS[0],
+    });
   }
 
   async function handleSave(e) {
     e.preventDefault();
     setError(null);
-    const payload = { org_id: orgId, category_id: form.category_id || null, label: form.label, url: form.url, description: form.description };
+    const payload = {
+      org_id: orgId,
+      category_id: form.category_id || null,
+      label: form.label,
+      url: form.url,
+      description: form.description,
+      color: form.color,
+      icon: form.icon,
+    };
     const { error: err } = form.id
       ? await supabase.from("office_hub_links").update(payload).eq("id", form.id)
       : await supabase.from("office_hub_links").insert({ ...payload, sort_order: links.length });
@@ -129,9 +239,12 @@ function LinksPanel({ links, categories, orgId, onSaved }) {
       </div>
       {links.map((l, i) => (
         <Card pad="sm" key={l.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 600 }}>{l.label}</div>
-            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{categories.find((c) => c.id === l.category_id)?.name || "Uncategorised"} · {l.url}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", minWidth: 0 }}>
+            <TileSwatch color={l.color} icon={l.icon} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{l.label}</div>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{categories.find((c) => c.id === l.category_id)?.name || "Uncategorised"} · {l.url}</div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <IconButton size="sm" label="Move up" onClick={() => move(i, -1)} disabled={i === 0}><IconArrowUp size={14} /></IconButton>
@@ -152,6 +265,7 @@ function LinksPanel({ links, categories, orgId, onSaved }) {
             </Select>
             <Input required type="url" value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="https://..." style={{ marginBottom: "var(--space-3)" }} />
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" style={{ marginBottom: "var(--space-3)" }} />
+            <TileStyleFields color={form.color} icon={form.icon} onChange={(patch) => setForm({ ...form, ...patch })} />
             {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
               <Button variant="primary" type="submit">{form.id ? "Save changes" : "Add link"}</Button>
@@ -164,7 +278,7 @@ function LinksPanel({ links, categories, orgId, onSaved }) {
   );
 }
 
-const blankDoc = { id: null, category_id: "", title: "", file_url: "", description: "" };
+const blankDoc = { id: null, category_id: "", title: "", file_url: "", description: "", color: "slate", icon: "📄" };
 
 function DocumentsPanel({ docs, categories, orgId, onSaved }) {
   const [form, setForm] = useState(null);
@@ -173,7 +287,15 @@ function DocumentsPanel({ docs, categories, orgId, onSaved }) {
 
   function editDoc(d) {
     setError(null);
-    setForm({ id: d.id, category_id: d.category_id || "", title: d.title, file_url: d.file_url, description: d.description || "" });
+    setForm({
+      id: d.id,
+      category_id: d.category_id || "",
+      title: d.title,
+      file_url: d.file_url,
+      description: d.description || "",
+      color: d.color || "slate",
+      icon: d.icon || "📄",
+    });
   }
 
   async function handleFileChosen(e) {
@@ -197,7 +319,15 @@ function DocumentsPanel({ docs, categories, orgId, onSaved }) {
     e.preventDefault();
     setError(null);
     if (!form.file_url) { setError("Please upload a file first."); return; }
-    const payload = { org_id: orgId, category_id: form.category_id || null, title: form.title, file_url: form.file_url, description: form.description };
+    const payload = {
+      org_id: orgId,
+      category_id: form.category_id || null,
+      title: form.title,
+      file_url: form.file_url,
+      description: form.description,
+      color: form.color,
+      icon: form.icon,
+    };
     const { error: err } = form.id
       ? await supabase.from("office_hub_documents").update(payload).eq("id", form.id)
       : await supabase.from("office_hub_documents").insert({ ...payload, sort_order: docs.length });
@@ -231,9 +361,12 @@ function DocumentsPanel({ docs, categories, orgId, onSaved }) {
       </div>
       {docs.map((d, i) => (
         <Card pad="sm" key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 600 }}>{d.title}</div>
-            <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{categories.find((c) => c.id === d.category_id)?.name || "Uncategorised"}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)", minWidth: 0 }}>
+            <TileSwatch color={d.color} icon={d.icon} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{d.title}</div>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{categories.find((c) => c.id === d.category_id)?.name || "Uncategorised"}</div>
+            </div>
           </div>
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <IconButton size="sm" label="Move up" onClick={() => move(i, -1)} disabled={i === 0}><IconArrowUp size={14} /></IconButton>
@@ -255,6 +388,7 @@ function DocumentsPanel({ docs, categories, orgId, onSaved }) {
             <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description (optional)" style={{ marginBottom: "var(--space-3)" }} />
             <input type="file" accept="application/pdf,image/jpeg,image/png" onChange={handleFileChosen} disabled={uploading} />
             {form.file_url && <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>File attached ✓</p>}
+            <TileStyleFields color={form.color} icon={form.icon} onChange={(patch) => setForm({ ...form, ...patch })} />
             {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
             <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)" }}>
               <Button variant="primary" type="submit" disabled={uploading}>{form.id ? "Save changes" : "Add document"}</Button>
