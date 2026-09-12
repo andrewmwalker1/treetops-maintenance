@@ -6,14 +6,13 @@ import { colors } from "../../lib/theme.js";
 import { Button, Card, EmptyState, PageHeader, SkeletonList } from "../../ui/index.js";
 import { DEFAULT_AREA_SEASON_MAP, personFullName } from "./calculations.js";
 import { generateDocument } from "./generateDocument.js";
-import { CardTitle, Step1Import, Step2Price, Step3Instructions, Step4Signees, Step5Generate } from "./steps.jsx";
+import { CardTitle, Step1Import, Step2Price, Step3Instructions, Step4Generate } from "./steps.jsx";
 
 const STEPS = [
-  { key: 1, label: "1. Import &amp; contact details" },
+  { key: 1, label: "1. Import & contact details" },
   { key: 2, label: "2. Price breakdown" },
   { key: 3, label: "3. Special instructions" },
-  { key: 4, label: "4. Signees" },
-  { key: 5, label: "5. Generate" },
+  { key: 4, label: "4. Generate" },
 ];
 
 const BLANK_WIZARD = {
@@ -72,6 +71,7 @@ export default function LicenseAgreement() {
   const [ratesFullYearDefault, setRatesFullYearDefault] = useState("");
   const [templateStoragePath, setTemplateStoragePath] = useState(null);
   const [drafts, setDrafts] = useState([]);
+  const [standardInstructions, setStandardInstructions] = useState([]);
 
   const [step, setStep] = useState(1);
   // Tracks the furthest step reached, separately from which one's
@@ -92,12 +92,14 @@ export default function LicenseAgreement() {
       supabase.from("license_agreement_area_seasons").select("*").eq("org_id", org.id),
       supabase.from("license_agreement_settings").select("*").eq("org_id", org.id).maybeSingle(),
       supabase.from("license_agreement_drafts").select("*").eq("org_id", org.id).order("saved_at", { ascending: false }),
-    ]).then(([pf, as, settings, dr]) => {
+      supabase.from("license_agreement_standard_instructions").select("*").eq("org_id", org.id).order("sort_order"),
+    ]).then(([pf, as, settings, dr, si]) => {
       setPitchBandsTable(pf.data || []);
       if (as.data && as.data.length) setAreaSeasonMap(as.data.map((r) => ({ prefix: r.prefix, seasonLength: Number(r.season_length) })));
       setRatesFullYearDefault(settings.data?.rates_full_year ?? "");
       setTemplateStoragePath(settings.data?.template_storage_path ?? null);
       setDrafts(dr.data || []);
+      setStandardInstructions(si.data || []);
       setLoading(false);
     });
   }, [org, permissions]);
@@ -147,8 +149,11 @@ export default function LicenseAgreement() {
   function resumeDraft(draft) {
     const { step: savedStep, ...savedWizard } = draft.data;
     setWizard(savedWizard);
-    setStep(savedStep || 5);
-    setMaxStepReached(savedStep || 5);
+    // A recalled agreement already has all the data every step needs
+    // (the sale was selected, so price etc. exist) -- jump to any step
+    // freely instead of the sequential unlock a fresh sale gets.
+    setStep(Math.min(savedStep || STEPS.length, STEPS.length));
+    setMaxStepReached(STEPS.length);
     setGenerateError("");
     setGenerateSuccess("");
   }
@@ -180,7 +185,9 @@ export default function LicenseAgreement() {
   return (
     <div>
       <PageHeader title="License Agreement Builder" level={2} />
-      <DraftsPanel drafts={drafts} onResume={resumeDraft} onDiscard={discardDraft} onSaveNow={saveDraft} canSave={!!wizard.selectedRow} />
+      {step === 1 && (
+        <DraftsPanel drafts={drafts} onResume={resumeDraft} onDiscard={discardDraft} onSaveNow={saveDraft} canSave={!!wizard.selectedRow} />
+      )}
       {wizard.selectedRow && (
         <Button onClick={startNew} style={{ marginBottom: "var(--space-3)" }}>Start a new sale</Button>
       )}
@@ -219,10 +226,18 @@ export default function LicenseAgreement() {
         />
       )}
       {step === 2 && <Step2Price wizard={wizard} setWizard={setWizard} pitchBandsTable={pitchBandsTable} onContinue={() => goToStep(3)} />}
-      {step === 3 && <Step3Instructions wizard={wizard} setWizard={setWizard} onContinue={() => goToStep(4)} />}
-      {step === 4 && <Step4Signees wizard={wizard} onContinue={() => goToStep(5)} />}
-      {step === 5 && (
-        <Step5Generate
+      {step === 3 && (
+        <Step3Instructions
+          wizard={wizard}
+          setWizard={setWizard}
+          permissions={permissions}
+          standardInstructions={standardInstructions}
+          onStandardInstructionsChanged={setStandardInstructions}
+          onContinue={() => goToStep(4)}
+        />
+      )}
+      {step === 4 && (
+        <Step4Generate
           wizard={wizard}
           generating={generating}
           generateError={generateError}

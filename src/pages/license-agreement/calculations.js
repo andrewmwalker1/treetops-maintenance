@@ -282,6 +282,16 @@ export function getWifiRegistrationReminder(selectedRow, price) {
   return `Set the "Unit Registration" field in Campmanager to "WiFi" — an included/additional item mentions WiFi but Campmanager doesn't have this recorded.`;
 }
 
+// {thisyear}/{nextyear} tokens in a standard instruction's stored text,
+// resolved at the moment someone picks it -- so the same stored wording
+// stays correct sale after sale rather than needing editing every January.
+export function applyStandardInstructionTokens(text) {
+  const thisYear = new Date().getFullYear();
+  return String(text || "")
+    .replaceAll("{thisyear}", String(thisYear))
+    .replaceAll("{nextyear}", String(thisYear + 1));
+}
+
 export function suggestedFileName(selectedRow, people) {
   const row = selectedRow || {};
   const site = (row["Unit Site"] || "pitch").replace(/[^A-Za-z0-9-]/g, "");

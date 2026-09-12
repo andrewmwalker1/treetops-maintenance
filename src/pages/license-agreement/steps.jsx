@@ -3,10 +3,11 @@ import Papa from "papaparse";
 import { colors } from "../../lib/theme.js";
 import { Alert, Button, Card, Input, Select, Textarea } from "../../ui/index.js";
 import {
-  computeCaravanAmount, computeMonthsToCharge, computePitchFeeProrataAmount, deriveSeasonLengthForPitch,
-  derivePeopleFromRow, formatCurrency, getCampmanagerChanges, getWifiRegistrationReminder, inputValueToDate,
-  lookupPitchFeeFullYear, parseAmount, personFullName, sumItems, ukDateToInputValue,
+  applyStandardInstructionTokens, computeCaravanAmount, computeMonthsToCharge, computePitchFeeProrataAmount,
+  deriveSeasonLengthForPitch, derivePeopleFromRow, formatCurrency, getCampmanagerChanges, getWifiRegistrationReminder,
+  inputValueToDate, lookupPitchFeeFullYear, parseAmount, sumItems, ukDateToInputValue,
 } from "./calculations.js";
+import StandardInstructionsModal from "./StandardInstructionsModal.jsx";
 
 const CUSTOMER_FIELD_MAP = {
   addressLine1: "Unit Customer Address Line 1",
@@ -230,28 +231,6 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
             ))}
           </div>
 
-          <div style={{ marginBottom: 14 }}>
-            <FieldLabel>Build specification</FieldLabel>
-            <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
-              {["EN 1647", "BS 3632"].map((v) => (
-                <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <input type="radio" checked={wizard.buildSpec === v} onChange={() => setWizard((w) => ({ ...w, buildSpec: v }))} /> {v}
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 14 }}>
-            <FieldLabel>Will you be the first owner of your Holiday Caravan?</FieldLabel>
-            <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
-              {[["yes", "Yes"], ["no", "No"]].map(([v, label]) => (
-                <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-                  <input type="radio" checked={wizard.firstOwner === v} onChange={() => setWizard((w) => ({ ...w, firstOwner: v }))} /> {label}
-                </label>
-              ))}
-            </div>
-          </div>
-
           <SectionLabel>Who owns this caravan</SectionLabel>
           <Hint>Campmanager stores joint owners squashed together (e.g. Title "Mr &amp; Mrs", First name "Jane &amp; Mark") — split out here so each person's name is correct on the signature page. Add or remove people as needed.</Hint>
 
@@ -443,6 +422,35 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
             ))}
           </div>
         </div>
+        <Field label={`Months to charge (of ${seasonLength})`}>
+          <Input
+            type="number" step="0.1" min="0"
+            value={price.pitchFeeMonths}
+            onChange={(e) => patchPrice({ pitchFeeMonths: e.target.value, pitchFeeMonthsManuallySet: true })}
+          />
+        </Field>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <FieldLabel>Build specification</FieldLabel>
+        <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
+          {["EN 1647", "BS 3632"].map((v) => (
+            <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input type="radio" checked={wizard.buildSpec === v} onChange={() => setWizard((w) => ({ ...w, buildSpec: v }))} /> {v}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <FieldLabel>Will you be the first owner of your Holiday Caravan?</FieldLabel>
+        <div style={{ display: "flex", gap: 24, fontSize: "var(--text-sm)" }}>
+          {[["yes", "Yes"], ["no", "No"]].map(([v, label]) => (
+            <label key={v} style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+              <input type="radio" checked={wizard.firstOwner === v} onChange={() => setWizard((w) => ({ ...w, firstOwner: v }))} /> {label}
+            </label>
+          ))}
+        </div>
       </div>
 
       <SectionLabel>Items included in the window price</SectionLabel>
@@ -484,15 +492,6 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         />
         Add-on — charge on top of the window price instead of bundling it in
       </label>
-      <div style={{ maxWidth: 260, margin: "0 0 6px" }}>
-        <Field label={`Months to charge (of ${seasonLength})`}>
-          <Input
-            type="number" step="0.1" min="0"
-            value={price.pitchFeeMonths}
-            onChange={(e) => patchPrice({ pitchFeeMonths: e.target.value, pitchFeeMonthsManuallySet: true })}
-          />
-        </Field>
-      </div>
       <Hint>{fullYear === null
         ? (pitchBandsTable.length ? "No matching pitch band found in the Pitch Fees table — check the pitch band above." : "Import the Pitch Fees table in Admin settings to calculate this automatically.")
         : `${formatCurrency(fullYear)} full year ÷ ${seasonLength} months × ${price.pitchFeeMonths} months to charge.`}</Hint>
@@ -563,56 +562,55 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
 // Step 3 — Special instructions
 // ---------------------------------------------------------------------
 
-export function Step3Instructions({ wizard, setWizard, onContinue }) {
+export function Step3Instructions({ wizard, setWizard, onContinue, permissions, standardInstructions, onStandardInstructionsChanged }) {
+  const [manageOpen, setManageOpen] = useState(false);
+  const canManage = permissions?.has("can_use_office_hub");
+
+  function insertStandardInstruction(id) {
+    const item = (standardInstructions || []).find((i) => i.id === id);
+    if (!item) return;
+    const text = applyStandardInstructionTokens(item.body_text);
+    setWizard((w) => {
+      const current = (w.specialTerms || "").trim();
+      const next = !current || current.toLowerCase() === "none" ? text : `${current}\n\n${text}`;
+      return { ...w, specialTerms: next };
+    });
+  }
+
   return (
     <Card pad="md">
       <CardTitle>Special instructions</CardTitle>
       <Hint>Any special or extra terms which change or add to the standard terms in the Purchase Agreement. Leave as "None" if there aren't any.</Hint>
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+        <Select value="" onChange={(e) => e.target.value && insertStandardInstruction(e.target.value)} style={{ maxWidth: 320 }}>
+          <option value="">Insert a standard instruction…</option>
+          {(standardInstructions || []).map((i) => <option key={i.id} value={i.id}>{i.label}</option>)}
+        </Select>
+        {canManage && <Button onClick={() => setManageOpen(true)}>Manage standard instructions</Button>}
+      </div>
+
       <Textarea rows={3} value={wizard.specialTerms} onChange={(e) => setWizard((w) => ({ ...w, specialTerms: e.target.value }))} style={{ marginBottom: 20, width: "100%" }} />
       <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <Button variant="primary" onClick={onContinue}>Continue</Button>
       </div>
-    </Card>
-  );
-}
 
-// ---------------------------------------------------------------------
-// Step 4 — Signees
-// ---------------------------------------------------------------------
-
-export function Step4Signees({ wizard, onContinue }) {
-  return (
-    <Card pad="md">
-      <CardTitle>Signees</CardTitle>
-      <Hint>These are the people who'll sign the agreement, from "Who owns this caravan" on the first step. Go back there to add, remove or correct anyone — this is just a final check.</Hint>
-      {wizard.people.map((person, i) => {
-        const name = personFullName(person);
-        return (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: colors.surfaceHover, border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: 8 }}>
-            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: "50%", background: colors.moss, color: colors.onDark, fontSize: "var(--text-xs)", fontWeight: 700, flexShrink: 0 }}>
-              {i + 1}
-            </span>
-            <span style={{ fontWeight: name ? 600 : 400, color: name ? colors.ink : colors.inkSoft, fontStyle: name ? "normal" : "italic" }}>{name || "No name entered"}</span>
-          </div>
-        );
-      })}
-      {wizard.people.length > 4 && (
-        <Alert tone="warn" title="More than 4 signees">
-          The agreement's signature block supports up to 4 signees — there are {wizard.people.length} here. Go back to "Who owns this caravan" to remove someone, or check the document can be extended further.
-        </Alert>
+      {manageOpen && (
+        <StandardInstructionsModal
+          instructions={standardInstructions || []}
+          onClose={() => setManageOpen(false)}
+          onChanged={onStandardInstructionsChanged}
+        />
       )}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-        <Button variant="primary" onClick={onContinue}>Continue</Button>
-      </div>
     </Card>
   );
 }
 
 // ---------------------------------------------------------------------
-// Step 5 — Generate
+// Step 4 — Generate
 // ---------------------------------------------------------------------
 
-export function Step5Generate({ wizard, generating, generateError, generateSuccess, onGenerate }) {
+export function Step4Generate({ wizard, generating, generateError, generateSuccess, onGenerate }) {
   const changes = getCampmanagerChanges(wizard.unit, wizard.originalUnit);
   const wifiReminder = getWifiRegistrationReminder(wizard.selectedRow, wizard.price);
   if (wifiReminder) changes.push(wifiReminder);
