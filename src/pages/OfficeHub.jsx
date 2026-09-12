@@ -140,6 +140,9 @@ function DirectoriesPanel({ hub, initialQuery = "" }) {
 
 // Resolves a pinned row (which only knows item_type/item_id) to the
 // actual link or document it points at, plus that item's tile styling.
+// A document's `file_url` is a private-bucket storage path, not a
+// working URL -- only a link's `href` is ready to use as-is; a document
+// tile has to resolve a signed URL itself (see useSignedDocUrl below).
 function resolveTile(row, links, docs) {
   const isLink = row.item_type === "link";
   const item = isLink ? links.find((l) => l.id === row.item_id) : docs.find((d) => d.id === row.item_id);
@@ -148,9 +151,35 @@ function resolveTile(row, links, docs) {
     isLink,
     item,
     title: isLink ? item.label : item.title,
-    href: isLink ? item.url : item.file_url,
+    href: isLink ? item.url : null,
     color: tileColorValue(item.color),
   };
+}
+
+// office-hub-files is a private bucket (office_hub_documents rows are
+// permission-gated by can_use_office_hub; the file bytes need the same
+// gate, which a public bucket can't enforce) -- so a document's stored
+// path needs a signed URL, resolved on demand, same pattern as
+// SafetyDocumentLink.jsx/PhotoThumb.jsx.
+function useSignedDocUrl(storagePath) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    if (!storagePath) {
+      setUrl(null);
+      return;
+    }
+    let cancelled = false;
+    supabase.storage
+      .from("office-hub-files")
+      .createSignedUrl(storagePath, 3600)
+      .then(({ data }) => {
+        if (!cancelled && data) setUrl(data.signedUrl);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storagePath]);
+  return url;
 }
 
 const TILE_BASE_STYLE = {
@@ -170,8 +199,15 @@ const TILE_BASE_STYLE = {
 // else to click. Solid colour + a large icon glyph + label, launcher
 // style, rather than the previous card-with-buttons treatment.
 function StaticTile({ tile }) {
+  const docUrl = useSignedDocUrl(tile.isLink ? null : tile.item.file_url);
+  const href = tile.isLink ? tile.href : docUrl;
   return (
-    <a href={tile.href} target="_blank" rel="noreferrer" style={{ ...TILE_BASE_STYLE, background: tile.color }}>
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      style={{ ...TILE_BASE_STYLE, background: tile.color, ...(href ? {} : { cursor: "default" }) }}
+    >
       <span style={{ position: "absolute", top: "var(--space-2)", left: "var(--space-2)", fontSize: "var(--text-lg)" }}>{tile.item.icon}</span>
       <span style={{ fontSize: "var(--text-xs)", fontWeight: 700, lineHeight: 1.25 }}>{tile.title}</span>
     </a>
@@ -348,6 +384,18 @@ function DashboardTab({ items, setItems, links, docs, pin, unpin }) {
   );
 }
 
+// Split out of BrowseList so useSignedDocUrl (a hook) can be called once
+// per row rather than once for the whole list.
+function ViewButton({ isLink, item }) {
+  const docUrl = useSignedDocUrl(isLink ? null : item.file_url);
+  const href = isLink ? item.url : docUrl;
+  return (
+    <Button as="a" href={href} target="_blank" rel="noreferrer" disabled={!href}>
+      {isLink ? "Open" : "View"}
+    </Button>
+  );
+}
+
 function BrowseList({ items, categories, isLink, dashboardItems, onPin, onUnpin }) {
   const itemType = isLink ? "link" : "document";
   const isPinned = (id) => dashboardItems.some((d) => d.item_type === itemType && d.item_id === id);
@@ -361,7 +409,7 @@ function BrowseList({ items, categories, isLink, dashboardItems, onPin, onUnpin 
             <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{categoryName(categories, item.category_id)}</div>
           </div>
           <div style={{ display: "flex", gap: "var(--space-2)", flexShrink: 0 }}>
-            <Button as="a" href={isLink ? item.url : item.file_url} target="_blank" rel="noreferrer">{isLink ? "Open" : "View"}</Button>
+            <ViewButton isLink={isLink} item={item} />
             <Button
               variant={isPinned(item.id) ? "primary" : "secondary"}
               onClick={() => (isPinned(item.id) ? onUnpin(item.id) : onPin(item.id))}

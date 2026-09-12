@@ -96,13 +96,18 @@ function TileSwatch({ color, icon }) {
 const UPLOAD_BUCKET = "office-hub-files";
 const ATTACHMENT_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 
+// office-hub-files is a private bucket, gated by can_use_office_hub the
+// same way the office_hub_documents row is -- a public getPublicUrl()
+// would bypass that gate entirely, so this returns the storage path
+// (stored in office_hub_documents.file_url) and callers resolve a
+// signed URL from it on demand instead (see useSignedDocUrl in
+// OfficeHub.jsx).
 async function uploadFile(file) {
   const safeName = file.name.replace(/[^a-zA-Z0-9.\-_]/g, "-");
   const path = `${Date.now()}-${crypto.randomUUID()}-${safeName}`;
   const { error } = await supabase.storage.from(UPLOAD_BUCKET).upload(path, file, { contentType: file.type || "application/octet-stream" });
   if (error) throw new Error(`Upload failed: ${error.message}`);
-  const { data } = supabase.storage.from(UPLOAD_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  return path;
 }
 
 const blankCategory = { id: null, name: "" };

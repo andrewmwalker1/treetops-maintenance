@@ -40,6 +40,36 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Two legitimate kinds of caller: generate-scheduled-jobs, invoking this
+// server-to-server with the service role key as its own Authorization
+// header (supabase-js sends whatever key the calling client was created
+// with) -- trusted outright, since it already resolved recipientProfileId
+// itself from a service-role query. Everything else must be a real
+// logged-in user's access token (this function is also called directly
+// from the browser, src/platform/notifications.js), scoped to only notify
+// someone in their own org -- the same trust boundary job assignment
+// already has (any staff member can assign a job, and therefore notify,
+// any other staff member in the org).
+async function authorizeCaller(req: Request): Promise<{ ok: boolean; orgId?: string; trusted?: boolean }> {
+  const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
+  if (!token) return { ok: false };
+  if (token === SERVICE_ROLE_KEY) return { ok: true, trusted: true };
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user) return { ok: false };
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("org_id")
+    .eq("id", userData.user.id)
+    .single();
+  if (profileError || !profile) return { ok: false };
+
+  return { ok: true, orgId: profile.org_id };
+}
+
 async function pushToProfile(recipientProfileId: string, title: string, body: string, data: unknown) {
   const { data: subs, error } = await supabase
     .from("push_subscriptions")
@@ -69,10 +99,26 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const auth = await authorizeCaller(req);
+  if (!auth.ok) {
+    return jsonResponse({ error: "Not authorized" }, 401);
+  }
+
   const { recipientProfileId, triggerType, priority, title, body, data } = await req.json();
 
   if (!recipientProfileId || !priority || !title) {
     return jsonResponse({ error: "recipientProfileId, priority and title are required" }, 400);
+  }
+
+  if (!auth.trusted) {
+    const { data: recipientProfile, error: recipientError } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", recipientProfileId)
+      .eq("org_id", auth.orgId)
+      .maybeSingle();
+    if (recipientError) return jsonResponse({ error: recipientError.message }, 500);
+    if (!recipientProfile) return jsonResponse({ error: "Not authorized" }, 403);
   }
 
   let shouldSendNow = priority === "safety_critical";

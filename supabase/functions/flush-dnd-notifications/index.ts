@@ -36,13 +36,30 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+// This function's only legitimate caller is the owning user's own client,
+// immediately after they flip their own dnd_enabled off -- so the caller
+// must be that same profile, not just any authenticated user.
+async function authorizeCaller(req: Request): Promise<{ ok: boolean; profileId?: string }> {
+  const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
+  if (!token) return { ok: false };
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData?.user) return { ok: false };
+
+  return { ok: true, profileId: userData.user.id };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const { ok, profileId: callerProfileId } = await authorizeCaller(req);
+  if (!ok) return jsonResponse({ error: "Not authorized" }, 401);
+
   const { profileId } = await req.json();
   if (!profileId) return jsonResponse({ error: "profileId is required" }, 400);
+  if (profileId !== callerProfileId) return jsonResponse({ error: "Not authorized" }, 403);
 
   const { data: queued, error } = await supabase
     .from("notifications")
