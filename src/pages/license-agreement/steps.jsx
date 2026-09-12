@@ -424,7 +424,7 @@ export function Step2Price({ wizard, setWizard, pitchBandsTable, onContinue }) {
         </div>
         <Field label={`Months to charge (of ${seasonLength})`}>
           <Input
-            type="number" step="0.1" min="0"
+            type="number" step="1" min="0"
             value={price.pitchFeeMonths}
             onChange={(e) => patchPrice({ pitchFeeMonths: e.target.value, pitchFeeMonthsManuallySet: true })}
           />
