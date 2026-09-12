@@ -29,18 +29,13 @@ const BLANK_WIZARD = {
   specialTerms: "None",
 };
 
-function DraftsPanel({ drafts, onResume, onDiscard, onSaveNow, canSave }) {
+function DraftsPanel({ drafts, onResume, onDiscard }) {
   return (
     <Card pad="md" style={{ padding: "16px 24px", marginBottom: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-        <div>
-          <CardTitle>Saved drafts</CardTitle>
-          <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, margin: 0 }}>
-            Shared with anyone who has access to this tool — pick one up from any computer, or save before stepping away from an interrupted sale.
-          </p>
-        </div>
-        <Button variant="primary" disabled={!canSave} onClick={onSaveNow}>💾 Save as draft</Button>
-      </div>
+      <CardTitle>Saved drafts</CardTitle>
+      <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, margin: 0 }}>
+        Shared with anyone who has access to this tool — pick one up from any computer, or save before stepping away from an interrupted sale.
+      </p>
       {drafts.length > 0 && (
         <div style={{ marginTop: 14 }}>
           {drafts.map((d) => (
@@ -185,11 +180,12 @@ export default function LicenseAgreement() {
   return (
     <div>
       <PageHeader title="License Agreement Builder" level={2} />
-      {step === 1 && (
-        <DraftsPanel drafts={drafts} onResume={resumeDraft} onDiscard={discardDraft} onSaveNow={saveDraft} canSave={!!wizard.selectedRow} />
-      )}
+      {step === 1 && <DraftsPanel drafts={drafts} onResume={resumeDraft} onDiscard={discardDraft} />}
       {wizard.selectedRow && (
-        <Button onClick={startNew} style={{ marginBottom: "var(--space-3)" }}>Start a new sale</Button>
+        <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-3)" }}>
+          <Button variant="primary" onClick={saveDraft}>💾 Save as draft</Button>
+          <Button onClick={startNew}>Start a new sale</Button>
+        </div>
       )}
 
       <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-4)", flexWrap: "wrap" }}>
