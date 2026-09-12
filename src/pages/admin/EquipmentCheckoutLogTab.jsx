@@ -100,8 +100,14 @@ export default function EquipmentCheckoutLogTab() {
           return e.details || "";
         case "person":
           return e.person || "";
+        // Compared as an actual timestamp, not the raw string -- see the
+        // identical fix/comment in EquipmentDetail.jsx's historySort: repairs
+        // are logged with a client-generated `new Date().toISOString()`
+        // (e.g. "...123Z") while checks/faults get Postgres's `now()`
+        // default (e.g. "...123456+00:00"), and those two formats aren't
+        // string-comparable ('Z' sorts after digits).
         default:
-          return e.date || "";
+          return e.date ? new Date(e.date).getTime() : 0;
       }
     };
     return [...rows].sort((a, b) => {

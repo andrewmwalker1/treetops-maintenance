@@ -29,20 +29,26 @@ async function resolveLinkedEquipment({ jobId, actorProfileId, completedDate, eq
         .single();
       if (hoursErr) throw hoursErr;
 
-      for (const t of tierUpdates) {
-        const { error: tierErr } = await supabase
-          .from("equipment_service_tier_state")
-          .update({
-            last_completed_at: new Date().toISOString(),
-            last_completed_hours: equipment?.last_hours_reading ?? null,
-            last_completed_by: actorProfileId,
-            next_due_hours: t.nextDueHours ?? null,
-            next_due_date: t.nextDueDate || null,
-          })
-          .eq("equipment_id", equipmentId)
-          .eq("tier_id", t.tierId);
-        if (tierErr) throw tierErr;
-      }
+      // Each tier is a distinct row (keyed by equipment_id+tier_id), so
+      // these updates are independent and can run concurrently rather than
+      // one round-trip after another.
+      const tierResults = await Promise.all(
+        tierUpdates.map((t) =>
+          supabase
+            .from("equipment_service_tier_state")
+            .update({
+              last_completed_at: new Date().toISOString(),
+              last_completed_hours: equipment?.last_hours_reading ?? null,
+              last_completed_by: actorProfileId,
+              next_due_hours: t.nextDueHours ?? null,
+              next_due_date: t.nextDueDate || null,
+            })
+            .eq("equipment_id", equipmentId)
+            .eq("tier_id", t.tierId)
+        )
+      );
+      const tierErr = tierResults.find((r) => r.error)?.error;
+      if (tierErr) throw tierErr;
 
       // Same "back into service, note cleared" shape as the "available"
       // outcome below -- a service visit isn't a fault repair (no

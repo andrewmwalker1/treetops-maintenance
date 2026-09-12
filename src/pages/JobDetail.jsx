@@ -469,6 +469,12 @@ export default function JobDetail() {
   // server-side too, see 33-checklist-photo-blocks-completion.sql.
   const outstandingPhotoItems = subtasks.filter((s) => s.requires_photo && !s.is_checked);
 
+  // A recurring tier's next-due value feeds generate_due_service_jobs_for_equipment
+  // (59-equipment-service-schedules.sql) -- leaving it blank writes
+  // next_due_hours/next_due_date as null on completion (completeJob.js),
+  // which permanently stops that tier from ever being flagged due again.
+  const missingTierNextDue = job.equipment_id && serviceTiers.some((t) => t.is_recurring && !String(tierNextDueDraft[t.id] ?? "").trim());
+
   function openCompleteModal() {
     setError(null);
     setEquipmentOutcome("available");
@@ -1771,6 +1777,12 @@ export default function JobDetail() {
                     </p>
                   )
                 )}
+                {missingTierNextDue && (
+                  <Alert tone="warn">
+                    Enter when each recurring service is next due before completing — leaving it blank stops that
+                    service from ever being flagged due again.
+                  </Alert>
+                )}
               </div>
             )}
 
@@ -1876,7 +1888,11 @@ export default function JobDetail() {
             <Button
               variant="primary"
               onClick={confirmComplete}
-              disabled={outstandingPhotoItems.length > 0 || (job.equipment_id && equipmentOutcome === "monitor" && !equipmentMonitorNote.trim())}
+              disabled={
+                outstandingPhotoItems.length > 0 ||
+                missingTierNextDue ||
+                (job.equipment_id && equipmentOutcome === "monitor" && !equipmentMonitorNote.trim())
+              }
             >
               Mark complete
             </Button>

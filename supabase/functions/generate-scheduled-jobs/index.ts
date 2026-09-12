@@ -161,6 +161,16 @@ Deno.serve(async () => {
       const activityTypeIds = (schedule.schedule_task_types ?? []).map((link: { task_type_id: string }) => link.task_type_id);
       const recipients = await resolveRecipients(schedule.assignee_profile_id, schedule.assignee_group_id);
 
+      // Occurrences are processed in order (rule.between returns them
+      // chronologically) and last_generated_date only ever advances to the
+      // last one actually created -- stopping at the first failure, rather
+      // than continuing on to later occurrences, matters here: reprocessing
+      // an already-succeeded occurrence next run (because
+      // last_generated_date didn't advance past it) would create a
+      // duplicate job, so a failure has to hold the cursor back for
+      // everything from that point on, not just the occurrence that failed.
+      let lastCreatedOccurrence: Date | null = null;
+
       for (const occurrence of dueOccurrences) {
         const dueDate = toDateOnly(occurrence);
         const { data: insertedJob, error: insertError } = await supabase
@@ -186,7 +196,7 @@ Deno.serve(async () => {
 
         if (insertError || !insertedJob) {
           results.push({ schedule_id: schedule.id, occurrence: dueDate, error: insertError?.message ?? "insert returned no row" });
-          continue;
+          break;
         }
 
         if (activityTypeIds.length > 0) {
@@ -203,13 +213,15 @@ Deno.serve(async () => {
         }
 
         results.push({ schedule_id: schedule.id, occurrence: dueDate, created: true });
+        lastCreatedOccurrence = occurrence;
       }
 
-      const lastOccurrence = dueOccurrences[dueOccurrences.length - 1];
-      await supabase
-        .from("schedules")
-        .update({ last_generated_date: toDateOnly(lastOccurrence) })
-        .eq("id", schedule.id);
+      if (lastCreatedOccurrence) {
+        await supabase
+          .from("schedules")
+          .update({ last_generated_date: toDateOnly(lastCreatedOccurrence) })
+          .eq("id", schedule.id);
+      }
     } catch (err) {
       results.push({ schedule_id: schedule.id, error: String(err) });
     }
