@@ -6,6 +6,7 @@ import KioskJobs from "./KioskJobs.jsx";
 import KioskCheckOut from "./KioskCheckOut.jsx";
 import KioskCheckIn from "./KioskCheckIn.jsx";
 import KioskSafety from "./KioskSafety.jsx";
+import KioskTimesheet from "./KioskTimesheet.jsx";
 import { colors, fonts } from "../lib/theme.js";
 import { SkeletonList } from "../ui/index.js";
 
@@ -52,6 +53,7 @@ export default function KioskApp() {
         <Route path="/kiosk/checkout" element={<KioskCheckOut />} />
         <Route path="/kiosk/checkin" element={<KioskCheckIn />} />
         <Route path="/kiosk/safety" element={<KioskSafety />} />
+        <Route path="/kiosk/timesheet" element={<KioskTimesheet />} />
       </Routes>
       {/* Kiosk has no Layout.jsx chrome to inherit the main app's version
           footer from, but it's just as easy to leave running on a stale

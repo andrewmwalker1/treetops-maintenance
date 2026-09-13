@@ -12,6 +12,7 @@ import { Switch } from "../ui/primitives.jsx";
 import {
   IconEquipment,
   IconFolder,
+  IconHoliday,
   IconJobs,
   IconKeys,
   IconMeters,
@@ -106,13 +107,19 @@ export default function Layout({ children }) {
     { to: "/dashboard", label: "Dashboard", Icon: IconOverview, tabBar: false },
     // License Agreement lives inside Office Hub as a tab, not its own
     // destination -- either permission earns a way in.
-    ...(permissions.has("can_use_office_hub") || permissions.has("can_use_license_agreement")
+    ...(permissions.has("can_use_office_hub") || permissions.has("can_use_license_agreement") || permissions.has("can_manage_timesheets")
       ? [{ to: "/office-hub", label: "Office Hub", Icon: IconFolder, tabBar: false }]
       : []),
     { to: "/equipment", label: "Equipment", shortLabel: "Kit", Icon: IconEquipment, tabBar: true },
     ...(permissions.has("can_use_key_system")
       ? [{ to: "/key-register", label: "Keys", Icon: IconKeys, tabBar: true }]
       : []),
+    ...(permissions.has("can_submit_timesheet")
+      ? [{ to: "/timesheets", label: "Timesheet", Icon: IconOverview, tabBar: true }]
+      : []),
+    // Universal -- unlike Timesheet above, everyone can book/view their
+    // own holiday regardless of permissions, so this is never conditional.
+    { to: "/holidays", label: "Holiday", Icon: IconHoliday, tabBar: false },
     { to: "/meter-reading", label: "Meters", Icon: IconMeters, tabBar: true },
     { to: "/safety", label: "Safety", Icon: IconSafety, tabBar: true },
   ];

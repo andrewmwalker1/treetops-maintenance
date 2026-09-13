@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, EmptyState, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, Select } from "../../ui/index.js";
 
 export default function GroupsTab() {
   const { org } = useAuth();
@@ -11,13 +11,14 @@ export default function GroupsTab() {
   const [members, setMembers] = useState({}); // group_id -> Set(profile_id)
   const [editingId, setEditingId] = useState(null); // null = not editing, "new" = creating
   const [nameDraft, setNameDraft] = useState("");
+  const [approverDraft, setApproverDraft] = useState("");
   const [memberDraft, setMemberDraft] = useState(new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   function refresh() {
     Promise.all([
-      supabase.from("groups").select("id, name").eq("org_id", org.id).order("name"),
+      supabase.from("groups").select("id, name, approver_profile_id").eq("org_id", org.id).order("name"),
       supabase.from("profiles").select("id, display_name").eq("org_id", org.id).order("display_name"),
       supabase.from("group_members").select("group_id, profile_id"),
     ]).then(([{ data: g, error: err }, { data: p }, { data: gm }]) => {
@@ -39,6 +40,7 @@ export default function GroupsTab() {
     setError(null);
     setEditingId("new");
     setNameDraft("");
+    setApproverDraft("");
     setMemberDraft(new Set());
   }
 
@@ -46,6 +48,7 @@ export default function GroupsTab() {
     setError(null);
     setEditingId(g.id);
     setNameDraft(g.name);
+    setApproverDraft(g.approver_profile_id || "");
     setMemberDraft(new Set(members[g.id] || []));
   }
 
@@ -65,9 +68,10 @@ export default function GroupsTab() {
     if (!name) return;
     setSaving(true);
 
+    const approver_profile_id = approverDraft || null;
     let groupId = editingId;
     if (editingId === "new") {
-      const { data, error: err } = await supabase.from("groups").insert({ org_id: org.id, name }).select().single();
+      const { data, error: err } = await supabase.from("groups").insert({ org_id: org.id, name, approver_profile_id }).select().single();
       if (err) {
         setSaving(false);
         setError(err.message);
@@ -75,7 +79,7 @@ export default function GroupsTab() {
       }
       groupId = data.id;
     } else {
-      const { error: err } = await supabase.from("groups").update({ name }).eq("id", editingId);
+      const { error: err } = await supabase.from("groups").update({ name, approver_profile_id }).eq("id", editingId);
       if (err) {
         setSaving(false);
         setError(err.message);
@@ -151,6 +155,15 @@ export default function GroupsTab() {
           <Card as="form" pad="md" onSubmit={handleSave}>
             <label className="tt-field__label">Group name</label>
             <Input required autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} style={{ marginBottom: "var(--space-3)" }} />
+
+            <Field label="Holiday approver" hint="Whoever this group's members' holiday requests go to for approval." style={{ marginBottom: "var(--space-3)" }}>
+              <Select value={approverDraft} onChange={(e) => setApproverDraft(e.target.value)}>
+                <option value="">No approver set</option>
+                {people.map((p) => (
+                  <option key={p.id} value={p.id}>{p.display_name}</option>
+                ))}
+              </Select>
+            </Field>
 
             <label className="tt-field__label">Members</label>
             <Card pad="sm" style={{ marginBottom: "var(--space-4)", maxHeight: "var(--scrollbox-max-h)", overflowY: "auto" }}>

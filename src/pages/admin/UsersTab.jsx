@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, EmptyState, Input, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, Select } from "../../ui/index.js";
 
 const blankInvite = { email: "", displayName: "", roleId: "", isContractor: false, contractorId: "", siteIds: [] };
 
@@ -12,6 +12,11 @@ export default function UsersTab() {
   const [roles, setRoles] = useState([]);
   const [sites, setSites] = useState([]);
   const [contractors, setContractors] = useState([]);
+  // profile_id -> holiday_approver_override_profile_id. Fetched
+  // separately rather than via list_org_users (10-user-admin.sql), which
+  // doesn't return this column -- simpler than touching that RPC for one
+  // extra field.
+  const [approverOverrides, setApproverOverrides] = useState({});
   const [invite, setInvite] = useState(blankInvite);
   const [inviteStatus, setInviteStatus] = useState("idle"); // idle | sending | sent | sent-email-failed | error
   const [editingId, setEditingId] = useState(null);
@@ -25,12 +30,14 @@ export default function UsersTab() {
       supabase.from("roles").select("id, name").eq("org_id", org.id).order("name"),
       supabase.from("sites").select("id, name").eq("org_id", org.id).order("name"),
       supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name"),
-    ]).then(([{ data: u, error: err }, { data: r }, { data: s }, { data: c }]) => {
+      supabase.from("profiles").select("id, holiday_approver_override_profile_id").eq("org_id", org.id),
+    ]).then(([{ data: u, error: err }, { data: r }, { data: s }, { data: c }, { data: ov }]) => {
       if (err) setError(err.message);
       else setUsers(u || []);
       setRoles(r || []);
       setSites(s || []);
       setContractors(c || []);
+      setApproverOverrides(Object.fromEntries((ov || []).map((p) => [p.id, p.holiday_approver_override_profile_id])));
     });
   }
 
@@ -88,6 +95,7 @@ export default function UsersTab() {
       is_contractor: u.is_contractor,
       contractor_id: u.contractor_id || "",
       siteIds: u.site_ids || [],
+      holiday_approver_override_profile_id: approverOverrides[u.id] || "",
     });
   }
 
@@ -132,6 +140,7 @@ export default function UsersTab() {
         // update otherwise, and a stale link would misattribute their key
         // checkouts to a company they're no longer flagged as belonging to.
         contractor_id: editForm.is_contractor ? editForm.contractor_id || null : null,
+        holiday_approver_override_profile_id: editForm.holiday_approver_override_profile_id || null,
       })
       .eq("id", editingId);
     if (profileErr) {
@@ -206,6 +215,21 @@ export default function UsersTab() {
                     ))}
                   </Select>
                 )}
+                <Field
+                  label="Holiday approver override"
+                  hint="Normally comes from their group. Set this only for an exception."
+                  style={{ marginBottom: "var(--space-3)" }}
+                >
+                  <Select
+                    value={editForm.holiday_approver_override_profile_id}
+                    onChange={(e) => setEditForm({ ...editForm, holiday_approver_override_profile_id: e.target.value })}
+                  >
+                    <option value="">Use group's approver</option>
+                    {users.filter((other) => other.id !== editingId).map((other) => (
+                      <option key={other.id} value={other.id}>{other.display_name}</option>
+                    ))}
+                  </Select>
+                </Field>
                 <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Site access</label>
                 {sites.map((s) => (
                   <label key={s.id} style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", padding: "var(--space-1) 0" }}>

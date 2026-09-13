@@ -18,6 +18,9 @@ import RelocateKey from "./pages/RelocateKey.jsx";
 import ForceCheckInKey from "./pages/ForceCheckInKey.jsx";
 import HandoverKey from "./pages/HandoverKey.jsx";
 import KeysGate from "./components/KeysGate.jsx";
+import TimesheetsGate from "./components/TimesheetsGate.jsx";
+import Timesheet from "./pages/timesheets/Timesheet.jsx";
+import HolidayHome from "./pages/holidays/HolidayHome.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import OfficeHub from "./pages/OfficeHub.jsx";
 import HealthAndSafety from "./pages/HealthAndSafety.jsx";
@@ -224,6 +227,8 @@ function AppShell() {
         <Route path="/key-register/relocate" element={<KeysGate><RelocateKey /></KeysGate>} />
         <Route path="/key-register/force-checkin" element={<KeysGate><ForceCheckInKey /></KeysGate>} />
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
+        <Route path="/timesheets" element={<TimesheetsGate><Timesheet /></TimesheetsGate>} />
+        <Route path="/holidays" element={<HolidayHome />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/office-hub" element={<OfficeHub />} />
         <Route path="/safety" element={<HealthAndSafety />} />

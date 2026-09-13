@@ -20,6 +20,9 @@ import {
 // opens this tab, not everyone visiting Office Hub. Same reasoning as
 // App.jsx's meter-tools routes.
 const LicenseAgreement = lazy(() => import("./license-agreement/LicenseAgreement.jsx"));
+const TimesheetsGrid = lazy(() => import("./timesheets/TimesheetsGrid.jsx"));
+const TimesheetOverrides = lazy(() => import("./timesheets/TimesheetOverrides.jsx"));
+const ApprovalsInbox = lazy(() => import("./holidays/ApprovalsInbox.jsx"));
 
 const HUB_SUPABASE_URL = "https://ozhwgrzlpvfdemmogmav.supabase.co";
 const HUB_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im96aHdncnpscHZmZGVtbW9nbWF2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUwNDA2NDcsImV4cCI6MjEwMDYxNjY0N30.MPfUD5u-NSc6yRXsxd2KHHEI3ogFcekJBY8XI5kCq0Q";
@@ -618,6 +621,7 @@ export default function OfficeHub() {
   const navigate = useNavigate();
   const canOfficeHub = permissions.has("can_use_office_hub");
   const canLicenseAgreement = permissions.has("can_use_license_agreement");
+  const canManageTimesheets = permissions.has("can_manage_timesheets");
   const [tab, setTab] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -653,6 +657,9 @@ export default function OfficeHub() {
     canOfficeHub && "dashboard",
     canOfficeHub && "browse",
     canLicenseAgreement && "license-agreement",
+    canManageTimesheets && "timesheets",
+    canManageTimesheets && "timesheet-overrides",
+    canManageTimesheets && "holiday-approvals",
   ].filter(Boolean);
 
   // Lands on whichever tab this person can actually see, rather than
@@ -772,7 +779,7 @@ export default function OfficeHub() {
     await supabase.from("office_hub_dashboard_items").delete().eq("id", row.id);
   }
 
-  if (!canOfficeHub && !canLicenseAgreement) {
+  if (!canOfficeHub && !canLicenseAgreement && !canManageTimesheets) {
     return <EmptyState title="No access">You don't have permission to see Office Hub. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
 
@@ -811,10 +818,25 @@ export default function OfficeHub() {
         {canOfficeHub && <Button variant={tab === "dashboard" ? "primary" : "secondary"} onClick={() => setTab("dashboard")}>My Dashboard</Button>}
         {canOfficeHub && <Button variant={tab === "browse" ? "primary" : "secondary"} onClick={() => setTab("browse")}>Browse</Button>}
         {canLicenseAgreement && <Button variant={tab === "license-agreement" ? "primary" : "secondary"} onClick={() => setTab("license-agreement")}>License Agreement</Button>}
+        {canManageTimesheets && <Button variant={tab === "timesheets" ? "primary" : "secondary"} onClick={() => setTab("timesheets")}>Timesheets</Button>}
+        {canManageTimesheets && <Button variant={tab === "timesheet-overrides" ? "primary" : "secondary"} onClick={() => setTab("timesheet-overrides")}>Timesheet overrides</Button>}
+        {canManageTimesheets && <Button variant={tab === "holiday-approvals" ? "primary" : "secondary"} onClick={() => setTab("holiday-approvals")}>Holiday approvals</Button>}
       </div>
       {tab === "license-agreement" ? (
         <Suspense fallback={<SkeletonList rows={3} height={80} />}>
           <LicenseAgreement />
+        </Suspense>
+      ) : tab === "timesheets" ? (
+        <Suspense fallback={<SkeletonList rows={3} height={80} />}>
+          <TimesheetsGrid />
+        </Suspense>
+      ) : tab === "timesheet-overrides" ? (
+        <Suspense fallback={<SkeletonList rows={3} height={80} />}>
+          <TimesheetOverrides />
+        </Suspense>
+      ) : tab === "holiday-approvals" ? (
+        <Suspense fallback={<SkeletonList rows={3} height={80} />}>
+          <ApprovalsInbox />
         </Suspense>
       ) : loading && canOfficeHub ? (
         <SkeletonList rows={3} height={80} />

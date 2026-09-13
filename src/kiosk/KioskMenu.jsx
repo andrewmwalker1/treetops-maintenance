@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
+import { usePermissions } from "../lib/permissions.js";
 import { Action, ActionList, Button, PageHeader } from "../ui/primitives.jsx";
-import { IconEquipment, IconJobs, IconSafety } from "../ui/icons.jsx";
+import { IconEquipment, IconJobs, IconOverview, IconSafety } from "../ui/icons.jsx";
 
 // The workshop touchscreen's home. Renders through the same
 // <ActionList>/<Action> as KeysHome and MeterReadingHome, at size="kiosk"
@@ -10,6 +11,7 @@ import { IconEquipment, IconJobs, IconSafety } from "../ui/icons.jsx";
 export default function KioskMenu() {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const permissions = usePermissions();
 
   return (
     <div
@@ -36,6 +38,11 @@ export default function KioskMenu() {
         <Action icon={<IconSafety size={24} />} onClick={() => navigate("/kiosk/safety")}>
           Health &amp; safety
         </Action>
+        {permissions.has("can_submit_timesheet") && (
+          <Action icon={<IconOverview size={24} />} onClick={() => navigate("/kiosk/timesheet")}>
+            Timesheet
+          </Action>
+        )}
       </ActionList>
 
       <Button variant="danger" size="lg" block onClick={() => signOut()} style={{ marginTop: "var(--space-5)" }}>
