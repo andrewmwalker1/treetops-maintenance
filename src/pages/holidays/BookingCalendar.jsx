@@ -4,8 +4,9 @@
 // can't be double-booked client-side (the database's own partial unique
 // index is the real guarantee; this is just not inviting the attempt).
 // Cells are <Button> with style overrides, same pattern as
-// StaffTimeProfilesTab.jsx's day-toggle chips -- never a raw <button
-// style=...>, which scripts/check-styles.mjs blocks.
+// StaffTimeProfilesTab.jsx's day-toggle chips -- never a raw button
+// element carrying its own style prop, which scripts/check-styles.mjs
+// blocks.
 import { useState } from "react";
 import { colors } from "../../lib/theme.js";
 import { Button, Card, PageHeader } from "../../ui/index.js";
