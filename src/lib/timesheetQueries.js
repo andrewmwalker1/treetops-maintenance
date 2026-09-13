@@ -159,7 +159,7 @@ export async function getSubmittableProfiles() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, role_id, roles(name), timesheet_person_order(sort_order), staff_time_profiles(pay_basis)")
+    .select("id, display_name, role_id, roles(name), timesheet_person_order(sort_order), staff_time_profiles!profile_id(pay_basis)")
     .in("role_id", roleIds)
     .eq("is_active", true)
     .order("display_name");

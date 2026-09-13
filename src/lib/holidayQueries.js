@@ -27,7 +27,7 @@ export async function getStaffTimeProfile(profileId) {
 export async function getProfilesForTimeProfileAdmin(orgId) {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, is_active, is_contractor, staff_time_profiles(*)")
+    .select("id, display_name, is_active, is_contractor, staff_time_profiles!profile_id(*)")
     .eq("org_id", orgId)
     .eq("is_active", true)
     .eq("is_contractor", false)
@@ -49,7 +49,7 @@ export async function getProfilesForTimeProfileAdmin(orgId) {
 export async function getFixedHoursProfiles() {
   const { data, error } = await supabase
     .from("staff_time_profiles")
-    .select("profile_id, weekly_hours, profile:profiles!inner(id, display_name, is_active, is_contractor)")
+    .select("profile_id, weekly_hours, profile:profiles!profile_id!inner(id, display_name, is_active, is_contractor)")
     .eq("pay_basis", "fixed_weekly")
     .eq("profile.is_active", true)
     .eq("profile.is_contractor", false);
@@ -117,7 +117,7 @@ export async function deleteBankHoliday(id) {
 export async function getBankHolidayOverrides(bankHolidayId) {
   const { data, error } = await supabase
     .from("holiday_bank_holiday_overrides")
-    .select("*, profile:profiles(id, display_name)")
+    .select("*, profile:profiles!profile_id(id, display_name)")
     .eq("bank_holiday_id", bankHolidayId);
   if (error) {
     console.error("getBankHolidayOverrides failed", error);
