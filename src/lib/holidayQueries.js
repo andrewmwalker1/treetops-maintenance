@@ -39,7 +39,7 @@ export async function getProfilesForTimeProfileAdmin(orgId) {
   return (data || []).map((p) => ({
     profileId: p.id,
     displayName: p.display_name,
-    timeProfile: p.staff_time_profiles?.[0] || null,
+    timeProfile: p.staff_time_profiles || null,
   }));
 }
 

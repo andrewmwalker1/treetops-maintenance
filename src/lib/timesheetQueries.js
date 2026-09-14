@@ -169,7 +169,7 @@ export async function getSubmittableProfiles() {
   }
 
   return (data || [])
-    .filter((p) => p.staff_time_profiles?.[0]?.pay_basis !== "fixed_weekly")
+    .filter((p) => p.staff_time_profiles?.pay_basis !== "fixed_weekly")
     .map((p) => ({
       id: p.id,
       displayName: p.display_name,

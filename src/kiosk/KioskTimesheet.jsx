@@ -82,8 +82,9 @@ export default function KioskTimesheet() {
               isForecast={entry ? isForecastEntry(entry) : false}
               initialMorning={entry?.morning_hours}
               initialAfternoon={entry?.afternoon_hours}
+              initialNotes={entry?.notes}
               disabled={t.isFrozen || t.saving}
-              onSave={(morning, afternoon) => t.saveDay(date, morning, afternoon)}
+              onSave={(morning, afternoon, notes) => t.saveDay(date, morning, afternoon, notes)}
             />
           );
         })}
