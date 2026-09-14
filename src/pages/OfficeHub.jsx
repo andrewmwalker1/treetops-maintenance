@@ -622,6 +622,7 @@ export default function OfficeHub() {
   const canOfficeHub = permissions.has("can_use_office_hub");
   const canLicenseAgreement = permissions.has("can_use_license_agreement");
   const canManageTimesheets = permissions.has("can_manage_timesheets");
+  const canApproveHoliday = canManageTimesheets || permissions.has("can_approve_holiday");
   const [tab, setTab] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -659,7 +660,7 @@ export default function OfficeHub() {
     canLicenseAgreement && "license-agreement",
     canManageTimesheets && "timesheets",
     canManageTimesheets && "timesheet-overrides",
-    canManageTimesheets && "holiday-approvals",
+    canApproveHoliday && "holiday-approvals",
   ].filter(Boolean);
 
   // Lands on whichever tab this person can actually see, rather than
@@ -779,7 +780,7 @@ export default function OfficeHub() {
     await supabase.from("office_hub_dashboard_items").delete().eq("id", row.id);
   }
 
-  if (!canOfficeHub && !canLicenseAgreement && !canManageTimesheets) {
+  if (!canOfficeHub && !canLicenseAgreement && !canManageTimesheets && !canApproveHoliday) {
     return <EmptyState title="No access">You don't have permission to see Office Hub. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
 
@@ -820,7 +821,7 @@ export default function OfficeHub() {
         {canLicenseAgreement && <Button variant={tab === "license-agreement" ? "primary" : "secondary"} onClick={() => setTab("license-agreement")}>License Agreement</Button>}
         {canManageTimesheets && <Button variant={tab === "timesheets" ? "primary" : "secondary"} onClick={() => setTab("timesheets")}>Timesheets</Button>}
         {canManageTimesheets && <Button variant={tab === "timesheet-overrides" ? "primary" : "secondary"} onClick={() => setTab("timesheet-overrides")}>Timesheet overrides</Button>}
-        {canManageTimesheets && <Button variant={tab === "holiday-approvals" ? "primary" : "secondary"} onClick={() => setTab("holiday-approvals")}>Holiday approvals</Button>}
+        {canApproveHoliday && <Button variant={tab === "holiday-approvals" ? "primary" : "secondary"} onClick={() => setTab("holiday-approvals")}>Holiday approvals</Button>}
       </div>
       {tab === "license-agreement" ? (
         <Suspense fallback={<SkeletonList rows={3} height={80} />}>

@@ -63,9 +63,12 @@ export async function getFixedHoursProfiles() {
 }
 
 export async function upsertStaffTimeProfile(profileId, orgId, fields) {
+  // updated_by/updated_at are force-set server-side by
+  // staff_time_profiles_before_upsert (72-staff-time-profiles-audit-
+  // trigger.sql) to the actual actor, not passed from here.
   const { error } = await supabase
     .from("staff_time_profiles")
-    .upsert({ profile_id: profileId, org_id: orgId, updated_by: profileId, ...fields }, { onConflict: "profile_id" });
+    .upsert({ profile_id: profileId, org_id: orgId, ...fields }, { onConflict: "profile_id" });
   if (error) {
     console.error("upsertStaffTimeProfile failed", error);
     throw error;

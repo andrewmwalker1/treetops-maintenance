@@ -8,7 +8,7 @@ import {
   freezeWeek, getSubmittableProfiles, getWeekEntriesForProfiles, getWeekFreezeStatus, movePersonOrder, unfreezeWeek,
 } from "../../lib/timesheetQueries.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, IconArrowDown, IconArrowUp, IconButton, IconEdit, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, IconArrowDown, IconArrowUp, IconButton, IconEdit, PageHeader, Table } from "../../ui/index.js";
 import FixedHoursSection from "./FixedHoursSection.jsx";
 import PersonWeekEditModal from "./PersonWeekEditModal.jsx";
 import { addWeeks, DAY_LABELS, formatShortDate, formatWeekLabel, mondayOf, todayIso, weekDates } from "./weekMath.js";
@@ -112,61 +112,59 @@ export default function TimesheetsGrid() {
         )}
 
         {people.length > 0 && (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--text-sm)" }}>
-              <thead>
-                <tr>
-                  <th style={{ width: 76 }}></th>
-                  <th style={{ textAlign: "left", padding: "6px", color: colors.inkSoft, fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Name</th>
-                  {DAY_LABELS.map((d) => (
-                    <th key={d} style={{ padding: "6px", color: colors.inkSoft, fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{d.slice(0, 3)}</th>
-                  ))}
-                  <th style={{ padding: "6px", color: colors.inkSoft, fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Adj.</th>
-                  <th style={{ textAlign: "right", padding: "6px", color: colors.inkSoft, fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: "0.04em" }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {people.map((person, i) => {
-                  const personEntries = entriesByProfile[person.id] || [];
-                  const dailyByDate = Object.fromEntries(personEntries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
-                  const adjustments = personEntries.filter((e) => e.entry_kind === "adjustment");
-                  const adjustmentTotal = adjustments.reduce((sum, a) => sum + Number(a.adjustment_hours || 0), 0);
-                  const weekTotal = personEntries.reduce((sum, e) => sum + Number(e.daily_total || 0), 0);
-                  return (
-                    <tr key={person.id} style={{ borderTop: `1px solid ${colors.line}` }}>
-                      <td style={{ padding: "4px 6px", whiteSpace: "nowrap" }}>
-                        <IconButton size="sm" label="Move up" disabled={i === 0} onClick={() => handleMove(i, -1)}><IconArrowUp size={14} /></IconButton>
-                        <IconButton size="sm" label="Move down" disabled={i === people.length - 1} onClick={() => handleMove(i, 1)}><IconArrowDown size={14} /></IconButton>
-                        <IconButton size="sm" label={`Edit ${person.displayName}'s week`} onClick={() => setEditingProfile(person)}><IconEdit size={14} /></IconButton>
-                      </td>
-                      <td style={{ padding: "6px" }}>{person.displayName}</td>
-                      {days.map((date) => {
-                        const total = dailyByDate[date]?.daily_total;
-                        return (
-                          <td key={date} style={{ padding: "6px", textAlign: "center", color: total ? colors.ink : colors.inkSoft }}>
-                            {total || "—"}
-                          </td>
-                        );
-                      })}
-                      <td style={{ padding: "6px", textAlign: "center" }}>
-                        {adjustments.length > 0 ? (
-                          <Button
-                            onClick={() => setOpenAdjustmentsFor(openAdjustmentsFor === person.id ? null : person.id)}
-                            style={{ fontSize: "var(--text-xs)", padding: "2px 8px", color: colors.warnInk, borderColor: colors.warnBorder }}
-                          >
-                            {adjustmentTotal > 0 ? "+" : ""}{adjustmentTotal}
-                          </Button>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td style={{ padding: "6px", textAlign: "right", fontWeight: 600 }}>{weekTotal || 0}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <thead>
+              <tr>
+                <th style={{ width: 76 }}></th>
+                <th>Name</th>
+                {DAY_LABELS.map((d) => (
+                  <th key={d} className="tt-num" style={{ textAlign: "center" }}>{d.slice(0, 3)}</th>
+                ))}
+                <th className="tt-num" style={{ textAlign: "center" }}>Adj.</th>
+                <th className="tt-num" style={{ textAlign: "right" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((person, i) => {
+                const personEntries = entriesByProfile[person.id] || [];
+                const dailyByDate = Object.fromEntries(personEntries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
+                const adjustments = personEntries.filter((e) => e.entry_kind === "adjustment");
+                const adjustmentTotal = adjustments.reduce((sum, a) => sum + Number(a.adjustment_hours || 0), 0);
+                const weekTotal = personEntries.reduce((sum, e) => sum + Number(e.daily_total || 0), 0);
+                return (
+                  <tr key={person.id}>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <IconButton size="sm" label="Move up" disabled={i === 0} onClick={() => handleMove(i, -1)}><IconArrowUp size={14} /></IconButton>
+                      <IconButton size="sm" label="Move down" disabled={i === people.length - 1} onClick={() => handleMove(i, 1)}><IconArrowDown size={14} /></IconButton>
+                      <IconButton size="sm" label={`Edit ${person.displayName}'s week`} onClick={() => setEditingProfile(person)}><IconEdit size={14} /></IconButton>
+                    </td>
+                    <td>{person.displayName}</td>
+                    {days.map((date) => {
+                      const total = dailyByDate[date]?.daily_total;
+                      return (
+                        <td key={date} className="tt-num" style={{ textAlign: "center", color: total ? colors.ink : colors.inkSoft }}>
+                          {total || "—"}
+                        </td>
+                      );
+                    })}
+                    <td className="tt-num" style={{ textAlign: "center" }}>
+                      {adjustments.length > 0 ? (
+                        <Button
+                          onClick={() => setOpenAdjustmentsFor(openAdjustmentsFor === person.id ? null : person.id)}
+                          style={{ fontSize: "var(--text-xs)", padding: "2px 8px", color: colors.warnInk, borderColor: colors.warnBorder }}
+                        >
+                          {adjustmentTotal > 0 ? "+" : ""}{adjustmentTotal}
+                        </Button>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="tt-num" style={{ textAlign: "right", fontWeight: 600 }}>{weekTotal || 0}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
         )}
 
         {openAdjustmentsFor && (

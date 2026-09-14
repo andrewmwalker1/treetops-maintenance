@@ -301,6 +301,12 @@ export function Step1Import({ wizard, setWizard, areaSeasonMap, ratesFullYearDef
               + Add person
             </Button>
           </div>
+          {wizard.people.length > 4 && (
+            <Alert tone="warn" title="More than 4 signees" style={{ marginBottom: 20 }}>
+              The agreement's signature block only has room for 4 signees. Generating the document with more than 4
+              people won't fit them all on the signature page.
+            </Alert>
+          )}
 
           <SectionLabel>Contact details</SectionLabel>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "14px 16px", marginBottom: 20 }}>

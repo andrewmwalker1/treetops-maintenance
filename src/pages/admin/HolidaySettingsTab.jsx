@@ -34,6 +34,11 @@ export default function HolidaySettingsTab() {
     setSaving(true);
     setError("");
     setSaved(false);
+    if (!(settings.baseline_weekly_hours > 0)) {
+      setError("Baseline weekly hours must be greater than 0 -- entitlement and accrual divide by it.");
+      setSaving(false);
+      return;
+    }
     try {
       await upsertHolidaySettings(org.id, settings);
       setSaved(true);
@@ -85,7 +90,7 @@ export default function HolidaySettingsTab() {
           </Field>
           <Field label="Baseline weekly hours">
             <Input
-              type="number" step="0.5" min="0"
+              type="number" step="0.5" min="0.5"
               value={settings.baseline_weekly_hours}
               onChange={(e) => setSettings({ ...settings, baseline_weekly_hours: Number(e.target.value) })}
             />

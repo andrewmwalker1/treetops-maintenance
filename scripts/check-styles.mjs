@@ -68,6 +68,71 @@ function lineOf(src, index) {
   return src.slice(0, index).split("\n").length;
 }
 
+// Blanks out `//` and `/* */` comments (replacing their characters with
+// spaces, so every remaining index/line number still lines up with the
+// original source) before findViolations ever runs its plain-text scans
+// over it. Without this, prose that merely *mentions* `<button style=` or
+// a hex colour -- a guard comment explaining what NOT to write, a changelog
+// note -- reads as a real violation (found via code review 2026-09-14,
+// after exactly that false positive blocked a live deploy and was patched
+// by rewording the comment instead of fixing the scanner). String/template
+// literal contents are deliberately left untouched: a real violation is
+// very often itself a string, e.g. style={{ color: "#fff" }}.
+function stripComments(src) {
+  let out = "";
+  let inString = null; // the quote character ('"', "'", "`") currently open, or null
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    const next = src[i + 1];
+
+    if (inString) {
+      out += ch;
+      if (ch === "\\") {
+        // Copy the escaped character too so an escaped quote (or an
+        // escaped backslash before a quote) can't be misread as the
+        // string's end.
+        if (i + 1 < src.length) {
+          out += src[i + 1];
+          i++;
+        }
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = ch;
+      out += ch;
+      continue;
+    }
+
+    if (ch === "/" && next === "/") {
+      while (i < src.length && src[i] !== "\n") {
+        out += src[i] === "\n" ? "\n" : " ";
+        i++;
+      }
+      i--; // let the loop's i++ land back on the newline (or end) we stopped at
+      continue;
+    }
+
+    if (ch === "/" && next === "*") {
+      out += "  ";
+      i += 2;
+      while (i < src.length && !(src[i] === "*" && src[i + 1] === "/")) {
+        out += src[i] === "\n" ? "\n" : " ";
+        i++;
+      }
+      out += "  ";
+      i++; // the loop's i++ moves past the closing "/"
+      continue;
+    }
+
+    out += ch;
+  }
+  return out;
+}
+
 // Only flags a hex colour actually inside a `style={{ ... }}` value, not
 // one mentioned in a comment or a string elsewhere in the file (e.g. a
 // changelog note quoting a token's value) -- BUILD-BRIEF.md-style prose
@@ -84,14 +149,19 @@ const RGB_RE = /rgba?\([^)]*\)/g;
 
 function findViolations(file, src) {
   const violations = [];
+  // Every scan below runs against a comment-blanked copy, not src itself --
+  // see stripComments' own comment for why. scanSrc is exactly src's length
+  // with every newline preserved, so indices/line numbers from it apply to
+  // src unchanged.
+  const scanSrc = stripComments(src);
 
   let i = 0;
   while (true) {
-    const idx = src.indexOf("style={{", i);
+    const idx = scanSrc.indexOf("style={{", i);
     if (idx === -1) break;
     const braceStart = idx + "style=".length; // the opening "{" of the outer JSX-expression brace
-    const end = endOfOpenTag(src, braceStart);
-    const region = end === -1 ? src.slice(braceStart, braceStart + 400) : src.slice(braceStart, end);
+    const end = endOfOpenTag(scanSrc, braceStart);
+    const region = end === -1 ? scanSrc.slice(braceStart, braceStart + 400) : scanSrc.slice(braceStart, end);
     let m;
     while ((m = HEX_RE.exec(region))) {
       violations.push({
@@ -112,17 +182,17 @@ function findViolations(file, src) {
 
   i = 0;
   while (true) {
-    const idx = src.indexOf("<button", i);
+    const idx = scanSrc.indexOf("<button", i);
     if (idx === -1) break;
     // guard against matching inside e.g. `<buttonGroup` (not real in this
     // codebase, but cheap to guard)
-    if (/[A-Za-z0-9_-]/.test(src[idx + "<button".length] || "")) {
+    if (/[A-Za-z0-9_-]/.test(scanSrc[idx + "<button".length] || "")) {
       i = idx + "<button".length;
       continue;
     }
-    const end = endOfOpenTag(src, idx);
+    const end = endOfOpenTag(scanSrc, idx);
     if (end === -1) break;
-    const tag = src.slice(idx, end + 1);
+    const tag = scanSrc.slice(idx, end + 1);
     if (/\bstyle=/.test(tag)) {
       violations.push({ line: lineOf(src, idx), rule: "raw-button-style", detail: "<button ... style=...>" });
     }
