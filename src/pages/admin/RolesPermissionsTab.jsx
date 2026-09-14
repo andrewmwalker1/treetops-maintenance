@@ -180,7 +180,14 @@ export default function RolesPermissionsTab() {
             </Card>
           ))
         : roles.length > 0 && (
-            <Table stickyFirstColumn>
+            // A tall permissions list needs a bounded, internally-scrolling
+            // wrapper for the header row's position:sticky to actually pin --
+            // .tt-tablewrap's overflow-x:auto forces its overflow-y to auto
+            // too (CSS can't mix 'visible' and non-'visible' per-axis), but
+            // with no height cap it never scrolls itself, so the page scrolls
+            // instead and "sticky" has nothing to stick to. Capping the
+            // height here is what turns that into a real scroll container.
+            <Table stickyFirstColumn wrapperProps={{ style: { maxHeight: "65vh", overflowY: "auto" } }}>
               <thead>
                 <tr>
                   <th>Permission</th>
