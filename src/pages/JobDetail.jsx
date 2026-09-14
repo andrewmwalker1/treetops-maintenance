@@ -473,7 +473,7 @@ export default function JobDetail() {
   // (59-equipment-service-schedules.sql) -- leaving it blank writes
   // next_due_hours/next_due_date as null on completion (completeJob.js),
   // which permanently stops that tier from ever being flagged due again.
-  const missingTierNextDue = job.equipment_id && serviceTiers.some((t) => t.is_recurring && !String(tierNextDueDraft[t.id] ?? "").trim());
+  const missingTierNextDue = job?.equipment_id && serviceTiers.some((t) => t.is_recurring && !String(tierNextDueDraft[t.id] ?? "").trim());
 
   function openCompleteModal() {
     setError(null);
