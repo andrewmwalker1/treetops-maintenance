@@ -9,7 +9,7 @@ import { supabase } from "./supabaseClient.js";
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
   const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
     supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout").eq("org_id", orgId).order("sort_order"),
-    supabase.from("equipment").select("id, equipment_type_id, status").eq("org_id", orgId),
+    supabase.from("equipment").select("id, equipment_type_id, status, no_checkout").eq("org_id", orgId),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
     // Kiosk checkout surfaces these via a "Health & Safety" button once
     // an equipment type has any linked -- fetched here, not on demand,
@@ -54,7 +54,7 @@ export async function getAvailableUnits(equipmentTypeId) {
     supabase
       .from("equipment")
       .select(
-        `id, name, status, monitor_note, tracks_hours, hours_required, last_hours_reading, last_hours_reading_at,
+        `id, name, make, model, status, monitor_note, tracks_hours, hours_required, last_hours_reading, last_hours_reading_at,
          equipment_type:equipment_types(tracks_hours_default, hours_required_default)`
       )
       .eq("equipment_type_id", equipmentTypeId)

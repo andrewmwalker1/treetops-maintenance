@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEquipmentCheckout } from "../lib/useEquipmentCheckout.js";
+import EquipmentLabel, { equipmentMakeModel } from "../components/EquipmentLabel.jsx";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import ReportIssueForm from "../kiosk/ReportIssueForm.jsx";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
@@ -46,7 +47,7 @@ export default function CheckoutKit() {
           <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
             <PageHeader title="Checked out" level={2} />
             {checkoutOutcome.succeeded.map((u) => (
-              <p key={u.id} style={{ fontSize: "var(--text-base)", margin: "var(--space-2) 0" }}>{u.name}</p>
+              <p key={u.id} style={{ fontSize: "var(--text-base)", margin: "var(--space-2) 0" }}><EquipmentLabel equipment={u} /></p>
             ))}
           </Card>
         )}
@@ -89,7 +90,7 @@ export default function CheckoutKit() {
         <Button onClick={() => setView("units")} icon={<IconArrowLeft size={15} />} style={{ marginBottom: "var(--space-4)" }}>
           Back
         </Button>
-        <PageHeader title={selectedType.name} />
+        <PageHeader title={selectedType.name} subtitle={selected.length === 1 ? [selected[0].name, equipmentMakeModel(selected[0])].filter(Boolean).join(" · ") : undefined} />
 
         {selectedType.preUseChecklist.length > 0 && (
           <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>
@@ -183,7 +184,7 @@ export default function CheckoutKit() {
                       borderBottom: `1px solid ${colors.line}`,
                     }}
                   >
-                    <span style={{ fontSize: "var(--text-base)" }}>{u.name}</span>
+                    <span style={{ fontSize: "var(--text-base)" }}><EquipmentLabel equipment={u} /></span>
                     <Button variant="danger" size="sm" onClick={() => setReportingIssueFor(u.id)} disabled={busy}>
                       Report issue
                     </Button>
@@ -239,12 +240,12 @@ export default function CheckoutKit() {
                   onChange={() => toggleUnit(u.id)}
                   style={{ width: "var(--checkbox-size-md)", height: "var(--checkbox-size-md)", flexShrink: 0 }}
                 />
-                {u.name}
+                <EquipmentLabel equipment={u} />
                 {u.status === "monitor" && <Pill tone="warn">Monitor</Pill>}
               </label>
             ) : (
               <Button key={u.id} block onClick={() => selectUnit(u)} style={{ justifyContent: "flex-start" }}>
-                {u.name}
+                <EquipmentLabel equipment={u} />
                 {u.status === "monitor" && <Pill tone="warn">Monitor</Pill>}
               </Button>
             )

@@ -27,6 +27,7 @@ const blank = {
   // states -- converted to null/true/false in handleSave.
   tracks_hours: "",
   hours_required: "",
+  no_checkout: false,
 };
 
 function today() {
@@ -56,7 +57,7 @@ export default function EquipmentTab() {
       supabase
         .from("equipment")
         .select(
-          `id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, decommissioned_at, decommission_reason, decommission_notes,
+          `id, name, make, model, status, no_checkout, equipment_type_id, serial_number, other_id_number, date_added, decommissioned_at, decommission_reason, decommission_notes,
            tracks_hours, hours_required, last_hours_reading, last_hours_reading_at,
            equipment_type:equipment_types(name, tracks_hours_default, hours_required_default)`
         )
@@ -104,6 +105,7 @@ export default function EquipmentTab() {
       date_added: eq.date_added || "",
       tracks_hours: eq.tracks_hours === null || eq.tracks_hours === undefined ? "" : String(eq.tracks_hours),
       hours_required: eq.hours_required === null || eq.hours_required === undefined ? "" : String(eq.hours_required),
+      no_checkout: !!eq.no_checkout,
     });
   }
 
@@ -120,6 +122,7 @@ export default function EquipmentTab() {
       date_added: form.date_added || null,
       tracks_hours: form.tracks_hours === "" ? null : form.tracks_hours === "true",
       hours_required: form.hours_required === "" ? null : form.hours_required === "true",
+      no_checkout: form.no_checkout,
     };
     let err;
     if (form.id) {
@@ -187,7 +190,7 @@ export default function EquipmentTab() {
           <div>
             <div style={{ fontWeight: 600 }}>{eq.name}{eq.equipment_type && <span style={{ fontWeight: 400, color: colors.inkSoft }}> · {eq.equipment_type.name}</span>}</div>
             <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
-              {[eq.make, eq.model].filter(Boolean).join(" ") || "No make/model set"} · {statusLabels[eq.status]}
+              {[eq.make, eq.model].filter(Boolean).join(" ") || "No make/model set"} · {statusLabels[eq.status]}{eq.no_checkout && " · No checkout"}
               {resolveTracksHours(eq) && (
                 <>
                   {" · "}
@@ -239,6 +242,11 @@ export default function EquipmentTab() {
                   <option key={t.id} value={t.id}>{t.name}</option>
                 ))}
               </Select>
+
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.inkSoft, marginBottom: "var(--space-3)" }}>
+                <input type="checkbox" checked={form.no_checkout} onChange={(e) => setForm({ ...form, no_checkout: e.target.checked })} />
+                No checkout — asset log only (e.g. a guest lodge). Never offered to the team for check-out or check-in.
+              </label>
 
               <label className="tt-field__label">Hours tracking</label>
               <Select value={form.tracks_hours} onChange={(e) => setForm({ ...form, tracks_hours: e.target.value })} style={{ marginBottom: "var(--space-3)" }}>

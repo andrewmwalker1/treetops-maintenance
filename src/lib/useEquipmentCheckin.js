@@ -33,7 +33,7 @@ export function useEquipmentCheckin() {
     if (!profile) return;
     supabase
       .from("equipment_checkouts")
-      .select("id, checked_out_at, equipment:equipment(id, name, equipment_type_id, equipment_type:equipment_types(id, name, allow_multi_checkout))")
+      .select("id, checked_out_at, equipment:equipment(id, name, make, model, equipment_type_id, equipment_type:equipment_types(id, name, allow_multi_checkout))")
       .eq("profile_id", profile.id)
       .is("checked_in_at", null)
       .order("checked_out_at")

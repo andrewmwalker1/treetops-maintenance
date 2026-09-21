@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useEquipmentCheckout } from "../lib/useEquipmentCheckout.js";
+import EquipmentLabel, { equipmentMakeModel } from "../components/EquipmentLabel.jsx";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import ReportIssueForm from "./ReportIssueForm.jsx";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
@@ -40,7 +41,7 @@ export default function KioskCheckOut() {
             <PageHeader title="Checked out" level={2} />
             {checkoutOutcome.succeeded.map((u) => (
               <p key={u.id} style={{ fontSize: "var(--text-md)", margin: "var(--space-2) 0" }}>
-                {u.name}
+                <EquipmentLabel equipment={u} subSize="var(--text-base)" />
               </p>
             ))}
           </Card>
@@ -80,7 +81,7 @@ export default function KioskCheckOut() {
         <Button onClick={() => setView("units")} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
-        <PageHeader title={selectedType.name} />
+        <PageHeader title={selectedType.name} subtitle={selected.length === 1 ? [selected[0].name, equipmentMakeModel(selected[0])].filter(Boolean).join(" · ") : undefined} />
 
         {selectedType.preUseChecklist.length > 0 && (
           <Card pad="lg" style={{ marginBottom: "var(--space-5)" }}>
@@ -175,7 +176,7 @@ export default function KioskCheckOut() {
                       borderBottom: `1px solid ${colors.line}`,
                     }}
                   >
-                    <span style={{ fontSize: "var(--text-md)" }}>{u.name}</span>
+                    <span style={{ fontSize: "var(--text-md)" }}><EquipmentLabel equipment={u} subSize="var(--text-base)" /></span>
                     <Button variant="danger" size="sm" onClick={() => setReportingIssueFor(u.id)} disabled={busy}>
                       Report issue
                     </Button>
@@ -245,12 +246,12 @@ export default function KioskCheckOut() {
                   onChange={() => toggleUnit(u.id)}
                   style={{ width: "var(--checkbox-size-kiosk)", height: "var(--checkbox-size-kiosk)", flexShrink: 0 }}
                 />
-                {u.name}
+                <EquipmentLabel equipment={u} subSize="var(--text-base)" />
                 {u.status === "monitor" && <Pill tone="warn">Monitor</Pill>}
               </label>
             ) : (
               <Button key={u.id} variant="primary" size="kiosk" onClick={() => selectUnit(u)} style={{ justifyContent: "flex-start" }}>
-                {u.name}
+                <EquipmentLabel equipment={u} subSize="var(--text-base)" />
                 {u.status === "monitor" && <Pill tone="warn">Monitor</Pill>}
               </Button>
             )

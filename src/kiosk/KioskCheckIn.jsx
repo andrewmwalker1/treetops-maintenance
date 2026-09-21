@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useEquipmentCheckin } from "../lib/useEquipmentCheckin.js";
 import ReportIssueForm from "./ReportIssueForm.jsx";
+import EquipmentLabel, { equipmentMakeModel } from "../components/EquipmentLabel.jsx";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import { colors } from "../lib/theme.js";
 import { Alert, Button, EmptyState, IconArrowLeft, PageHeader } from "../ui/index.js";
@@ -32,7 +33,7 @@ export default function KioskCheckIn() {
         <Button onClick={backToList} icon={<IconArrowLeft size={16} />} style={{ marginBottom: "var(--space-5)" }}>
           Back
         </Button>
-        <PageHeader title={selected.length > 1 ? `Checking in ${selected.length}` : selected[0]?.equipment.name} />
+        <PageHeader title={selected.length > 1 ? `Checking in ${selected.length}` : selected[0]?.equipment.name} subtitle={selected.length === 1 ? equipmentMakeModel(selected[0].equipment) || undefined : undefined} />
 
         {error && (
           <Alert tone="danger" title="Something went wrong">
@@ -68,7 +69,7 @@ export default function KioskCheckIn() {
                       borderBottom: `1px solid ${colors.line}`,
                     }}
                   >
-                    <span style={{ fontSize: "var(--text-md)" }}>{c.equipment.name}</span>
+                    <span style={{ fontSize: "var(--text-md)" }}><EquipmentLabel equipment={c.equipment} subSize="var(--text-base)" /></span>
                     <Button variant="danger" size="sm" onClick={() => setReportingIssueFor(c.id)} disabled={busy}>
                       Report issue
                     </Button>
@@ -136,11 +137,11 @@ export default function KioskCheckIn() {
                 onChange={() => toggleSelect(c.id)}
                 style={{ width: "var(--checkbox-size-kiosk)", height: "var(--checkbox-size-kiosk)", flexShrink: 0 }}
               />
-              {c.equipment.name}
+              <EquipmentLabel equipment={c.equipment} subSize="var(--text-base)" />
             </label>
           ) : (
             <Button key={c.id} variant="primary" size="kiosk" onClick={() => openSingle(c)}>
-              {c.equipment.name}
+              <EquipmentLabel equipment={c.equipment} subSize="var(--text-base)" />
             </Button>
           )
         )}
