@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { colors } from "../../lib/theme.js";
-import { getWeekEntries, upsertDailyEntry } from "../../lib/timesheetQueries.js";
-import { Alert, Button, Input, Modal } from "../../ui/index.js";
+import { getWeekEntries, getWeekNote, saveWeekNote, upsertDailyEntry } from "../../lib/timesheetQueries.js";
+import { Alert, Button, Input, Modal, Textarea } from "../../ui/index.js";
 import { DAY_LABELS, weekDates } from "./weekMath.js";
 
 // The one place office-on-behalf entry actually happens: every day of one
@@ -10,7 +10,9 @@ import { DAY_LABELS, weekDates } from "./weekMath.js";
 // being clickable (kept read-only so editing can't happen from an
 // accidental click while scanning the grid).
 export default function PersonWeekEditModal({ profileId, profileName, weekStart, onClose, onSaved }) {
-  const [values, setValues] = useState(null); // { [date]: { morning, afternoon, notes } }
+  const [values, setValues] = useState(null); // { [date]: { morning, afternoon } }
+  const [weekNote, setWeekNote] = useState("");
+  const [savedWeekNote, setSavedWeekNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -18,8 +20,8 @@ export default function PersonWeekEditModal({ profileId, profileName, weekStart,
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getWeekEntries(profileId, weekStart)
-      .then((entries) => {
+    Promise.all([getWeekEntries(profileId, weekStart), getWeekNote(profileId, weekStart)])
+      .then(([entries, note]) => {
         if (cancelled) return;
         const byDate = Object.fromEntries(entries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
         const initial = {};
@@ -27,10 +29,11 @@ export default function PersonWeekEditModal({ profileId, profileName, weekStart,
           initial[date] = {
             morning: byDate[date]?.morning_hours ?? "",
             afternoon: byDate[date]?.afternoon_hours ?? "",
-            notes: byDate[date]?.notes ?? "",
           };
         });
         setValues(initial);
+        setWeekNote(note);
+        setSavedWeekNote(note);
       })
       .catch((err) => setError(err.message || String(err)))
       .finally(() => setLoading(false));
@@ -48,9 +51,10 @@ export default function PersonWeekEditModal({ profileId, profileName, weekStart,
     setError("");
     try {
       for (const date of weekDates(weekStart)) {
-        const { morning, afternoon, notes } = values[date];
-        await upsertDailyEntry({ profileId, workDate: date, morningHours: morning, afternoonHours: afternoon, notes });
+        const { morning, afternoon } = values[date];
+        await upsertDailyEntry({ profileId, workDate: date, morningHours: morning, afternoonHours: afternoon });
       }
+      if (weekNote !== savedWeekNote) await saveWeekNote(profileId, weekStart, weekNote);
       onSaved();
       onClose();
     } catch (err) {
@@ -83,14 +87,14 @@ export default function PersonWeekEditModal({ profileId, profileName, weekStart,
                   onChange={(e) => setField(date, "afternoon", e.target.value)}
                 />
               </div>
-              <Input
-                value={values[date].notes}
-                placeholder="Notes (optional)"
-                onChange={(e) => setField(date, "notes", e.target.value)}
-                style={{ marginTop: 4, fontSize: "var(--text-xs)" }}
-              />
             </div>
           ))
+        )}
+        {!loading && values && (
+          <div style={{ marginTop: 12 }}>
+            <span style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: 4 }}>Notes for the week (optional)</span>
+            <Textarea rows={3} value={weekNote} onChange={(e) => setWeekNote(e.target.value)} />
+          </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
           <Button onClick={onClose}>Cancel</Button>

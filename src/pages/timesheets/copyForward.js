@@ -30,7 +30,6 @@ export async function copyFromPreviousWeek(profileId, weekStart) {
         workDate: thisDates[i],
         morningHours: prevEntry.morning_hours,
         afternoonHours: prevEntry.afternoon_hours,
-        notes: prevEntry.notes,
       });
     })
   );

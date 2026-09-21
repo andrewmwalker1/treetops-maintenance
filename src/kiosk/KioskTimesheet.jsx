@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { colors } from "../lib/theme.js";
-import { Alert, Button, IconArrowLeft, Input, PageHeader } from "../ui/index.js";
+import { Alert, Button, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
 import { useTimesheetEntry } from "../pages/timesheets/useTimesheetEntry.js";
 import { DAY_LABELS, isForecastEntry } from "../pages/timesheets/weekMath.js";
 
@@ -12,12 +12,11 @@ import { DAY_LABELS, isForecastEntry } from "../pages/timesheets/weekMath.js";
 // shared walk-up terminal with a 3-minute idle timeout isn't the place
 // for a considered "which day, how many hours, why" correction; that
 // stays a desktop/PWA action.
-function DayRow({ label, isForecast, initialMorning, initialAfternoon, initialNotes, disabled, onSave }) {
+function DayRow({ label, isForecast, initialMorning, initialAfternoon, disabled, onSave }) {
   const [morning, setMorning] = useState(initialMorning ?? "");
   const [afternoon, setAfternoon] = useState(initialAfternoon ?? "");
-  const [notes, setNotes] = useState(initialNotes ?? "");
   const total = (Number(morning) || 0) + (Number(afternoon) || 0);
-  const commit = () => onSave(morning, afternoon, notes);
+  const commit = () => onSave(morning, afternoon);
   return (
     <div style={{ padding: "14px 0", borderBottom: `1px solid ${colors.line}` }}>
       <div style={{ display: "grid", gridTemplateColumns: "130px 1fr 60px 1fr 80px", gap: 14, alignItems: "center" }}>
@@ -42,13 +41,25 @@ function DayRow({ label, isForecast, initialMorning, initialAfternoon, initialNo
         />
         <span style={{ textAlign: "right", fontWeight: 700, fontSize: "var(--text-lg)" }}>{total || "—"}</span>
       </div>
-      <Input
-        value={notes}
+    </div>
+  );
+}
+
+
+// One note for the whole week. Local state + onBlur commit, same as the
+// day rows. Keyed by week from the parent so switching weeks remounts it.
+function WeekNote({ initialNote, disabled, onSave}) {
+  const [note, setNote] = useState(initialNote ?? "");
+  return (
+    <div>
+      <span style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-1)" }}>Notes for the week (optional)</span>
+      <Textarea
+        rows={2}
+        value={note}
         disabled={disabled}
-        placeholder="Notes (optional)"
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={commit}
-        style={{ marginTop: 8, height: 40 }}
+        placeholder="Anything the office should know about this week"
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={() => onSave(note)}
       />
     </div>
   );
@@ -82,9 +93,8 @@ export default function KioskTimesheet() {
               isForecast={entry ? isForecastEntry(entry) : false}
               initialMorning={entry?.morning_hours}
               initialAfternoon={entry?.afternoon_hours}
-              initialNotes={entry?.notes}
               disabled={t.isFrozen || t.saving}
-              onSave={(morning, afternoon, notes) => t.saveDay(date, morning, afternoon, notes)}
+              onSave={(morning, afternoon) => t.saveDay(date, morning, afternoon)}
             />
           );
         })}
@@ -93,6 +103,12 @@ export default function KioskTimesheet() {
         <span>Week total</span>
         <span>{t.weekTotal} hrs</span>
       </div>
+
+      {!t.initialLoading && (
+        <div style={{ marginBottom: "var(--space-5)" }}>
+          <WeekNote key={t.loadedWeek} initialNote={t.weekNote} disabled={t.isFrozen || t.saving} onSave={t.saveNote} />
+        </div>
+      )}
 
       <Button variant="primary" size="kiosk" block onClick={() => navigate("/kiosk")}>
         Done

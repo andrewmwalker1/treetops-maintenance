@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader, Select, SkeletonList } from "../../ui/index.js";
+import { Alert, Button, Card, Input, PageHeader, Select, SkeletonList, Textarea } from "../../ui/index.js";
 import { addWeeks, DAY_LABELS, formatShortDate, formatWeekLabel, isForecastEntry } from "./weekMath.js";
 import { useTimesheetEntry } from "./useTimesheetEntry.js";
 
@@ -12,12 +12,11 @@ function CardTitle({ children }) {
 // Input -- avoids a network write on every keystroke. Keyed by date from
 // the parent, so switching weeks mounts a fresh instance per day rather
 // than carrying stale local text into a different date's row.
-function DayRow({ label, isForecast, initialMorning, initialAfternoon, initialNotes, disabled, onSave }) {
+function DayRow({ label, isForecast, initialMorning, initialAfternoon, disabled, onSave }) {
   const [morning, setMorning] = useState(initialMorning ?? "");
   const [afternoon, setAfternoon] = useState(initialAfternoon ?? "");
-  const [notes, setNotes] = useState(initialNotes ?? "");
   const total = (Number(morning) || 0) + (Number(afternoon) || 0);
-  const commit = () => onSave(morning, afternoon, notes);
+  const commit = () => onSave(morning, afternoon);
   return (
     <div style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
       <div style={{ display: "grid", gridTemplateColumns: "110px 90px 50px 90px 60px", gap: 10, alignItems: "center" }}>
@@ -40,13 +39,25 @@ function DayRow({ label, isForecast, initialMorning, initialAfternoon, initialNo
         />
         <span style={{ textAlign: "right", fontWeight: 600 }}>{total || "—"}</span>
       </div>
-      <Input
-        value={notes}
+    </div>
+  );
+}
+
+
+// One note for the whole week. Local state + onBlur commit, same as the
+// day rows. Keyed by week from the parent so switching weeks remounts it.
+function WeekNote({ initialNote, disabled, onSave}) {
+  const [note, setNote] = useState(initialNote ?? "");
+  return (
+    <div>
+      <span style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-1)" }}>Notes for the week (optional)</span>
+      <Textarea
+        rows={2}
+        value={note}
         disabled={disabled}
-        placeholder="Notes (optional)"
-        onChange={(e) => setNotes(e.target.value)}
-        onBlur={commit}
-        style={{ marginTop: 6, fontSize: "var(--text-xs)" }}
+        placeholder="Anything the office should know about this week"
+        onChange={(e) => setNote(e.target.value)}
+        onBlur={() => onSave(note)}
       />
     </div>
   );
@@ -129,14 +140,13 @@ export default function Timesheet() {
             const entry = t.dailyByDate[date];
             return (
               <DayRow
-                key={`${t.weekStart}-${date}`}
+                key={`${t.loadedWeek}-${date}`}
                 label={DAY_LABELS[i]}
                 isForecast={entry ? isForecastEntry(entry) : false}
                 initialMorning={entry?.morning_hours}
                 initialAfternoon={entry?.afternoon_hours}
-                initialNotes={entry?.notes}
                 disabled={t.isFrozen || t.saving}
-                onSave={(morning, afternoon, notes) => t.saveDay(date, morning, afternoon, notes)}
+                onSave={(morning, afternoon) => t.saveDay(date, morning, afternoon)}
               />
             );
           })}
@@ -145,6 +155,10 @@ export default function Timesheet() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 700, padding: "12px 0 4px" }}>
           <span>Week total</span>
           <span>{t.weekTotal} hrs</span>
+        </div>
+
+        <div style={{ marginTop: 14 }}>
+          <WeekNote key={t.loadedWeek} initialNote={t.weekNote} disabled={t.isFrozen || t.saving} onSave={t.saveNote} />
         </div>
 
         <div style={{ marginTop: 20, borderTop: `1px solid ${colors.line}`, paddingTop: 14 }}>

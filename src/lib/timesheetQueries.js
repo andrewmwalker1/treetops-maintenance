@@ -74,7 +74,7 @@ export async function getWeekFreezeStatus(weekStart) {
 // .upsert() call: the "one daily row per person per date" constraint is
 // a partial unique index (entry_kind = 'daily' only), which the
 // supabase-js upsert() helper can't target directly.
-export async function upsertDailyEntry({ profileId, workDate, morningHours, afternoonHours, notes }) {
+export async function upsertDailyEntry({ profileId, workDate, morningHours, afternoonHours }) {
   const { data: existing, error: findErr } = await supabase
     .from("timesheet_entries")
     .select("id")
@@ -91,10 +91,6 @@ export async function upsertDailyEntry({ profileId, workDate, morningHours, afte
     morning_hours: morningHours === "" || morningHours == null ? null : Number(morningHours),
     afternoon_hours: afternoonHours === "" || afternoonHours == null ? null : Number(afternoonHours),
   };
-  // Only touches notes when the caller actually passed something for it --
-  // omitting the argument entirely must never silently wipe an existing
-  // note out from under a caller that only cares about the hours.
-  if (notes !== undefined) payload.notes = notes === "" ? null : notes;
 
   if (existing) {
     const { error } = await supabase.from("timesheet_entries").update(payload).eq("id", existing.id);
@@ -115,6 +111,33 @@ export async function upsertDailyEntry({ profileId, workDate, morningHours, afte
     throw error;
   }
   return data.id;
+}
+
+// The single free-text note for a person's week (timesheet_week_notes,
+// 78-timesheet-week-notes.sql). Frozen-week blocking/audit is in that
+// table's trigger, same as the entries.
+export async function getWeekNote(profileId, weekStart) {
+  const { data, error } = await supabase
+    .from("timesheet_week_notes")
+    .select("note")
+    .eq("profile_id", profileId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  if (error) {
+    console.error("getWeekNote failed", error);
+    throw error;
+  }
+  return data?.note ?? "";
+}
+
+export async function saveWeekNote(profileId, weekStart, note) {
+  const { error } = await supabase
+    .from("timesheet_week_notes")
+    .upsert({ profile_id: profileId, week_start: weekStart, note: note.trim() === "" ? null : note }, { onConflict: "profile_id,week_start" });
+  if (error) {
+    console.error("saveWeekNote failed", error);
+    throw error;
+  }
 }
 
 export async function insertAdjustment({ profileId, correctsEntryId, workDate, enteredWeekStart, adjustmentHours, reason }) {

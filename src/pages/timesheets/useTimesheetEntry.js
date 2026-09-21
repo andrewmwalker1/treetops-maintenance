@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import {
-  getRecentDailyEntries, getWeekEntries, getWeekFreezeStatus, insertAdjustment, upsertDailyEntry,
+  getRecentDailyEntries, getWeekEntries, getWeekFreezeStatus, getWeekNote, insertAdjustment, saveWeekNote, upsertDailyEntry,
 } from "../../lib/timesheetQueries.js";
 import { copyFromPreviousWeek } from "./copyForward.js";
 import { mondayOf, todayIso, weekDates } from "./weekMath.js";
@@ -18,6 +18,11 @@ export function useTimesheetEntry() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(todayIso()));
   const [entries, setEntries] = useState([]);
   const [freeze, setFreeze] = useState(null);
+  const [weekNote, setWeekNote] = useState("");
+  // The week the entries/note above actually belong to -- lags weekStart
+  // while a new week is loading. Rows key off it so their local input state
+  // remounts from the loaded data rather than the previous week's.
+  const [loadedWeek, setLoadedWeek] = useState(null);
   const [recentEntries, setRecentEntries] = useState([]);
   const [copiedFromLastWeek, setCopiedFromLastWeek] = useState(false);
   // Only gates the very first render -- a save-triggered refresh (e.g.
@@ -31,11 +36,13 @@ export function useTimesheetEntry() {
     if (!profile) return;
     setError("");
     try {
-      const [weekEntries, freezeStatus, recent] = await Promise.all([
+      const [weekEntries, freezeStatus, recent, note] = await Promise.all([
         getWeekEntries(profile.id, weekStart),
         getWeekFreezeStatus(weekStart),
         getRecentDailyEntries(profile.id),
+        getWeekNote(profile.id, weekStart),
       ]);
+      setWeekNote(note);
 
       const hasAnyDaily = weekEntries.some((e) => e.entry_kind === "daily");
       if (!hasAnyDaily && !freezeStatus?.frozen_at) {
@@ -45,6 +52,7 @@ export function useTimesheetEntry() {
           setEntries(await getWeekEntries(profile.id, weekStart));
           setFreeze(freezeStatus);
           setRecentEntries(recent);
+          setLoadedWeek(weekStart);
           return;
         }
       }
@@ -53,6 +61,7 @@ export function useTimesheetEntry() {
       setEntries(weekEntries);
       setFreeze(freezeStatus);
       setRecentEntries(recent);
+      setLoadedWeek(weekStart);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -73,12 +82,26 @@ export function useTimesheetEntry() {
   const weekTotal = entries.reduce((sum, e) => sum + Number(e.daily_total || 0), 0);
   const isFrozen = !!freeze?.frozen_at;
 
-  async function saveDay(workDate, morningHours, afternoonHours, notes) {
+  async function saveDay(workDate, morningHours, afternoonHours) {
     setSaving(true);
     setError("");
     try {
-      await upsertDailyEntry({ profileId: profile.id, workDate, morningHours, afternoonHours, notes });
+      await upsertDailyEntry({ profileId: profile.id, workDate, morningHours, afternoonHours });
       refresh();
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveNote(note) {
+    if (note === weekNote) return;
+    setSaving(true);
+    setError("");
+    try {
+      await saveWeekNote(profile.id, weekStart, note);
+      setWeekNote(note);
     } catch (err) {
       setError(err.message || String(err));
     } finally {
@@ -102,11 +125,11 @@ export function useTimesheetEntry() {
   return {
     weekStart, setWeekStart,
     days: weekDates(weekStart),
-    dailyByDate, adjustments, weekTotal,
+    dailyByDate, adjustments, weekTotal, weekNote, loadedWeek,
     isFrozen, frozenByName: freeze?.frozen_by_profile?.display_name,
     copiedFromLastWeek,
     recentEntries,
     initialLoading, saving, error,
-    saveDay, addCorrection, refresh,
+    saveDay, saveNote, addCorrection, refresh,
   };
 }
