@@ -6,6 +6,7 @@ import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
 import { flushQueue, getQueueStatus, flushReadingQueue, getReadingQueueStatus } from "../platform/syncQueue.js";
 import { useIsMobile } from "../lib/useIsMobile.js";
+import { BUILD_LABEL } from "../lib/buildInfo.js";
 import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
 import Menu, { MenuHeader, MenuItem, MenuSeparator } from "../ui/Menu.jsx";
 import { Switch } from "../ui/primitives.jsx";
@@ -205,7 +206,7 @@ export default function Layout({ children }) {
 
       {!isMobile && (
         <footer className="tt-appfoot">
-          v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
+          {BUILD_LABEL}
         </footer>
       )}
     </div>
@@ -356,7 +357,7 @@ function AccountMenu({
                 color: colors.inkSoft,
               }}
             >
-              v{__APP_VERSION__} · {__GIT_SHA__}
+              {BUILD_LABEL}
             </div>
           )}
         </>

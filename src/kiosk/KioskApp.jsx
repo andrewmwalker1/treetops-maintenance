@@ -8,6 +8,7 @@ import KioskCheckIn from "./KioskCheckIn.jsx";
 import KioskSafety from "./KioskSafety.jsx";
 import KioskTimesheet from "./KioskTimesheet.jsx";
 import { colors, fonts } from "../lib/theme.js";
+import { BUILD_LABEL } from "../lib/buildInfo.js";
 import { SkeletonList } from "../ui/index.js";
 
 // Idle sign-out: staff don't have to re-tap between quick consecutive
@@ -73,7 +74,7 @@ export default function KioskApp() {
           zIndex: 150,
         }}
       >
-        v{__APP_VERSION__} · {__GIT_SHA__} · built {new Date(__BUILD_TIME__).toLocaleString()}
+        {BUILD_LABEL}
       </div>
     </div>
   );

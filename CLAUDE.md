@@ -47,6 +47,13 @@ automatically, every session.
   `VITE_VAPID_PUBLIC_KEY` belong client-side.
 - Every dependency change → regenerate `package-lock.json` in the same
   commit, or `npm ci` fails in CI.
+- **Bump the version on every push to `main`** (each push is a deploy):
+  `npm version patch --no-git-tag-version` (updates `package.json` and
+  `package-lock.json` together) in the same commit, so 1.1.0 → 1.1.1 →
+  1.1.2… Only bump the minor number (`npm version minor
+  --no-git-tag-version`, e.g. → 1.2.0) when Andy says a release is a new
+  version. Numbering started at 1.1.0 on 24 Sep 2026. It's shown to users
+  as `v1.1.0 · 24 Sep 2026, 16:32` (`src/lib/buildInfo.js`).
 - `role_visibility` beyond Head Gardener needs Andy's confirmation before
   building further on it (flagged as pending in BUILD-BRIEF.md/RUNBOOK.md
   since the project started).
