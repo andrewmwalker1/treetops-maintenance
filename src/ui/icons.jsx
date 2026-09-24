@@ -209,3 +209,24 @@ export const IconInbox = (p) => (
     <path d="M5.5 5.1L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.5-6.9A2 2 0 0016.8 4H7.2a2 2 0 00-1.7 1.1z" />
   </Svg>
 );
+
+/* ---- Linked jobs ---- */
+export const IconLink = (p) => (
+  <Svg {...p}>
+    <path d="M10 13a5 5 0 007.5.5l3-3a5 5 0 00-7-7l-1.7 1.7" />
+    <path d="M14 11a5 5 0 00-7.5-.5l-3 3a5 5 0 007 7l1.7-1.7" />
+  </Svg>
+);
+export const IconHandOff = (p) => (
+  <Svg {...p}>
+    <path d="M15 14l5-5-5-5" />
+    <path d="M20 9H9.5A5.5 5.5 0 004 14.5 5.5 5.5 0 009.5 20H13" />
+  </Svg>
+);
+export const IconWaiting = (p) => (
+  <Svg {...p}>
+    <path d="M6 2h12M6 22h12" />
+    <path d="M17 2v4.2a2 2 0 01-.6 1.4L12 12l4.4 4.4a2 2 0 01.6 1.4V22" />
+    <path d="M7 2v4.2a2 2 0 00.6 1.4L12 12l-4.4 4.4a2 2 0 00-.6 1.4V22" />
+  </Svg>
+);

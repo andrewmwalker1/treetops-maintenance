@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { colors, fonts, priorityBarStyle, priorityColor, statusPillStyle } from "../lib/theme.js";
 import { formatDueDate } from "../lib/formatDueDate.js";
-import { Card, Pill } from "../ui/index.js";
+import { openBlockingLinks, PARENT_LINK_LABEL } from "../lib/linkedJobs.js";
+import { Card, IconLink, IconWaiting, Pill } from "../ui/index.js";
 
 export default function JobCard({ job, terminology = {}, selectable = false, selected = false, onToggleSelect, highlighted = false }) {
   const location = job.pitch
@@ -14,6 +15,12 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
   // counts as overdue regardless of its due_date; only open/in-progress work
   // still needs the flag. Confirmed with the overdue mockup, 2026-08-21.
   const isOverdue = Boolean(job.due_date) && !job.job_status?.is_completed && job.due_date < new Date().toISOString().slice(0, 10);
+
+  // Linked jobs (79-linked-jobs.sql). Only open jobs show what they're
+  // waiting on -- a settled job isn't waiting for anything.
+  const waitingCount = job.job_status?.is_completed ? 0 : openBlockingLinks(job.linked_jobs).length;
+  const parentLabel = job.parent_job && PARENT_LINK_LABEL[job.link_kind];
+  const linkLineStyle = { display: "flex", alignItems: "center", gap: "var(--space-1)", fontSize: "var(--text-sm)", marginTop: "var(--space-1)", minWidth: 0 };
 
   return (
     <div style={{ display: "flex", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
@@ -79,6 +86,20 @@ export default function JobCard({ job, terminology = {}, selectable = false, sel
               </span>
             )}
           </div>
+          {waitingCount > 0 && (
+            <div style={{ ...linkLineStyle, color: colors.warnInk, fontWeight: 600 }}>
+              <IconWaiting size={13} />
+              Waiting on {waitingCount} linked job{waitingCount === 1 ? "" : "s"}
+            </div>
+          )}
+          {parentLabel && (
+            <div style={{ ...linkLineStyle, color: colors.inkSoft }}>
+              <IconLink size={13} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {parentLabel}: {job.parent_job.description}
+              </span>
+            </div>
+          )}
         </div>
       </Card>
     </div>

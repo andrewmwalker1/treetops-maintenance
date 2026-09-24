@@ -31,21 +31,21 @@ async function resolveContractorEmployeeIds(contractorId) {
   return (data || []).map((row) => row.id);
 }
 
+// Everyone a job is assigned to, as profile ids: the person, every member
+// of the group, or every logged-in employee of the contractor company.
+// Shared with linkedJobNotify.js, which pushes a parent job's assignee.
+export async function resolveAssigneeRecipientIds(job) {
+  if (job.assignee_profile_id) return [job.assignee_profile_id];
+  if (job.assignee_group_id) return resolveGroupMemberIds(job.assignee_group_id);
+  if (job.assignee_contractor_id) return resolveContractorEmployeeIds(job.assignee_contractor_id);
+  return [];
+}
+
 // job: needs assignee_profile_id, assignee_group_id, assignee_contractor_id, id, description.
 // actorProfileId: whoever made the change -- excluded from recipients so
 // nobody gets pushed a notification about their own action.
 export async function notifyJobAssigned({ job, actorProfileId, actorDisplayName }) {
-  let recipientIds = [];
-  if (job.assignee_profile_id) {
-    recipientIds = [job.assignee_profile_id];
-  } else if (job.assignee_group_id) {
-    recipientIds = await resolveGroupMemberIds(job.assignee_group_id);
-  } else if (job.assignee_contractor_id) {
-    recipientIds = await resolveContractorEmployeeIds(job.assignee_contractor_id);
-  } else {
-    return;
-  }
-  recipientIds = recipientIds.filter((id) => id !== actorProfileId);
+  const recipientIds = (await resolveAssigneeRecipientIds(job)).filter((id) => id !== actorProfileId);
   if (recipientIds.length === 0) return;
 
   const title = "New job assigned to you";

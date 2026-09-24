@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useIsMobile } from "../lib/useIsMobile.js";
 import { getAssignableTargets } from "../lib/assignableTargets.js";
 import SearchPicker from "../components/SearchPicker.jsx";
-import { useParams, useNavigate } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
@@ -10,6 +10,7 @@ import { capturePhoto } from "../platform/camera.js";
 import { loadJobForPrint, PHOTO_COLUMNS, SUBTASK_COLUMNS } from "../lib/loadJobForPrint.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
+import { newLinkedJobPath, notifyLinkedJobClosed, openBlockingLinks, PARENT_LINK_LABEL } from "../lib/linkedJobs.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import ActivityTypePicker from "../components/ActivityTypePicker.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
@@ -31,8 +32,11 @@ import {
   IconEdit,
   IconFolder,
   IconGallery,
+  IconHandOff,
+  IconLink,
   IconPlus,
   IconPrint,
+  IconWaiting,
   IconButton,
   Input,
   Menu,
@@ -47,6 +51,22 @@ import {
 } from "../ui/index.js";
 
 const PRIORITIES = ["immediate", "high", "medium", "low"];
+
+// Activity-log wording for the linked_job rows jobs_sync_linked_parent
+// (79-linked-jobs.sql) writes onto the parent job: [outcome][link_kind].
+const LINKED_ACTIVITY_VERB = {
+  created: { handoff: "Item handed off", followon: "Follow-on job raised", default: "Linked job raised" },
+  completed: { handoff: "Handed-off item done", default: "Linked job completed" },
+  cancelled: { handoff: "Hand-off cancelled, item back on this job", default: "Linked job cancelled" },
+  reopened: { default: "Linked job reopened" },
+};
+
+const LINKED_JOB_COLUMNS =
+  "id, description, link_kind, parent_subtask_id, due_date, job_status:job_statuses(name, is_completed), assignee:profiles!jobs_assignee_profile_id_fkey(display_name), assignee_group:groups(name), assignee_contractor:contractors(name)";
+
+function assigneeName(j) {
+  return j.assignee?.display_name || j.assignee_group?.name || j.assignee_contractor?.name || "Unassigned";
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -114,6 +134,9 @@ export default function JobDetail() {
   const [toggledSections, setToggledSections] = useState(new Set());
   const [photos, setPhotos] = useState([]);
   const [activity, setActivity] = useState([]);
+  // Jobs raised from this one (79-linked-jobs.sql) -- hand-offs of its
+  // checklist items, "needed to finish" work, and follow-ons.
+  const [linkedJobs, setLinkedJobs] = useState([]);
   const [activityTypes, setActivityTypes] = useState([]);
   const [documentsByActivityType, setDocumentsByActivityType] = useState({});
   const [statuses, setStatuses] = useState([]);
@@ -221,6 +244,14 @@ export default function JobDetail() {
     // 0), so the button should read "Logged" rather than "Log update"
     // until the viewer actually drags it to something new.
     setProgressLogged(Boolean(lastProgressUpdate));
+
+    const { data: linkedRows, error: linkedError } = await supabase
+      .from("jobs")
+      .select(LINKED_JOB_COLUMNS)
+      .eq("parent_job_id", id)
+      .order("created_at");
+    if (linkedError) console.error("Failed to load linked jobs", linkedError);
+    setLinkedJobs(linkedRows || []);
 
     const { data: tierLinks } = await supabase
       .from("job_service_tiers")
@@ -654,6 +685,13 @@ export default function JobDetail() {
       const proceed = window.confirm("No photo added — complete anyway?");
       if (!proceed) return;
     }
+    const openLinks = openBlockingLinks(linkedJobs);
+    if (closingNow && openLinks.length > 0) {
+      const proceed = window.confirm(
+        `${openLinks.length} linked job${openLinks.length === 1 ? " is" : "s are"} still open for this job. They'll stay open. Change the status anyway?`
+      );
+      if (!proceed) return;
+    }
 
     const update = { status_id: newStatusId };
     if (closingNow) update.closed_by = profile.id;
@@ -670,6 +708,13 @@ export default function JobDetail() {
       previous_value: { status_id: job.status_id },
       new_value: { status_id: newStatusId },
     });
+    // Completing goes through writeJobCompletion (which sends its own);
+    // this path is the other way a linked job closes.
+    if (closingNow && job.parent_job_id && newStatus?.name === "Cancelled") {
+      notifyLinkedJobClosed({ jobId: job.id, outcome: "cancelled", actorProfileId: profile.id, actorDisplayName: profile.display_name }).catch((err) =>
+        console.error("Failed to send linked-job notification", err)
+      );
+    }
     loadAll();
   }
 
@@ -699,6 +744,7 @@ export default function JobDetail() {
       oldStatusId: job.status_id,
       completedStatusId: completedStatus.id,
       actorProfileId: profile.id,
+      actorDisplayName: profile.display_name,
       completedDate: completeDate,
       comment: completeComment,
       equipmentResolution: job.equipment_id
@@ -1192,6 +1238,39 @@ export default function JobDetail() {
       <input type="checkbox" checked={s.is_checked} onChange={() => toggleSubtask(s)} />
     );
 
+    // Hand-offs (79-linked-jobs.sql): the open one if there is one, else
+    // the most recent that ticked this item off.
+    const itemHandoffs = linkedJobs.filter((j) => j.link_kind === "handoff" && j.parent_subtask_id === s.id);
+    const openHandoff = itemHandoffs.find((j) => !j.job_status?.is_completed);
+    const shownHandoff =
+      openHandoff || (s.is_checked ? [...itemHandoffs].reverse().find((j) => j.job_status?.name === "Completed") : null);
+    const handoffButton = !s.is_checked && !openHandoff && !canEdit && !job.job_status?.is_completed && (
+      <IconButton size="sm" label="Hand off to someone else" onClick={() => navigate(newLinkedJobPath(job.id, "handoff", s.id))}>
+        <IconHandOff size={14} />
+      </IconButton>
+    );
+    const handoffLine = shownHandoff && (
+      <div
+        style={{
+          flexBasis: "100%",
+          display: "flex",
+          alignItems: "center",
+          gap: "var(--space-1)",
+          fontSize: "var(--text-sm)",
+          color: openHandoff ? colors.warnInk : colors.inkSoft,
+          fontWeight: openHandoff ? 600 : 400,
+          marginTop: isMobile ? "var(--space-1)" : 0,
+        }}
+      >
+        {openHandoff ? <IconWaiting size={13} /> : <IconHandOff size={13} />}
+        <Link to={`/jobs/${shownHandoff.id}`} style={{ color: "inherit" }}>
+          {openHandoff
+            ? `Handed off to ${assigneeName(shownHandoff)} · ${shownHandoff.job_status?.name}`
+            : `Done by ${assigneeName(shownHandoff)} (handed off)`}
+        </Link>
+      </div>
+    );
+
     const editIcons = canEdit && (
       <>
         {canRequireChecklistItemPhoto && (
@@ -1267,8 +1346,12 @@ export default function JobDetail() {
         <div key={s.id} style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
             {label}
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>{checkControls}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", flexShrink: 0 }}>
+              {handoffButton}
+              {checkControls}
+            </div>
           </div>
+          {handoffLine}
           {editIcons && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-2)", marginTop: "var(--space-2)", flexWrap: "wrap" }}>
               {editIcons}
@@ -1287,9 +1370,11 @@ export default function JobDetail() {
             one column down the list instead of the item text
             starting at a different x on every row. */}
         <div style={{ width: "160px", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--space-2)", flexWrap: "wrap" }}>
+          {handoffButton}
           {checkControls}
         </div>
         {editIcons}
+        {handoffLine}
       </div>
     );
   }
@@ -1395,6 +1480,20 @@ export default function JobDetail() {
           </div>
           {job.completed_date && (
             <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "var(--text-sm)" }}>Completed {job.completed_date}</p>
+          )}
+          {job.parent_job && PARENT_LINK_LABEL[job.link_kind] && (
+            <p style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", color: colors.inkSoft, fontSize: "var(--text-sm)", margin: "var(--space-2) 0 0" }}>
+              <IconLink size={13} style={{ flexShrink: 0 }} />
+              <span>
+                {PARENT_LINK_LABEL[job.link_kind]}: <Link to={`/jobs/${job.parent_job.id}`}>{job.parent_job.description}</Link>
+              </span>
+            </p>
+          )}
+          {!job.job_status?.is_completed && openBlockingLinks(linkedJobs).length > 0 && (
+            <p style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", color: colors.warnInk, fontWeight: 600, fontSize: "var(--text-sm)", margin: "var(--space-2) 0 0" }}>
+              <IconWaiting size={13} style={{ flexShrink: 0 }} />
+              Waiting on {openBlockingLinks(linkedJobs).length} linked job{openBlockingLinks(linkedJobs).length === 1 ? "" : "s"}
+            </p>
           )}
 
           <div style={{ display: "grid", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
@@ -1801,6 +1900,57 @@ export default function JobDetail() {
         </Section>
       )}
 
+      {/* Jobs raised from this one (79-linked-jobs.sql). Always shown, so
+          "+ Linked job" is there to log follow-on work even once this job
+          is done. */}
+      <Section
+        title="Linked jobs"
+        actions={
+          <Button size="sm" icon={<IconPlus size={14} />} onClick={() => navigate(newLinkedJobPath(job.id, "needed"))}>
+            Linked job
+          </Button>
+        }
+      >
+        {linkedJobs.length === 0 ? (
+          <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>
+            Materials to order, something someone else needs to do, or work spotted for later. Use "Hand off" on a checklist item to give
+            that item to someone else.
+          </p>
+        ) : (
+          linkedJobs.map((lj) => {
+            const item = lj.link_kind === "handoff" ? subtasks.find((s) => s.id === lj.parent_subtask_id) : null;
+            const kindLabel =
+              lj.link_kind === "handoff" ? (item ? `Hand-off: ${item.label}` : "Hand-off") : lj.link_kind === "followon" ? "Follow-on" : "Needed to finish";
+            return (
+              <Link
+                key={lj.id}
+                to={`/jobs/${lj.id}`}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  gap: "var(--space-3)",
+                  padding: "var(--space-2) 0",
+                  borderBottom: `1px solid ${colors.line}`,
+                  color: colors.ink,
+                  textDecoration: "none",
+                }}
+              >
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 600 }}>{lj.description}</div>
+                  <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+                    <span>{kindLabel}</span>
+                    <span>{assigneeName(lj)}</span>
+                    {lj.due_date && <span style={{ fontFamily: fonts.mono }}>Due {lj.due_date}</span>}
+                  </div>
+                </div>
+                <span style={{ ...statusPillStyle(lj.job_status?.name), flexShrink: 0 }}>{lj.job_status?.name}</span>
+              </Link>
+            );
+          })
+        )}
+      </Section>
+
       <Section title="Photos">
         {job.requires_photo && photos.length === 0 && (
           <Alert tone="warn">Photo required before this job can be completed.</Alert>
@@ -1859,7 +2009,16 @@ export default function JobDetail() {
           <div key={a.id} style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
             <div style={{ fontSize: "var(--text-sm)", color: colors.inkSoft }}>
               <strong style={{ color: colors.ink }}>{a.actor?.display_name}</strong> ·{" "}
-              {a.event_type === "contractor_email" ? "emailed contractor" : a.event_type === "progress_update" ? "progress update" : a.event_type === "status_change" ? "status change" : a.event_type} ·{" "}
+              {a.event_type === "contractor_email"
+                ? "emailed contractor"
+                : a.event_type === "progress_update"
+                ? "progress update"
+                : a.event_type === "status_change"
+                ? "status change"
+                : a.event_type === "linked_job"
+                ? "linked job"
+                : a.event_type}{" "}
+              ·{" "}
               {new Date(a.created_at).toLocaleString()}
             </div>
             {a.event_type === "comment" && <div>{a.new_value?.text}</div>}
@@ -1871,6 +2030,14 @@ export default function JobDetail() {
               </div>
             )}
             {a.event_type === "progress_update" && <div>Progress: {a.new_value?.percent}%</div>}
+            {/* Written by the jobs_sync_linked_parent trigger (79-linked-jobs.sql). */}
+            {a.event_type === "linked_job" && (
+              <div>
+                {LINKED_ACTIVITY_VERB[a.new_value?.outcome]?.[a.new_value?.link_kind] || LINKED_ACTIVITY_VERB[a.new_value?.outcome]?.default || "Linked job"}
+                {": "}
+                <Link to={`/jobs/${a.new_value?.linked_job_id}`}>{a.new_value?.description}</Link>
+              </div>
+            )}
             {a.event_type === "status_change" && (
               <div>
                 {statuses.find((s) => s.id === a.previous_value?.status_id)?.name || "—"}
@@ -1919,6 +2086,21 @@ export default function JobDetail() {
       {showCompleteModal && (
         <Modal title="Complete job" onClose={() => setShowCompleteModal(false)}>
           <div style={{ display: "grid", gap: "var(--space-4)" }}>
+            {/* A warning, not a block (Andy, 2026-09-24): a linked job is
+                sometimes raised for work that turns out not to matter to
+                this job's outcome. Follow-on work never counts. */}
+            {openBlockingLinks(linkedJobs).length > 0 && (
+              <Alert tone="warn" title={`${openBlockingLinks(linkedJobs).length} linked job${openBlockingLinks(linkedJobs).length === 1 ? " is" : "s are"} still open`}>
+                <ul style={{ margin: 0, paddingLeft: "var(--space-5)" }}>
+                  {openBlockingLinks(linkedJobs).map((lj) => (
+                    <li key={lj.id}>
+                      {lj.description} ({assigneeName(lj)}, {lj.job_status?.name})
+                    </li>
+                  ))}
+                </ul>
+                <p style={{ margin: "var(--space-2) 0 0" }}>You can still complete this job. The linked jobs stay open.</p>
+              </Alert>
+            )}
             <Field label="Completed date">
               {({ id }) => <Input id={id} type="date" value={completeDate} onChange={(e) => setCompleteDate(e.target.value)} />}
             </Field>
@@ -2301,11 +2483,11 @@ export default function JobDetail() {
 // The card padding tightens on a phone: the checklist rows inside are the
 // widest thing on this screen, and 18px each side costs them a visible
 // chunk of a 360px viewport.
-function Section({ title, children }) {
+function Section({ title, actions, children }) {
   const isMobile = useIsMobile();
   return (
     <Card pad={false} style={{ padding: isMobile ? "var(--space-5) var(--space-3)" : "var(--space-5)", marginBottom: "var(--space-4)" }}>
-      <PageHeader title={title} level={2} />
+      <PageHeader title={title} actions={actions} level={2} />
       {children}
     </Card>
   );

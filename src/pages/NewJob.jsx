@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
@@ -18,6 +18,8 @@ import {
   Chip,
   Field,
   Fieldset,
+  IconHandOff,
+  IconLink,
   IconOffline,
   Input,
   Modal,
@@ -38,7 +40,28 @@ export default function NewJob() {
   const { profile, org, activeSite, terminology } = useAuth();
   const permissions = usePermissions();
   const navigate = useNavigate();
-  const canEditChecklist = permissions.has("can_edit_job_checklist");
+
+  // Linked-job mode (79-linked-jobs.sql), reached from a job's "Hand off"
+  // (one checklist item -> ?linkedTo=&kind=handoff&item=) or "+ Linked job"
+  // (?linkedTo=&kind=needed|followon) -- the same form as any new job, so
+  // a linked job gets checklists, photo requirements, templates and the
+  // usual who-can-assign-to-whom rules for free.
+  const [searchParams] = useSearchParams();
+  const linkedToId = searchParams.get("linkedTo");
+  const handoffItemId = searchParams.get("item");
+  const isLinked = Boolean(linkedToId);
+  const isHandoff = isLinked && Boolean(handoffItemId);
+  const [linkKind, setLinkKind] = useState(isHandoff ? "handoff" : searchParams.get("kind") === "followon" ? "followon" : "needed");
+  const [parentJob, setParentJob] = useState(null);
+  const [handoffItem, setHandoffItem] = useState(null);
+  const [linkLoadError, setLinkLoadError] = useState(null);
+
+  // Adding checklist items to a brand-new job was UI-gated on
+  // can_edit_job_checklist here, although that permission is about
+  // editing an existing job's list (the job_subtasks insert policy doesn't
+  // need it). A linked job's checklist is usually the whole point -- "6
+  // bags of cement, 1 pallet of paving blocks" -- so it's always open there.
+  const canEditChecklist = permissions.has("can_edit_job_checklist") || isLinked;
   const canRequirePhoto = permissions.has("can_require_job_photo");
   // Distinct from canRequirePhoto above -- that one is the whole-job "at
   // least one photo before completing" flag; this gates the per-checklist
@@ -105,6 +128,54 @@ export default function NewJob() {
       setDefaultActivitiesByType(grouped);
     });
   }, [org, activeSite]);
+
+  // Load the job being linked from, and pre-fill from it: same location
+  // (the materials/follow-on work is almost always for the same pitch),
+  // and for a hand-off, the item itself as the description.
+  useEffect(() => {
+    if (!linkedToId) return;
+    let cancelled = false;
+    (async () => {
+      const { data: parent, error: parentError } = await supabase
+        .from("jobs")
+        .select("id, description, pitch_id, area_id, area:areas(name)")
+        .eq("id", linkedToId)
+        .maybeSingle();
+      let item = null;
+      if (!parentError && parent && handoffItemId) {
+        const { data } = await supabase
+          .from("job_subtasks")
+          .select("id, label, requires_photo, is_checked, job_id")
+          .eq("id", handoffItemId)
+          .maybeSingle();
+        item = data?.job_id === parent.id ? data : null;
+      }
+      if (cancelled) return;
+      if (parentError || !parent || (handoffItemId && !item)) {
+        setLinkLoadError(
+          navigator.onLine
+            ? "Couldn't load the job this is linked to. Go back and try again."
+            : "You're offline, so the job this is linked to can't be loaded. Try again once you're back online."
+        );
+        return;
+      }
+      setParentJob(parent);
+      setHandoffItem(item);
+      if (parent.pitch_id) {
+        setLocationKind("pitch");
+        setLocationId(parent.pitch_id);
+      } else if (parent.area_id) {
+        setLocationKind("area");
+        setAreaName(parent.area?.name || "");
+      } else {
+        setLocationKind("none");
+      }
+      if (item) setDescription((current) => (current.trim() ? current : item.label));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedToId, handoffItemId]);
 
   // The last few *distinct* job templates this person has actually used --
   // shown as one-tap chips above the search box so a repeat job (the same
@@ -255,6 +326,10 @@ export default function NewJob() {
       setSubmitError("Add a description before creating the job.");
       return;
     }
+    if (isLinked && !parentJob) {
+      setSubmitError(linkLoadError || "Still loading the job this is linked to — wait a moment and try again.");
+      return;
+    }
 
     // job_statuses hasn't finished loading yet — submitting now would send
     // a request with no status_id (a required column) and fail. Rather
@@ -319,8 +394,15 @@ export default function NewJob() {
       pitch_id: locationKind === "pitch" && locationId ? locationId : null,
       area_id: areaId,
       created_by: profile.id,
+      // A hand-off of a photo-required item gets requires_photo set
+      // server-side (jobs_validate_link), whatever this says.
       requires_photo: canRequirePhoto && requiresPhoto,
+      parent_job_id: isLinked ? parentJob.id : null,
+      parent_subtask_id: isHandoff ? handoffItem.id : null,
+      link_kind: isLinked ? linkKind : null,
     };
+    // Back to the job this came from, where the new link shows up.
+    const doneRoute = isLinked ? `/jobs/${parentJob.id}` : "/";
 
     // Built once up front so every exit path (straight through, queued
     // offline, queued after a failed online attempt) can hand JobsList the
@@ -346,7 +428,7 @@ export default function NewJob() {
 
     if (!navigator.onLine) {
       await queueJob(jobData);
-      navigate("/", { state: { justCreated: { id: jobData.id, tone: "warn", title: "Saved for later", summary: `${summary}${queuedNote}` } } });
+      navigate(doneRoute, { state: { justCreated: { id: jobData.id, tone: "warn", title: "Saved for later", summary: `${summary}${queuedNote}` } } });
       setSubmitting(false);
       return;
     }
@@ -407,7 +489,7 @@ export default function NewJob() {
           if (checklistError) console.error("Failed to attach checklist to new job", checklistError);
         }
       }
-      navigate("/", { state: { justCreated: { id: jobData.id, tone: "ok", title: "Job created", summary } } });
+      navigate(doneRoute, { state: { justCreated: { id: jobData.id, tone: "ok", title: "Job created", summary } } });
     } catch (err) {
       // Only genuine network failures get queued for later sync — a real
       // rejection from the server (permission denied, bad data, etc.)
@@ -416,7 +498,7 @@ export default function NewJob() {
       if (err instanceof TypeError) {
         console.error("Network error creating job, queueing for later sync", err);
         await queueJob(jobData);
-        navigate("/", { state: { justCreated: { id: jobData.id, tone: "warn", title: "Saved for later", summary: `${summary}${queuedNote}` } } });
+        navigate(doneRoute, { state: { justCreated: { id: jobData.id, tone: "warn", title: "Saved for later", summary: `${summary}${queuedNote}` } } });
       } else {
         console.error("Failed to create job", err);
         setSubmitError(err.message || "Failed to create job.");
@@ -430,13 +512,71 @@ export default function NewJob() {
 
   return (
     <div style={{ maxWidth: "var(--width-lg)" }}>
-      <PageHeader title="New job" />
+      <PageHeader title={isHandoff ? "Hand off item" : isLinked ? "New linked job" : "New job"} />
       <Card as="form" onSubmit={handleSubmit} pad="lg">
         {!isOnline && (
           <Pill tone="warn" style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-1)", marginBottom: "var(--space-4)" }}>
             <IconOffline size={11} />
             Offline — will save once you're back online
           </Pill>
+        )}
+
+        {isLinked && linkLoadError && (
+          <Alert tone="danger" title="Can't link this job">
+            {linkLoadError}
+          </Alert>
+        )}
+        {isLinked && parentJob && (
+          <div
+            style={{
+              display: "grid",
+              gap: "var(--space-3)",
+              padding: "var(--space-3) var(--space-4)",
+              marginBottom: "var(--space-5)",
+              background: colors.surfaceSunken,
+              borderRadius: "var(--radius-md)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)", fontSize: "var(--text-sm)" }}>
+              <span style={{ color: colors.inkSoft, flexShrink: 0, display: "inline-flex", paddingTop: "var(--space-1)" }}>
+                {isHandoff ? <IconHandOff size={14} /> : <IconLink size={14} />}
+              </span>
+              <div style={{ minWidth: 0 }}>
+                {isHandoff && handoffItem ? (
+                  <>
+                    Handing off <strong>{handoffItem.label}</strong> from <strong>{parentJob.description}</strong>. It'll tick itself off there
+                    when this job is completed.
+                  </>
+                ) : (
+                  <>
+                    Linked to <strong>{parentJob.description}</strong>
+                  </>
+                )}
+              </div>
+            </div>
+            {isHandoff && handoffItem?.requires_photo && (
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", color: colors.inkSoft }}>
+                That item needs a photo, so this job will need one before it can be completed.
+              </p>
+            )}
+            {!isHandoff && (
+              <div role="radiogroup" aria-label="This job is" style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)" }}>
+                <Chip role="radio" aria-checked={linkKind === "needed"} active={linkKind === "needed"} onClick={() => setLinkKind("needed")}>
+                  Needed to finish this job
+                </Chip>
+                <Chip role="radio" aria-checked={linkKind === "followon"} active={linkKind === "followon"} onClick={() => setLinkKind("followon")}>
+                  Follow-on work for later
+                </Chip>
+              </div>
+            )}
+            {!isHandoff && (
+              <p style={{ margin: 0, fontSize: "var(--text-sm)", color: colors.inkSoft }}>
+                {linkKind === "needed"
+                  ? `"${parentJob.description}" will show it's waiting on this until it's done.`
+                  : "Kept for reference only. It won't hold up the original job."}
+              </p>
+            )}
+          </div>
         )}
 
         <div style={{ display: "flex", gap: "var(--space-1)", marginBottom: "var(--space-2)" }}>

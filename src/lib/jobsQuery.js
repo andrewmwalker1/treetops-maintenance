@@ -14,7 +14,10 @@ const JOB_SELECT = `
   assignee_group:groups(id, name),
   assignee_contractor:contractors(id, name),
   pitch:pitches(id, pitch_number_or_name),
-  area:areas(id, name)
+  area:areas(id, name),
+  link_kind,
+  parent_job:parent_job_id(id, description),
+  linked_jobs:jobs!parent_job_id(id, link_kind, job_status:job_statuses(is_completed))
 `;
 
 export async function queryJobs(siteId, filters = {}) {

@@ -246,6 +246,7 @@ export default function KioskJobs() {
       oldStatusId: selectedJob.job_status?.id,
       completedStatusId: completedStatus.id,
       actorProfileId: profile.id,
+      actorDisplayName: profile.display_name,
       completedDate: today(),
       comment: completeComment,
     });

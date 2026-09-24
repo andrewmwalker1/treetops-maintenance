@@ -6,6 +6,7 @@
 // (the kiosk never targets photo-required templates, per policy: those
 // templates simply aren't assigned to non-smartphone staff).
 import { supabase } from "./supabaseClient.js";
+import { notifyLinkedJobClosed } from "./linkedJobs.js";
 
 // equipmentResolution (optional): only meaningful when the job carries an
 // equipment_id (see 49-equipment-repair-jobs.sql). Shape:
@@ -122,7 +123,7 @@ async function resolveLinkedEquipment({ jobId, actorProfileId, completedDate, eq
   }
 }
 
-export async function writeJobCompletion({ jobId, oldStatusId, completedStatusId, actorProfileId, completedDate, comment, equipmentResolution }) {
+export async function writeJobCompletion({ jobId, oldStatusId, completedStatusId, actorProfileId, actorDisplayName, completedDate, comment, equipmentResolution }) {
   const { error } = await supabase
     .from("jobs")
     .update({ status_id: completedStatusId, closed_by: actorProfileId, completed_date: completedDate })
@@ -145,6 +146,12 @@ export async function writeJobCompletion({ jobId, oldStatusId, completedStatusId
       new_value: { text: comment.trim() },
     });
   }
+
+  // Heads-up to the job this one was linked from, if any (a no-op for an
+  // ordinary job). Fire-and-forget: the job is already completed.
+  notifyLinkedJobClosed({ jobId, outcome: "completed", actorProfileId, actorDisplayName }).catch((err) =>
+    console.error("Failed to send linked-job notification", err)
+  );
 
   let equipmentError = null;
   if (equipmentResolution) {

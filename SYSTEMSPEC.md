@@ -131,7 +131,7 @@ All tables live in the `public` schema of a single Postgres database.
 primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 `equipment_status` (in_service/faulty/in_repair/scrapped),
 `notification_priority` (safety_critical/operational),
-`job_activity_event_type` (status_change/reallocation/comment/edit/contractor_email),
+`job_activity_event_type` (status_change/reallocation/comment/edit/contractor_email/progress_update/linked_job),
 `safety_document_type` (risk_assessment/method_statement).
 
 ### 4.1 Tenancy & structure
@@ -171,10 +171,10 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 | **job_type_task_types** | `job_type_id→job_types`, `task_type_id→task_types`, PK(both) | The *default* activity types a template pre-ticks on New Job — not a hard link; `job_activity_types` (below) is the real per-job source of truth. |
 | **schedules** | `id`, `org_id`, `site_id`, `job_type_id` (nullable — "no template" is a valid, fully-supported choice), `rrule` (text — full RFC5545 string **including DTSTART**), `lead_in_days` (int), `last_generated_date` (date, nullable), `description` (text, required, **not nullable** — backfilled from the job type's name for any pre-existing row when this column was added), `priority` (`job_priority`, default medium), `assignee_profile_id` / `assignee_group_id` (nullable, **at most one set**, person/group only — deliberately no contractor option for a recurring schedule), `pitch_id` / `area_id` (nullable), `is_active` (bool, default true) | Every field a generated job needs now lives on the schedule itself (full parity with New Job), rather than only a job-type template. Pausing sets `is_active=false`; the generator skips inactive rows entirely. Resuming resets `last_generated_date` to yesterday first, so a schedule paused for weeks doesn't immediately burst out a backlog of missed occurrences on resume — it just picks up from "due as of today." |
 | **schedule_task_types** | `schedule_id→schedules`, `task_type_id→task_types`, PK(both) | The activity types a generated job should carry, mirroring `job_activity_types` the same way `job_type_task_types` mirrors it for templates — set once on the schedule, copied onto every job it generates. |
-| **jobs** | `id`, `org_id`, `site_id`, `job_type_id` (nullable), `description` (required), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set — `num_nonnulls(...) <= 1`**), `priority` (`job_priority`, default medium), `status_id` (required), `due_date` (date, nullable), `lead_in_date` (date, nullable), `pitch_id` / `area_id` (nullable), `equipment_id→equipment` (nullable — set only by `report_equipment_fault`, see §4.5/§6.12), `schedule_id→schedules` (nullable — set only by the generator), `closed_by→profiles` (nullable), `created_by→profiles` (nullable — null for scheduler-generated jobs), `created_at`, `client_generated_id` (uuid, unique — offline creation dedup), `completed_date` (date, nullable — the date work actually happened, may be backdated, distinct from `created_at`), `requires_photo` (bool, default false — hard per-job flag, distinct from `job_type.requires_completion_photo`, see §6.3), `due_reminder_sent_at` (timestamptz, nullable) | Indexed on (`org_id`,`site_id`), `assignee_profile_id`, `assignee_group_id`, `status_id`, `equipment_id`. `due_reminder_sent_at` gates the scheduler's same-day due-date push reminder (§7, §13) so it fires once, not once per cron run. |
+| **jobs** | `id`, `org_id`, `site_id`, `job_type_id` (nullable), `description` (required), `assignee_profile_id` / `assignee_group_id` / `assignee_contractor_id` (nullable, **at most one set — `num_nonnulls(...) <= 1`**), `priority` (`job_priority`, default medium), `status_id` (required), `due_date` (date, nullable), `lead_in_date` (date, nullable), `pitch_id` / `area_id` (nullable), `equipment_id→equipment` (nullable — set only by `report_equipment_fault`, see §4.5/§6.12), `schedule_id→schedules` (nullable — set only by the generator), `closed_by→profiles` (nullable), `created_by→profiles` (nullable — null for scheduler-generated jobs), `created_at`, `client_generated_id` (uuid, unique — offline creation dedup), `completed_date` (date, nullable — the date work actually happened, may be backdated, distinct from `created_at`), `requires_photo` (bool, default false — hard per-job flag, distinct from `job_type.requires_completion_photo`, see §6.3), `due_reminder_sent_at` (timestamptz, nullable), `parent_job_id→jobs` (nullable, `on delete set null`), `parent_subtask_id` (uuid, nullable, **no FK** — see §6.13), `link_kind` (`handoff`/`needed`/`followon`, nullable) — see §6.13 | Indexed on (`org_id`,`site_id`), `assignee_profile_id`, `assignee_group_id`, `status_id`, `equipment_id`. `due_reminder_sent_at` gates the scheduler's same-day due-date push reminder (§7, §13) so it fires once, not once per cron run. |
 | **job_photos** | `id`, `job_id→jobs`, `storage_path`, `uploaded_by→profiles`, `uploaded_at`, `job_subtask_id→job_subtasks` (nullable, `ON DELETE SET NULL`) | Storage path convention: `<job_id>/<uuid>-<filename>` in the `job-photos` bucket. `job_subtask_id` is set when a photo was captured to satisfy a specific checklist item's photo requirement (§6.3a) — null for ordinary job-level photos. |
 | **job_subtasks** | `id`, `job_id→jobs`, `label`, `is_checked` (bool), `sort_order` (int), `requires_photo` (bool, default false), `section` (text, nullable — the heading the item sits under; headings have no row of their own) | The per-job checklist. Checking off an item that doesn't require a photo never needs a permission; renaming/reordering/deleting an existing item requires `can_edit_job_checklist` (enforced server-side, not just hidden client-side — see §6.2). Checking off an item where `requires_photo=true` requires either an attached photo (`job_photos.job_subtask_id`) or `can_check_off_item_without_photo` — see §6.3a. Setting `requires_photo` itself requires `can_require_checklist_item_photo` — see §6.3a. |
-| **job_activity** | `id`, `job_id→jobs`, `event_type` (`status_change`/`reallocation`/`comment`/`edit`/`contractor_email`), `actor_profile_id→profiles`, `previous_value` (jsonb), `new_value` (jsonb), `created_at` | **Append-only.** A DB trigger unconditionally blocks `DELETE` on this table (with one narrow, transaction-scoped exception used only by the `delete_job` RPC's cascade — see §6.5). Rows *can* be corrected via `UPDATE`. |
+| **job_activity** | `id`, `job_id→jobs`, `event_type` (`status_change`/`reallocation`/`comment`/`edit`/`contractor_email`/`progress_update`/`linked_job`), `actor_profile_id→profiles`, `previous_value` (jsonb), `new_value` (jsonb), `created_at` | **Append-only.** A DB trigger unconditionally blocks `DELETE` on this table (with one narrow, transaction-scoped exception used only by the `delete_job` RPC's cascade — see §6.5). Rows *can* be corrected via `UPDATE`. |
 | **job_activity_types** | `job_id→jobs`, `task_type_id→task_types`, PK(both) | Many-to-many: zero or more activity types per job, chosen independently of `job_type`. Drives which RA/MS documents surface on the job. |
 
 ### 4.4 Activity types & the H&S library
@@ -266,11 +266,14 @@ organisation.
 A row in `jobs` is visible to a caller if **all** of:
 1. The caller has `site_scope` for the job's `site_id` (or is a platform admin — see §5.5), **AND**
 2. At least one of:
+   - `created_by = caller` — whoever raised a job can always see it (added in `51-jobs-creator-always-visible.sql`, accidentally dropped by `56-…` which rebuilt the function from the pre-51 version, restored in `79-linked-jobs.sql`)
    - `assignee_profile_id = caller`
    - `assignee_group_id` is one the caller belongs to
    - the assignee (if a person) has a role the caller's `role_visibility` includes
+   - the job is assigned to a contractor **and** the caller's own `profiles.contractor_id` is that contractor (their company's jobs)
    - the job is assigned to a contractor **and** the caller holds `can_see_contractor_jobs`
    - the caller holds `can_see_all_jobs`
+   - the job has a **linked job** (§6.13) assigned to the caller, or is itself a linked job whose **parent** is assigned to the caller — one level each way, via `job_is_assigned_to_me()` (person, group membership, or contractor company)
 
 This single predicate (`can_see_job`) is reused everywhere: the `jobs`
 table's own SELECT/UPDATE policies, and every child table
@@ -482,6 +485,52 @@ completion that already succeeded. The kiosk's own completion path
 (`KioskJobs.jsx`) doesn't pass an `equipmentResolution`, so completing a
 repair job there leaves the equipment's status untouched until someone
 updates it by hand.
+
+### 6.13 Linked jobs (`79-linked-jobs.sql`)
+A job can be raised *from* another job (`parent_job_id`), as one of
+three `link_kind`s:
+- **`handoff`** — someone else does one checklist item of the parent
+  (`parent_subtask_id`). Raised from the item's "Hand off" button.
+  Completing the linked job ticks that item; cancelling (or reopening)
+  it unticks it.
+- **`needed`** — extra work needed before the parent can be finished
+  (e.g. "Order materials", its checklist listing the quantities).
+- **`followon`** — separate work spotted while doing the parent, for
+  later (e.g. caravan prep → "Replace cracked awning rail"). Reference
+  only.
+
+`handoff` and `needed` are "blocking": while one is open, the parent
+shows "Waiting on N linked jobs" (list card and detail header), and
+completing or cancelling the parent **warns** (Complete modal alert /
+status-change confirm) but never blocks — per Andy, a linked job is
+sometimes raised for work that turns out not to affect the parent's
+outcome. `followon` never warns.
+
+Server side:
+- **`jobs_validate_link`** (BEFORE INSERT, and BEFORE UPDATE of the link
+  columns): a new link must have a visible parent in the same org, not
+  itself; `parent_subtask_id` is set iff `link_kind = 'handoff'` and must
+  be an unticked item on that parent with no other open hand-off. A
+  hand-off of a photo-required item sets the new job's `requires_photo`
+  — the requirement is *carried over* and enforced at the linked job's
+  completion (§6.3), not bypassed. The link can't be re-pointed after
+  creation (clearing it is fine — the FK's `set null`, and
+  `job_subtasks_clear_linked_job` when a handed-off item is deleted).
+- **`jobs_sync_linked_parent`** (AFTER INSERT / UPDATE of `status_id`):
+  writes a `linked_job` activity row on the parent (`new_value`:
+  `outcome` created/completed/cancelled/reopened, `linked_job_id`,
+  `description`, `link_kind`) and, for a hand-off, ticks/unticks the
+  item. The tick sets the transaction-local `treetops.linked_job_sync`
+  flag so `enforce_checklist_item_photo_requirement` (§6.3a) skips it.
+  Done in the DB, not the app, so it happens however the job is closed
+  (job detail, kiosk) and for a linked job created offline.
+- `parent_subtask_id` deliberately has **no FK**: a second jobs →
+  job_subtasks relationship would make every existing PostgREST
+  `job_subtasks(...)` embed from `jobs` ambiguous (PGRST201).
+
+Client side: `src/lib/linkedJobs.js` (labels, `openBlockingLinks`,
+`newLinkedJobPath`, `notifyLinkedJobClosed`). Linked jobs are created on
+the ordinary New Job screen (§10.4) with `?linkedTo=&kind=&item=`.
 
 ---
 
@@ -729,7 +778,12 @@ site-wide, not whatever's currently filtered on screen.
   Optgroups: By role / By person / By contractor. Filtering here is
   entirely client-side.
 - **Free-text search** — client-side substring match against
-  description, assignee display name, group name, contractor name.
+  description, pitch number/name, area name, assignee display name,
+  group name, contractor name. Deliberately broad (Andy, 2026-09-24):
+  "12" finds pitch 12, 112 and 120 and "replace 12 fence panels" alike.
+- **Linked-job lines** on each card (§6.13) — "Waiting on N linked jobs"
+  on an open job with open hand-off/needed links, and "Needed for /
+  Handed off from / Follow-on from: `<parent>`" on a linked job.
 - **Multi-select + bulk print**: per-row checkboxes; selection persisted
   to `sessionStorage` (not plain component state) specifically so it
   survives the unmount/remount that happens when navigating to a job
@@ -758,6 +812,7 @@ Submission specifics to replicate exactly:
 - Client generates the row's `id` up front (`crypto.randomUUID()`) and inserts **without** requesting the row back (no `.select()`/RETURNING) — RETURNING re-checks the SELECT RLS policy in the same statement and that self-lookup was found to unreliably miss the just-inserted row, throwing a spurious RLS error even though the write actually succeeded. Client-generating the id avoids ever needing to read it back.
 - **Offline**: if `!navigator.onLine`, the job is queued via `queueJob()` instead of inserted, the user sees "You're offline — this job will save once you're back online." (plus, if a photo was attached, an explicit note that the photo itself was *not* queued and must be added later from the job detail screen), and the user is navigated to `/` immediately.
 - A thrown `TypeError` from the insert attempt (the signature of a genuinely failed fetch, as opposed to a real server-side rejection) is treated identically to offline — queued, not surfaced as a hard error — since any other thrown error represents a real rejection that would fail identically on retry.
+- **Linked-job mode** (§6.13) — `?linkedTo=<job>&kind=needed|followon` ("+ Linked job") or `?linkedTo=<job>&kind=handoff&item=<subtask>` ("Hand off" on a checklist item). Title becomes "New linked job"/"Hand off item"; a panel above step 1 names the parent (and the item, plus a note if it needs a photo), and for non-hand-offs offers "Needed to finish this job" / "Follow-on work for later". Location is pre-filled from the parent, and a hand-off's description from the item's label. The checklist builder is editable for everyone in this mode (materials lists are the point; the `job_subtasks` insert policy never needed `can_edit_job_checklist`). Submit writes `parent_job_id`/`parent_subtask_id`/`link_kind` and returns to the parent job instead of `/`. Needs the parent loaded, so it can't be started offline (a clear error says so); once loaded, an offline submit queues as normal.
 - Once the job row exists, photo upload, activity-type links, and checklist rows are written as best-effort follow-ups (errors logged, not surfaced, don't block navigation). If the job has a person or group assignee, `notifyJobAssigned()` (§8.5) sends them a push notification, excluding the creator if they assigned it to themself.
 
 ### 10.5 Job detail (`/jobs/:id`)
@@ -785,6 +840,9 @@ the reassignment/status controls.
   - Plain item → ordinary checkbox, unchanged.
   - Photo-required item — a photo-required item is not a single proof-of-work shot; "📷 Add photo" (captures via `capturePhoto()`, uploads to `job-photos`, inserts a `job_photos` row with `job_subtask_id` set) can be tapped repeatedly to attach several photos (e.g. several angles/existing faults before starting), and does **not** check the item off by itself. Once ≥1 photo is attached, a "🖼 View photos (N)" button appears (opens a `Modal` gallery of that item's photos via `PhotoThumb`, which has its own click-to-expand lightbox built in) and an ordinary checkbox appears alongside it — checking it off is a separate, deliberate action once the item has at least one photo attached (or immediately, with no photo, only via the "Check off without photo" text button — shown only when the item has zero photos and the caller holds `can_check_off_item_without_photo`; once ≥1 photo exists that button disappears since the ordinary checkbox is sufficient).
   A camera-icon toggle next to each item's ↑/↓/✕ editor controls (edit mode only; visible only with both `can_require_checklist_item_photo` and `can_edit_job_checklist`) flips `requires_photo` on an existing item directly, independent of the "Add an item" form's own toggle.
+  **Linked jobs on checklist rows** (§6.13) — in view mode, an unticked item with no open hand-off shows a "Hand off" icon button (not on a settled job). A handed-off item shows "Handed off to `<assignee>` · `<status>`" (links to that job) while it's open, then "Done by `<assignee>` (handed off)" once the hand-off ticks it.
+- **Header link lines** — a linked job shows "Needed for / Handed off from / Follow-on from: `<parent>`" (links back); an open job with open blocking links shows "Waiting on N linked jobs".
+- **Linked jobs section** — always shown (so follow-on work can be logged after completion too), with a "+ Linked job" header button. Lists every job raised from this one: description, kind ("Hand-off: `<item>`" / "Needed to finish" / "Follow-on"), assignee, due date, status pill; each row links to the job.
 - **Photos section** — red warning banner if `job.requires_photo && photos.length===0` (this whole-job flag is satisfied by *any* photo on the job, checklist-item-linked or not, matching the server-side check in §6.3); grid of thumbnails **filtered to photos with no `job_subtask_id`** — checklist-item photos live only under their own item's "View photos" gallery above, so the two don't duplicate each other; "Add photo" button (adds a general, unlinked photo).
 - **Activity section** — comment box + reverse-chronological feed. `contractor_email` events render as "emailed contractor"; every other event type is shown as its raw event-type string (not humanized) — replicate this literally unless asked to improve it.
 - **Complete button** — full-width primary, opens the Complete modal (date defaults to today, optional comment, photo grid with an explicit "(required)"/"(optional)" label depending on `requires_photo`). Re-checks both photo rules from §6.3 before writing.
@@ -1066,8 +1124,9 @@ Job-lifecycle triggers wired to `sendNotification()` today:
 - **Job reassigned** — `JobDetail.jsx`'s reallocation handler calls the same helper, excluding whoever made the change.
 - **Recurring job generated** — the scheduler (§7) pushes the new job's assignee/group with the due date in the message.
 - **Recurring job due today, not yet completed** — the scheduler's due-reminder pass (§7) pushes the assignee/group once per due date, gated by `jobs.due_reminder_sent_at`.
+- **Linked job completed or cancelled** (§6.13) — `notifyLinkedJobClosed()` (`src/lib/linkedJobs.js`) pushes the **parent** job's assignee, excluding whoever closed it, with wording per kind (e.g. `"Adjust uPVC door" is done and ticked off on "Caravan prep"`, `"Order materials" is done. "Relay path" can carry on.`). Called from `writeJobCompletion` (so the kiosk too) and from `JobDetail.jsx`'s status change to Cancelled. `trigger_type: "linked_job_closed"`, `data.jobId` = the parent job.
 
-All four resolve a **group** assignee to every member of `group_members` individually (there's no "notify a group" push concept — it's fan-out to members). None of these are `safety_critical` — they're all `operational`, so they queue behind DND like anything else. Equipment-lifecycle events (e.g. "equipment you hold went faulty") still have no trigger — see §17.
+All of these resolve a **group** assignee to every member of `group_members` individually (there's no "notify a group" push concept — it's fan-out to members). None of these are `safety_critical` — they're all `operational`, so they queue behind DND like anything else. Equipment-lifecycle events (e.g. "equipment you hold went faulty") still have no trigger — see §17.
 
 ---
 

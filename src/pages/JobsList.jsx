@@ -269,14 +269,18 @@ export default function JobsList() {
 
     // Client-side, over the same already-loaded (RLS-visible) jobs as
     // assigneeFilter above -- lets one search box match the job
-    // description, the assigned person's name, or the assigned group's
-    // name (e.g. "dave" finds every job assigned to Dave) without a
-    // second round trip or a fragile cross-table ilike/or() query.
+    // description, the assigned person's/group's name (e.g. "dave" finds
+    // every job assigned to Dave), or the pitch/area, without a second
+    // round trip or a fragile cross-table ilike/or() query. Deliberately a
+    // broad substring match: "12" finds pitch 12, 112 and 120 as well as
+    // "replace 12 fence panels".
     const term = search.trim().toLowerCase();
     if (term) {
       result = result.filter(
         (j) =>
           j.description?.toLowerCase().includes(term) ||
+          j.pitch?.pitch_number_or_name?.toLowerCase().includes(term) ||
+          j.area?.name?.toLowerCase().includes(term) ||
           j.assignee?.display_name?.toLowerCase().includes(term) ||
           j.assignee_group?.name?.toLowerCase().includes(term) ||
           j.assignee_contractor?.name?.toLowerCase().includes(term)
@@ -520,7 +524,7 @@ export default function JobsList() {
           <Input
             value={search}
             onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-            placeholder="Search jobs, people, or groups…"
+            placeholder="Search jobs, pitches, or people…"
             aria-label="Search jobs"
             style={{ flex: 1, minWidth: 0 }}
           />

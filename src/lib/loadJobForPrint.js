@@ -14,7 +14,9 @@ export const JOB_SELECT = `
   pitch:pitches(id, pitch_number_or_name),
   area:areas(id, name),
   equipment:equipment(id, name, status, last_hours_reading),
-  creator:profiles!jobs_created_by_fkey(id, display_name)
+  creator:profiles!jobs_created_by_fkey(id, display_name),
+  parent_job_id, parent_subtask_id, link_kind,
+  parent_job:parent_job_id(id, description)
 `;
 
 // Shared with JobDetail, which appends a single freshly-inserted row
