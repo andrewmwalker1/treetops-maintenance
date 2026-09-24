@@ -17,13 +17,18 @@ export const JOB_SELECT = `
   creator:profiles!jobs_created_by_fkey(id, display_name)
 `;
 
+// Shared with JobDetail, which appends a single freshly-inserted row
+// (a new checklist item or photo) instead of reloading the whole job.
+export const SUBTASK_COLUMNS = "id, label, is_checked, sort_order, requires_photo, section";
+export const PHOTO_COLUMNS = "id, storage_path, uploaded_at, job_subtask_id";
+
 export async function loadJobForPrint(jobId) {
   const { data: job, error: jobError } = await supabase.from("jobs").select(JOB_SELECT).eq("id", jobId).single();
   if (jobError) throw jobError;
 
   const [{ data: subtaskRows }, { data: photoRows }, { data: activityRows }, { data: activityTypeLinks }] = await Promise.all([
-    supabase.from("job_subtasks").select("id, label, is_checked, sort_order, requires_photo, section").eq("job_id", jobId).order("sort_order"),
-    supabase.from("job_photos").select("id, storage_path, uploaded_at, job_subtask_id").eq("job_id", jobId).order("uploaded_at"),
+    supabase.from("job_subtasks").select(SUBTASK_COLUMNS).eq("job_id", jobId).order("sort_order"),
+    supabase.from("job_photos").select(PHOTO_COLUMNS).eq("job_id", jobId).order("uploaded_at"),
     supabase
       .from("job_activity")
       .select("id, event_type, previous_value, new_value, created_at, actor:profiles(display_name)")

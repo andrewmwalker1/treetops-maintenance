@@ -7,7 +7,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
-import { loadJobForPrint } from "../lib/loadJobForPrint.js";
+import { loadJobForPrint, PHOTO_COLUMNS, SUBTASK_COLUMNS } from "../lib/loadJobForPrint.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
@@ -301,14 +301,18 @@ export default function JobDetail() {
       const path = `${job.id}/${crypto.randomUUID()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, file);
       if (uploadError) throw uploadError;
-      const { error: insertError } = await supabase.from("job_photos").insert({
-        job_id: job.id,
-        storage_path: path,
-        uploaded_by: profile.id,
-        job_subtask_id: subtask.id,
-      });
+      const { data: row, error: insertError } = await supabase
+        .from("job_photos")
+        .insert({
+          job_id: job.id,
+          storage_path: path,
+          uploaded_by: profile.id,
+          job_subtask_id: subtask.id,
+        })
+        .select(PHOTO_COLUMNS)
+        .single();
       if (insertError) throw insertError;
-      loadAll();
+      setPhotos((prev) => [...prev, row]);
     } catch (err) {
       if (err.message !== "Photo capture cancelled.") setError(err.message);
     } finally {
@@ -320,9 +324,13 @@ export default function JobDetail() {
   // (a distinct button, not a silent fallback to an ordinary checkbox)
   // so using it is always a deliberate, on-the-record choice.
   async function handleCheckOffWithoutPhoto(subtask) {
+    const setChecked = (value) => setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_checked: value } : s)));
+    setChecked(true);
     const { error: err } = await supabase.from("job_subtasks").update({ is_checked: true }).eq("id", subtask.id);
-    if (err) setError(err.message);
-    else loadAll();
+    if (err) {
+      setChecked(false);
+      setError(err.message);
+    }
   }
 
   async function toggleSubtaskRequiresPhoto(subtask) {
@@ -345,20 +353,33 @@ export default function JobDetail() {
     const label = newChecklistItem.trim();
     if (!label) return;
     const nextSortOrder = subtasks.length > 0 ? Math.max(...subtasks.map((s) => s.sort_order)) + 1 : 0;
-    const { error: err } = await supabase.from("job_subtasks").insert({
-      job_id: job.id,
-      label,
-      requires_photo: canRequireChecklistItemPhoto && newChecklistItemRequiresPhoto,
-      section: newChecklistItemSection || null,
-      sort_order: nextSortOrder,
-    });
-    if (err) setError(err.message);
-    else {
-      setNewChecklistItem("");
-      setNewChecklistItemRequiresPhoto(false);
-      setNewChecklistItemSection("");
-      loadAll();
+    const requiresPhoto = canRequireChecklistItemPhoto && newChecklistItemRequiresPhoto;
+    // Clear the box straight away so the next item can be typed while this
+    // one saves, and append just the returned row rather than reloading
+    // the whole job (the old loadAll() here meant ~5 round trips per item
+    // on the park's patchy Wi-Fi). The section picker is left as-is --
+    // several items in a row usually go under the same heading. On
+    // failure the typed text is put back so nothing is lost.
+    setNewChecklistItem("");
+    setNewChecklistItemRequiresPhoto(false);
+    const { data: row, error: err } = await supabase
+      .from("job_subtasks")
+      .insert({
+        job_id: job.id,
+        label,
+        requires_photo: requiresPhoto,
+        section: newChecklistItemSection || null,
+        sort_order: nextSortOrder,
+      })
+      .select(SUBTASK_COLUMNS)
+      .single();
+    if (err) {
+      setNewChecklistItem(label);
+      setNewChecklistItemRequiresPhoto(requiresPhoto);
+      setError(err.message);
+      return;
     }
+    setSubtasks((prev) => [...prev, row]);
   }
 
   async function removeSubtask(subtaskId) {
@@ -996,13 +1017,17 @@ export default function JobDetail() {
       const path = `${job.id}/${crypto.randomUUID()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("job-photos").upload(path, file);
       if (uploadError) throw uploadError;
-      const { error: insertError } = await supabase.from("job_photos").insert({
-        job_id: job.id,
-        storage_path: path,
-        uploaded_by: profile.id,
-      });
+      const { data: row, error: insertError } = await supabase
+        .from("job_photos")
+        .insert({
+          job_id: job.id,
+          storage_path: path,
+          uploaded_by: profile.id,
+        })
+        .select(PHOTO_COLUMNS)
+        .single();
       if (insertError) throw insertError;
-      loadAll();
+      setPhotos((prev) => [...prev, row]);
     } catch (err) {
       if (err.message !== "Photo capture cancelled.") setError(err.message);
     } finally {
