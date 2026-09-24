@@ -857,7 +857,7 @@ export default function NewJob() {
             style={{
               display: "flex",
               gap: "var(--space-3)",
-              justifyContent: step === 0 ? "flex-end" : "space-between",
+              justifyContent: "flex-end",
               position: "sticky",
               bottom: 0,
               background: colors.paper,
@@ -865,13 +865,26 @@ export default function NewJob() {
               borderTop: `1px solid ${colors.line}`,
             }}
           >
+            {/* A hand-off or linked job is reached from a button on the
+                parent job, easy to tap by mistake -- give a way straight
+                back without creating anything. */}
+            {isLinked && (
+              <Button type="button" variant="ghost" onClick={() => navigate(`/jobs/${linkedToId}`)}>
+                Cancel
+              </Button>
+            )}
             {step > 0 && (
               <Button type="button" onClick={() => goToStep(step - 1)}>
                 Back
               </Button>
             )}
             {step < 2 && (
-              <Button type="button" variant="primary" onClick={step === 0 ? handleContinueFromWhat : () => goToStep(2)}>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={step === 0 ? handleContinueFromWhat : () => goToStep(2)}
+                style={{ marginLeft: "auto" }}
+              >
                 Continue
               </Button>
             )}
