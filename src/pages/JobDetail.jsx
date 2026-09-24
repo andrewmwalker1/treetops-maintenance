@@ -269,10 +269,22 @@ export default function JobDetail() {
     supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
   }, [activeSite]);
 
+  // Ticks show instantly and save in the background. This used to await
+  // the update and then loadAll() -- five sequential round trips before
+  // the box changed, which on patchy park Wi-Fi took several seconds per
+  // tick. Nothing else on the screen needs reloading for a tick, so local
+  // state is the source of truth unless the save fails (e.g. the
+  // photo-required trigger in 33-checklist-photo-blocks-completion.sql),
+  // in which case the tick is undone and the error shown.
   async function toggleSubtask(subtask) {
-    const { error: err } = await supabase.from("job_subtasks").update({ is_checked: !subtask.is_checked }).eq("id", subtask.id);
-    if (err) console.error(err);
-    else loadAll();
+    const target = !subtask.is_checked;
+    const setChecked = (value) => setSubtasks((prev) => prev.map((s) => (s.id === subtask.id ? { ...s, is_checked: value } : s)));
+    setChecked(target);
+    const { error: err } = await supabase.from("job_subtasks").update({ is_checked: target }).eq("id", subtask.id);
+    if (err) {
+      setChecked(subtask.is_checked);
+      setError(`Couldn't save that tick: ${err.message}`);
+    }
   }
 
   // Capture + upload + link a photo to a checklist item -- does NOT
