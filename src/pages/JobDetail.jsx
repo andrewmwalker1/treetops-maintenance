@@ -28,8 +28,10 @@ import {
   IconCheck,
   IconChevronRight,
   IconClose,
+  IconEdit,
   IconFolder,
   IconGallery,
+  IconPlus,
   IconPrint,
   IconButton,
   Input,
@@ -103,6 +105,7 @@ export default function JobDetail() {
   // reused here so editing this flag needs the same permission as setting
   // it did at creation, not the broader can_edit_job_details.
   const canRequireJobPhoto = permissions.has("can_require_job_photo");
+  const canEditChecklist = permissions.has("can_edit_job_checklist");
 
   const [job, setJob] = useState(null);
   const [subtasks, setSubtasks] = useState([]);
@@ -126,6 +129,22 @@ export default function JobDetail() {
   const [newChecklistItem, setNewChecklistItem] = useState("");
   const [newChecklistItemRequiresPhoto, setNewChecklistItemRequiresPhoto] = useState(false);
   const [newChecklistItemSection, setNewChecklistItemSection] = useState("");
+  // The checklist always opens read-only -- the same view someone without
+  // can_edit_job_checklist gets -- so ticking items off on a phone isn't
+  // crowded out by text boxes and reorder icons. "Edit checklist" at the
+  // bottom flips this on for those who have the permission.
+  const [editingChecklist, setEditingChecklist] = useState(false);
+  // A job's sections only exist as the `section` value on its items, so a
+  // brand-new heading has nothing to be stored on until an item is put in
+  // it. These are headings added this session that are still empty --
+  // they show (in edit mode) and are offered in the section pickers, and
+  // simply stop being "pending" once an item carries the name.
+  const [pendingSections, setPendingSections] = useState([]);
+  const [showNewSectionForm, setShowNewSectionForm] = useState(false);
+  const [newSectionName, setNewSectionName] = useState("");
+  // In-progress edits to a heading's name, keyed by its current name --
+  // committed on blur, same as item labels.
+  const [sectionNameDrafts, setSectionNameDrafts] = useState({});
   // Which checklist item's photo gallery modal is open, if any -- see the
   // "View photos" button in the checklist section below.
   const [viewPhotosSubtaskId, setViewPhotosSubtaskId] = useState(null);
@@ -367,6 +386,74 @@ export default function JobDetail() {
     else loadAll();
   }
 
+  // Every section name on this job, in display order -- the ones items
+  // already carry, then any empty headings added this session.
+  function allSectionNames() {
+    const used = [...new Set(subtasks.map((s) => s.section).filter(Boolean))];
+    return [...used, ...pendingSections.filter((name) => !used.includes(name))];
+  }
+
+  function handleAddSection(e) {
+    e.preventDefault();
+    const name = newSectionName.trim();
+    if (!name) return;
+    if (!allSectionNames().includes(name)) setPendingSections((prev) => [...prev, name]);
+    // Most likely the next thing added belongs under the new heading.
+    setNewChecklistItemSection(name);
+    setNewSectionName("");
+    setShowNewSectionForm(false);
+  }
+
+  // Renaming a heading renames it on every item in that section, since
+  // the name on the items *is* the heading.
+  async function renameSection(oldName) {
+    const newName = (sectionNameDrafts[oldName] ?? oldName).trim();
+    setSectionNameDrafts((prev) => {
+      const next = { ...prev };
+      delete next[oldName];
+      return next;
+    });
+    if (!newName || newName === oldName) return;
+    if (allSectionNames().includes(newName)) {
+      setError(`There's already a section called "${newName}".`);
+      return;
+    }
+    setPendingSections((prev) => prev.map((n) => (n === oldName ? newName : n)));
+    if (newChecklistItemSection === oldName) setNewChecklistItemSection(newName);
+    if (!subtasks.some((s) => s.section === oldName)) return;
+    const { error: err } = await supabase.from("job_subtasks").update({ section: newName }).eq("job_id", job.id).eq("section", oldName);
+    if (err) setError(err.message);
+    else loadAll();
+  }
+
+  // Removing a heading keeps its items -- they just move back to the
+  // unsectioned list at the top.
+  async function removeSection(name) {
+    const itemCount = subtasks.filter((s) => s.section === name).length;
+    if (itemCount > 0 && !window.confirm(`Remove the "${name}" heading? Its ${itemCount} item${itemCount === 1 ? "" : "s"} stay on the checklist, just without a section.`)) return;
+    setPendingSections((prev) => prev.filter((n) => n !== name));
+    if (newChecklistItemSection === name) setNewChecklistItemSection("");
+    if (itemCount === 0) return;
+    const { error: err } = await supabase.from("job_subtasks").update({ section: null }).eq("job_id", job.id).eq("section", name);
+    if (err) setError(err.message);
+    else loadAll();
+  }
+
+  // Same shape ChecklistBuilder.jsx edits and NewJob.jsx/Recall read back:
+  // a {type: "heading"} row names the section for the items after it.
+  // These used to save only label + requiresPhoto, so a template made
+  // from a sectioned job came out as one flat list. Unsectioned items go
+  // first, matching how the job screen shows them -- anything after a
+  // heading would otherwise be read back as belonging to it.
+  function checklistAsTemplateSchema() {
+    const { ungrouped, sections } = groupSubtasksBySection();
+    const toItem = ({ s }) => ({ label: s.label, requiresPhoto: s.requires_photo });
+    return [
+      ...ungrouped.map(toItem),
+      ...sections.flatMap(({ name, entries }) => [{ type: "heading", label: name }, ...entries.map(toItem)]),
+    ];
+  }
+
   async function handleSaveAsTemplate(e) {
     e.preventDefault();
     const name = newTemplateName.trim();
@@ -375,7 +462,7 @@ export default function JobDetail() {
     const { error: err } = await supabase.from("job_types").insert({
       org_id: job.org_id,
       name,
-      template_schema: subtasks.map((s) => ({ label: s.label, requiresPhoto: s.requires_photo })),
+      template_schema: checklistAsTemplateSchema(),
     });
     setSavingTemplate(false);
     if (err) {
@@ -394,7 +481,7 @@ export default function JobDetail() {
     if (!proceed) return;
     const { error: err } = await supabase
       .from("job_types")
-      .update({ template_schema: subtasks.map((s) => ({ label: s.label, requiresPhoto: s.requires_photo })) })
+      .update({ template_schema: checklistAsTemplateSchema() })
       .eq("id", job.job_type.id);
     if (err) setError(err.message);
   }
@@ -1016,13 +1103,13 @@ export default function JobDetail() {
   // dragging a row past a heading in the template builder would.
   function renderSubtaskRow(s, i) {
     const itemPhotos = photos.filter((p) => p.job_subtask_id === s.id);
-    const canEdit = permissions.has("can_edit_job_checklist");
+    const canEdit = canEditChecklist && editingChecklist;
     // Move up/down is scoped to this item's own section-mates (see
     // moveSubtask), so "can it move" is answered the same way -- its
     // position among siblings, not its position in the whole flat list.
     const siblings = subtasks.filter((x) => (x.section || null) === (s.section || null));
     const siblingIndex = siblings.findIndex((x) => x.id === s.id);
-    const sectionNames = [...new Set(subtasks.map((x) => x.section).filter(Boolean))];
+    const sectionNames = allSectionNames();
 
     const label = canEdit ? (
       <Input
@@ -1192,6 +1279,15 @@ export default function JobDetail() {
       bySection.get(s.section).push({ s, i });
     });
     return { ungrouped, sections: sectionOrder.map((name) => ({ name, entries: bySection.get(name) })) };
+  }
+
+  // Edit mode also shows headings added this session that don't have any
+  // items yet (see pendingSections) -- view mode never shows an empty one.
+  function visibleSections() {
+    const { sections } = groupSubtasksBySection();
+    if (!editingChecklist) return sections;
+    const empty = pendingSections.filter((name) => !sections.some((sec) => sec.name === name));
+    return [...sections, ...empty.map((name) => ({ name, entries: [] }))];
   }
 
   function toggleSectionOpen(name) {
@@ -1484,42 +1580,77 @@ export default function JobDetail() {
         </Section>
       )}
 
-      {(subtasks.length > 0 || permissions.has("can_edit_job_checklist")) && (
+      {(subtasks.length > 0 || canEditChecklist) && (
         <Section title="Checklist">
-          {subtasks.length > 0 && (() => {
+          {subtasks.length === 0 && !editingChecklist && (
+            <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>No checklist items yet.</p>
+          )}
+          {(subtasks.length > 0 || editingChecklist) && (() => {
             const doneCount = subtasks.filter((s) => s.is_checked).length;
-            const { ungrouped, sections } = groupSubtasksBySection();
+            const { ungrouped } = groupSubtasksBySection();
             return (
               <>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.mossDark, fontWeight: 600 }}>
-                  <span>{doneCount} of {subtasks.length} done</span>
-                </div>
-                <div style={{ height: "6px", borderRadius: "999px", background: colors.surfaceSunken, overflow: "hidden", marginBottom: "var(--space-4)" }}>
-                  <div style={{ height: "100%", width: `${subtasks.length ? (doneCount / subtasks.length) * 100 : 0}%`, background: colors.moss, borderRadius: "999px" }} />
-                </div>
+                {subtasks.length > 0 && (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "var(--space-2)", fontSize: "var(--text-sm)", color: colors.mossDark, fontWeight: 600 }}>
+                      <span>{doneCount} of {subtasks.length} done</span>
+                    </div>
+                    <div style={{ height: "6px", borderRadius: "999px", background: colors.surfaceSunken, overflow: "hidden", marginBottom: "var(--space-4)" }}>
+                      <div style={{ height: "100%", width: `${subtasks.length ? (doneCount / subtasks.length) * 100 : 0}%`, background: colors.moss, borderRadius: "999px" }} />
+                    </div>
+                  </>
+                )}
                 {ungrouped.map(({ s, i }) => renderSubtaskRow(s, i))}
-                {sections.map(({ name, entries }) => {
+                {visibleSections().map(({ name, entries }) => {
                   const sectionDone = entries.every(({ s }) => s.is_checked);
                   // Every section starts closed -- a live job's checklist is
                   // meant to read as a compact overview, not spill open by
                   // default, so opening one is always a deliberate click.
-                  const isOpen = toggledSections.has(name);
+                  // Edit mode opens them all, since that's where the items
+                  // being edited are.
+                  const isOpen = editingChecklist || toggledSections.has(name);
                   return (
                     <div key={name} style={{ border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", marginBottom: "var(--space-3)", overflow: "hidden" }}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => toggleSectionOpen(name)}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSectionOpen(name); } }}
-                        style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-3)", cursor: "pointer", background: colors.paper }}
-                      >
-                        <IconChevronRight size={14} style={{ color: colors.inkSoft, flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform var(--dur-fast) var(--ease)" }} />
-                        <span style={{ flex: 1, fontWeight: 600, fontSize: "var(--text-base)" }}>{name}</span>
-                        <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: sectionDone ? colors.okInk : colors.inkSoft }}>
-                          {entries.filter(({ s }) => s.is_checked).length} / {entries.length}
-                        </span>
-                      </div>
-                      {isOpen && <div style={{ padding: "0 var(--space-3) var(--space-3)" }}>{entries.map(({ s, i }) => renderSubtaskRow(s, i))}</div>}
+                      {editingChecklist ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-2) var(--space-3)", background: colors.paper }}>
+                          <Input
+                            value={sectionNameDrafts[name] ?? name}
+                            onChange={(e) => setSectionNameDrafts((prev) => ({ ...prev, [name]: e.target.value }))}
+                            onBlur={() => renameSection(name)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                            aria-label={`Section heading: ${name}`}
+                            style={{ flex: 1, fontWeight: 600 }}
+                          />
+                          <IconButton size="sm" label="Remove section heading" onClick={() => removeSection(name)} style={{ color: colors.immediate }}>
+                            <IconClose size={14} />
+                          </IconButton>
+                        </div>
+                      ) : (
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => toggleSectionOpen(name)}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleSectionOpen(name); } }}
+                          style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", padding: "var(--space-3)", cursor: "pointer", background: colors.paper }}
+                        >
+                          <IconChevronRight size={14} style={{ color: colors.inkSoft, flexShrink: 0, transform: isOpen ? "rotate(90deg)" : "none", transition: "transform var(--dur-fast) var(--ease)" }} />
+                          <span style={{ flex: 1, fontWeight: 600, fontSize: "var(--text-base)" }}>{name}</span>
+                          <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-xs)", color: sectionDone ? colors.okInk : colors.inkSoft }}>
+                            {entries.filter(({ s }) => s.is_checked).length} / {entries.length}
+                          </span>
+                        </div>
+                      )}
+                      {isOpen && (
+                        <div style={{ padding: "0 var(--space-3) var(--space-3)" }}>
+                          {entries.length === 0 ? (
+                            <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: "var(--space-2) 0 0" }}>
+                              No items yet — add one below and choose this section.
+                            </p>
+                          ) : (
+                            entries.map(({ s, i }) => renderSubtaskRow(s, i))
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1527,7 +1658,15 @@ export default function JobDetail() {
             );
           })()}
 
-          {permissions.has("can_edit_job_checklist") && (
+          {canEditChecklist && !editingChecklist && (
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "var(--space-3)" }}>
+              <Button icon={<IconEdit size={15} />} onClick={() => setEditingChecklist(true)}>
+                Edit checklist
+              </Button>
+            </div>
+          )}
+
+          {canEditChecklist && editingChecklist && (
             <form
               onSubmit={addSubtask}
               style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}
@@ -1540,7 +1679,7 @@ export default function JobDetail() {
                 style={{ flex: 1, minWidth: "160px" }}
               />
               {(() => {
-                const sectionNames = [...new Set(subtasks.map((s) => s.section).filter(Boolean))];
+                const sectionNames = allSectionNames();
                 return (
                   sectionNames.length > 0 && (
                     <Select
@@ -1582,15 +1721,44 @@ export default function JobDetail() {
               <Button type="submit">Add</Button>
             </form>
           )}
-          {permissions.has("can_edit_job_checklist") && (
-            <div style={{ marginTop: "var(--space-3)" }}>
-              <Button onClick={() => setShowRecallModal(true)}>Recall checklist…</Button>
-            </div>
+          {canEditChecklist && editingChecklist && showNewSectionForm && (
+            <form onSubmit={handleAddSection} style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", alignItems: "center", flexWrap: "wrap" }}>
+              <Input
+                autoFocus
+                value={newSectionName}
+                onChange={(e) => setNewSectionName(e.target.value)}
+                placeholder="Section heading, e.g. Grounds"
+                aria-label="New section heading"
+                style={{ flex: 1, minWidth: "160px" }}
+              />
+              <Button type="submit">Add heading</Button>
+              <Button variant="ghost" onClick={() => { setShowNewSectionForm(false); setNewSectionName(""); }}>
+                Cancel
+              </Button>
+            </form>
           )}
-          {canManageTemplates && (
-            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)", flexWrap: "wrap" }}>
-              <Button onClick={() => setShowSaveAsModal(true)}>Save as new template</Button>
-              {job.job_type && <Button onClick={handleUpdateTemplate}>Update "{job.job_type.name}" template</Button>}
+          {canEditChecklist && editingChecklist && (
+            <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-3)", flexWrap: "wrap", alignItems: "center" }}>
+              {!showNewSectionForm && (
+                <Button icon={<IconPlus size={15} />} onClick={() => setShowNewSectionForm(true)}>
+                  Add section heading
+                </Button>
+              )}
+              <Button onClick={() => setShowRecallModal(true)}>Recall checklist…</Button>
+              {canManageTemplates && <Button onClick={() => setShowSaveAsModal(true)}>Save as new template</Button>}
+              {canManageTemplates && job.job_type && <Button onClick={handleUpdateTemplate}>Update "{job.job_type.name}" template</Button>}
+              <span style={{ flex: 1 }} />
+              <Button
+                variant="primary"
+                icon={<IconCheck size={15} />}
+                onClick={() => {
+                  setEditingChecklist(false);
+                  setShowNewSectionForm(false);
+                  setNewSectionName("");
+                }}
+              >
+                Done editing
+              </Button>
             </div>
           )}
         </Section>
