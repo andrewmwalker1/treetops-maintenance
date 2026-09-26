@@ -111,6 +111,9 @@ export default function Layout({ children }) {
     ...(permissions.has("can_use_office_hub") || permissions.has("can_use_license_agreement") || permissions.has("can_manage_timesheets")
       ? [{ to: "/office-hub", label: "Office Hub", Icon: IconFolder, tabBar: false }]
       : []),
+    ...(permissions.has("can_use_sales_crm")
+      ? [{ to: "/sales", label: "Sales", Icon: IconFolder, tabBar: false }]
+      : []),
     { to: "/equipment", label: "Equipment", shortLabel: "Kit", Icon: IconEquipment, tabBar: true },
     ...(permissions.has("can_use_key_system")
       ? [{ to: "/key-register", label: "Keys", Icon: IconKeys, tabBar: true }]

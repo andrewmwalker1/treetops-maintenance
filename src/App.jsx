@@ -19,6 +19,8 @@ import ForceCheckInKey from "./pages/ForceCheckInKey.jsx";
 import HandoverKey from "./pages/HandoverKey.jsx";
 import KeysGate from "./components/KeysGate.jsx";
 import TimesheetsGate from "./components/TimesheetsGate.jsx";
+import SalesGate from "./components/SalesGate.jsx";
+import SalesHome from "./pages/sales/SalesHome.jsx";
 import Timesheet from "./pages/timesheets/Timesheet.jsx";
 import HolidayHome from "./pages/holidays/HolidayHome.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -231,6 +233,7 @@ function AppShell() {
         <Route path="/holidays" element={<HolidayHome />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/office-hub" element={<OfficeHub />} />
+        <Route path="/sales" element={<SalesGate><SalesHome /></SalesGate>} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/meter-reading" element={<MeterReadingHome />} />
         <Route path="/meter-reading/scan" element={<LazyRoute Component={ScanMeter} />} />
