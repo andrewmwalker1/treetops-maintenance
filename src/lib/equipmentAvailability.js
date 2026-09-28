@@ -18,6 +18,40 @@ export async function countMachinesCheckedOut(orgId) {
   return new Set((data || []).map((c) => c.equipment_id)).size;
 }
 
+// The same two equipment signals as whole lists, for the key station's
+// dials: it can't link through to /equipment like the Dashboard does (the
+// terminal is confined to /keys), so tapping a dial lists the machines in
+// place instead. `out` has one row per machine (earliest open checkout),
+// matching countMachinesCheckedOut.
+export async function queryEquipmentSignals(orgId) {
+  const [{ data: checkouts }, { data: faulty }] = await Promise.all([
+    supabase
+      .from("equipment_checkouts")
+      .select(
+        `id, equipment_id, checked_out_at,
+         equipment!inner(org_id, name, equipment_type:equipment_types(name)),
+         checked_out_by:profiles!equipment_checkouts_profile_id_fkey(display_name)`
+      )
+      .is("checked_in_at", null)
+      .eq("equipment.org_id", orgId)
+      .order("checked_out_at"),
+    supabase
+      .from("equipment")
+      .select("id, name, make, model, equipment_type:equipment_types(name)")
+      .eq("org_id", orgId)
+      .eq("status", "faulty")
+      .order("name"),
+  ]);
+  const out = [];
+  const seen = new Set();
+  for (const c of checkouts || []) {
+    if (seen.has(c.equipment_id)) continue;
+    seen.add(c.equipment_id);
+    out.push(c);
+  }
+  return { out, faulty: faulty || [] };
+}
+
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
   const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
     supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout").eq("org_id", orgId).order("sort_order"),

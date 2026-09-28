@@ -4,6 +4,7 @@ import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
 import { usePermissions } from "../lib/permissions.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
+import { queryEquipmentSignals } from "../lib/equipmentAvailability.js";
 import RfidScanListener from "../components/RfidScanListener.jsx";
 import StatDial from "../components/StatDial.jsx";
 import { colors } from "../lib/theme.js";
@@ -12,10 +13,11 @@ import { Action, ActionList, Alert, Button, Card, IconArrowLeft, IconKeys, PageH
 
 export default function KeyStationMenu() {
   const navigate = useNavigate();
-  const { profile, activeSite, signOut } = useAuth();
+  const { profile, org, activeSite, signOut } = useAuth();
   const permissions = usePermissions();
   const [openCheckouts, setOpenCheckouts] = useState(null); // null = loading
-  const [detailGroup, setDetailGroup] = useState(null); // { label, rows } | null
+  const [equipmentSignals, setEquipmentSignals] = useState(null); // { out, faulty } | null
+  const [detailGroup, setDetailGroup] = useState(null); // { label, rows, kind: "keys" | "kit" } | null
   const [scanError, setScanError] = useState(null);
 
   // Andy's ask: the same "keys currently out" visibility the main app's
@@ -32,14 +34,24 @@ export default function KeyStationMenu() {
     queryOpenKeyCheckouts(activeSite.id).then(setOpenCheckouts);
   }, [activeSite]);
 
+  // Andy (2026-09-28): the same "Kit out" / "Faulty kit" signals as the
+  // Dashboard and Office Hub, since staff mostly live on this screen.
+  // Staff only -- a contractor's login gets the narrowed key view above,
+  // and the park's machinery isn't their business either.
+  const showEquipment = !profile?.contractor_id;
+  useEffect(() => {
+    if (!org || !showEquipment) return;
+    queryEquipmentSignals(org.id).then(setEquipmentSignals);
+  }, [org, showEquipment]);
+
   const myCheckouts = (openCheckouts || []).filter((c) => c.checked_out_by_profile?.id === profile?.id);
   const myCompanyCheckouts = profile?.contractor_id
     ? (openCheckouts || []).filter((c) => c.issued_to_contractor?.id === profile.contractor_id)
     : [];
 
-  function openDetail(label, rows) {
+  function openDetail(label, rows, kind = "keys") {
     if (rows.length === 0) return;
-    setDetailGroup({ label, rows });
+    setDetailGroup({ label, rows, kind });
   }
 
   // Andy: standing at the cupboard, scanning the key in hand should be
@@ -96,7 +108,19 @@ export default function KeyStationMenu() {
           Back
         </Button>
         <PageHeader title={detailGroup.label} />
-        {detailGroup.rows.map((c) => (
+        {detailGroup.kind === "kit" && detailGroup.rows.map((m) => (
+          <Card key={m.id} pad="lg" style={{ marginBottom: "var(--space-3)" }}>
+            <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-md)", fontWeight: 600 }}>
+              {m.equipment?.name || m.name}
+            </p>
+            <p style={{ margin: 0, fontSize: "var(--text-base)", color: colors.inkSoft }}>
+              {m.checked_out_at
+                ? `${m.equipment?.equipment_type?.name ? `${m.equipment.equipment_type.name} · ` : ""}Out with ${m.checked_out_by?.display_name || "someone"}, ${timeAgo(m.checked_out_at)}`
+                : [m.equipment_type?.name, [m.make, m.model].filter(Boolean).join(" ")].filter(Boolean).join(" · ")}
+            </p>
+          </Card>
+        ))}
+        {detailGroup.kind === "keys" && detailGroup.rows.map((c) => (
           <Card key={c.id} pad="lg" style={{ marginBottom: "var(--space-3)" }}>
             <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-md)", fontWeight: 600 }}>{keyLocationLabel(c)}</p>
             <p style={{ margin: "0 0 var(--space-1)", fontSize: "var(--text-base)" }}>Out to {keyIssuedToLabel(c)}</p>
@@ -124,12 +148,14 @@ export default function KeyStationMenu() {
       )}
 
       {openCheckouts !== null && (
-        <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
-          <div style={{ flex: 1 }}>
+        // Wraps rather than squeezing: six dials is a lot for a narrow
+        // screen, and a StatDial's gauge has a fixed width.
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
+          <div style={{ flex: "1 1 110px" }}>
             <StatDial label="Yours" value={myCheckouts.length} onClick={() => openDetail("Yours", myCheckouts)} />
           </div>
           {profile?.contractor_id ? (
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: "1 1 110px" }}>
               <StatDial label="Your company" value={myCompanyCheckouts.length} onClick={() => openDetail("Your company", myCompanyCheckouts)} />
             </div>
           ) : (
@@ -141,6 +167,27 @@ export default function KeyStationMenu() {
                 </div>
               );
             })
+          )}
+          {showEquipment && equipmentSignals && (
+            <>
+              {/* Keys to the left, machines to the right. */}
+              <div aria-hidden="true" style={{ width: 1, alignSelf: "stretch", background: colors.lineStrong }} />
+              <div style={{ flex: "1 1 110px" }}>
+                <StatDial
+                  label="Kit out"
+                  value={equipmentSignals.out.length}
+                  onClick={() => openDetail("Kit out", equipmentSignals.out, "kit")}
+                />
+              </div>
+              <div style={{ flex: "1 1 110px" }}>
+                <StatDial
+                  label="Faulty kit"
+                  value={equipmentSignals.faulty.length}
+                  color={equipmentSignals.faulty.length ? colors.immediate : colors.moss}
+                  onClick={() => openDetail("Faulty kit", equipmentSignals.faulty, "kit")}
+                />
+              </div>
+            </>
           )}
         </div>
       )}
