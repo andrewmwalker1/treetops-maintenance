@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.jsx";
 import { supabase } from "../lib/supabaseClient.js";
+import { timeAgo } from "../lib/keysOutSummary.js";
 import { colors } from "../lib/theme.js";
 import { Button, Card, EmptyState, IconArrowLeft, IconChevronRight, PageHeader, Pill, SkeletonList } from "../ui/index.js";
 
@@ -38,8 +39,15 @@ export default function EquipmentList() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status");
   const typeId = searchParams.get("type");
+  // ?out=1 -- "every machine currently checked out", from Office Hub's
+  // "Kit out" dial. Like a status deep-link, a flat list across all types.
+  const outFilter = searchParams.get("out") === "1";
   const [equipment, setEquipment] = useState([]);
   const [types, setTypes] = useState([]);
+  // equipment_id -> its open checkout. equipment_checkouts is the source
+  // of truth for short-term checkout state (see equipmentAvailability.js),
+  // separate from held_by, which is a longer-term "issued to".
+  const [openCheckouts, setOpenCheckouts] = useState(new Map());
   const [loading, setLoading] = useState(true);
 
   function refresh() {
@@ -51,11 +59,22 @@ export default function EquipmentList() {
           "id, name, make, model, status, equipment_type_id, site_id, held_by_profile_id, equipment_type:equipment_types(name), held_by:profiles!equipment_held_by_profile_id_fkey(display_name)"
         ),
       supabase.from("equipment_types").select("id, name").order("sort_order"),
-    ]).then(([{ data: eq, error: eqErr }, { data: t, error: tErr }]) => {
+      supabase
+        .from("equipment_checkouts")
+        .select("equipment_id, checked_out_at, checked_out_by:profiles!equipment_checkouts_profile_id_fkey(display_name)")
+        .is("checked_in_at", null)
+        .order("checked_out_at"),
+    ]).then(([{ data: eq, error: eqErr }, { data: t, error: tErr }, { data: co, error: coErr }]) => {
       if (eqErr) console.error(eqErr);
       if (tErr) console.error(tErr);
+      if (coErr) console.error(coErr);
       setEquipment(eq || []);
       setTypes(t || []);
+      // Oldest first, so if a machine somehow has two open rows the map
+      // keeps the earliest -- how long it's actually been out.
+      const byEquipment = new Map();
+      for (const c of co || []) if (!byEquipment.has(c.equipment_id)) byEquipment.set(c.equipment_id, c);
+      setOpenCheckouts(byEquipment);
       setLoading(false);
     });
   }
@@ -65,10 +84,11 @@ export default function EquipmentList() {
   // A status deep-link (from the Dashboard's "N faulty" etc.) means "every
   // machine with this status, regardless of type" -- same flat cross-group
   // list as before groups existed, so it skips the picker entirely.
-  const showGroups = !statusFilter && !typeId;
+  const showGroups = !statusFilter && !typeId && !outFilter;
 
   const visibleEquipment = equipment.filter((eq) => {
     if (statusFilter && eq.status !== statusFilter) return false;
+    if (outFilter && !openCheckouts.has(eq.id)) return false;
     if (typeId && (eq.equipment_type_id || UNCATEGORISED_TYPE_ID) !== typeId) return false;
     return true;
   });
@@ -100,7 +120,7 @@ export default function EquipmentList() {
         </Button>
       )}
 
-      {statusFilter && (
+      {(statusFilter || outFilter) && (
         <Card
           pad="sm"
           style={{
@@ -112,7 +132,7 @@ export default function EquipmentList() {
           }}
         >
           <span style={{ fontSize: "var(--text-sm)", color: colors.mossDark }}>
-            Showing: {statusLabels[statusFilter] || statusFilter}
+            Showing: {outFilter ? "Checked out" : statusLabels[statusFilter] || statusFilter}
           </span>
           <Button size="sm" variant="ghost" onClick={() => setSearchParams({})}>
             Clear
@@ -168,14 +188,16 @@ export default function EquipmentList() {
 
       {!loading && !showGroups && visibleEquipment.length === 0 && (
         <EmptyState
-          title={statusFilter ? "No equipment with that status" : "No machines in this group"}
+          title={
+            outFilter ? "Nothing is checked out" : statusFilter ? "No equipment with that status" : "No machines in this group"
+          }
           action={
             <Button variant="primary" onClick={() => setSearchParams({})}>
-              {statusFilter ? "Show all equipment" : "All groups"}
+              {statusFilter || outFilter ? "Show all equipment" : "All groups"}
             </Button>
           }
         >
-          {statusFilter ? "Clear the filter to see the rest of the fleet." : null}
+          {statusFilter || outFilter ? "Clear the filter to see the rest of the fleet." : null}
         </EmptyState>
       )}
 
@@ -207,6 +229,12 @@ export default function EquipmentList() {
                 {[eq.make, eq.model].filter(Boolean).join(" ")}
                 {eq.held_by && `${eq.make || eq.model ? " · " : ""}Held by ${eq.held_by.display_name}`}
               </div>
+              {openCheckouts.has(eq.id) && (
+                <div style={{ fontSize: "var(--text-sm)", color: colors.mossDark, fontWeight: 600 }}>
+                  Out with {openCheckouts.get(eq.id).checked_out_by?.display_name || "someone"} ·{" "}
+                  {timeAgo(openCheckouts.get(eq.id).checked_out_at)}
+                </div>
+              )}
             </div>
             <Pill color={statusColors[eq.status]}>{statusLabels[eq.status]}</Pill>
           </Card>

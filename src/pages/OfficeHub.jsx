@@ -521,6 +521,7 @@ function SignalStrip({ counts, hub, onSeeAll }) {
           onClick={counts.onOverdue}
         />
         <StatDial label="Keys out" value={counts.keysOut} onClick={counts.onKeysOut} />
+        <StatDial label="Kit out" value={counts.kitOut} onClick={counts.onKitOut} />
         <StatDial
           label="Faulty kit"
           value={counts.faulty}
@@ -642,6 +643,7 @@ export default function OfficeHub() {
   const [officeGroupId, setOfficeGroupId] = useState(null);
   const [keysOutCount, setKeysOutCount] = useState(0);
   const [faultyCount, setFaultyCount] = useState(0);
+  const [kitOutCount, setKitOutCount] = useState(0);
   const [directorySearch, setDirectorySearch] = useState("");
 
   // Hub's contractors/places -- loaded once here, up front, rather than
@@ -732,6 +734,18 @@ export default function OfficeHub() {
       .then(({ count }) => setFaultyCount(count || 0));
   }, [org, canOfficeHub]);
 
+  // Machines, not checkout rows: counted by distinct equipment_id so it
+  // matches the list the dial opens (EquipmentList's ?out=1).
+  useEffect(() => {
+    if (!org || !canOfficeHub) return;
+    supabase
+      .from("equipment_checkouts")
+      .select("equipment_id, equipment!inner(org_id)")
+      .is("checked_in_at", null)
+      .eq("equipment.org_id", org.id)
+      .then(({ data }) => setKitOutCount(new Set((data || []).map((c) => c.equipment_id)).size));
+  }, [org, canOfficeHub]);
+
   useEffect(() => {
     if (!canOfficeHub) return;
     Promise.all([
@@ -807,6 +821,8 @@ export default function OfficeHub() {
             onOverdue: () => navigate("/?overdue=1"),
             keysOut: keysOutCount,
             onKeysOut: () => navigate("/dashboard"),
+            kitOut: kitOutCount,
+            onKitOut: () => navigate("/equipment?out=1"),
             faulty: faultyCount,
             onFaulty: () => navigate("/equipment?status=faulty"),
           }}
