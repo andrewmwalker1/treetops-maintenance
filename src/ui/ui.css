@@ -691,6 +691,11 @@ select.tt-input {
 .tt-menu--left {
   left: 0;
 }
+.tt-menu--side {
+  top: auto;
+  bottom: 0;
+  left: calc(100% + var(--space-2));
+}
 .tt-menu__backdrop {
   position: fixed;
   inset: 0;

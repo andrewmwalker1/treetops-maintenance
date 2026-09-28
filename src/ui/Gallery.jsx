@@ -39,17 +39,87 @@ import "../components/Layout.css";
 import "../pages/Admin.css";
 import {
   IconAlert,
+  IconChevronRight,
   IconClose,
   IconEdit,
   IconEquipment,
   IconFilter,
+  IconFolder,
+  IconHoliday,
   IconJobs,
   IconKeys,
   IconMeters,
+  IconOverview,
   IconPlus,
   IconPrint,
   IconSafety,
+  IconSettings,
+  IconSync,
 } from "./icons.jsx";
+
+const SIDEBAR_SPECIMEN_LINKS = [
+  { label: "Jobs", Icon: IconJobs, active: true, badge: "3", danger: true },
+  { label: "Dashboard", Icon: IconOverview },
+  { label: "Office Hub", Icon: IconFolder },
+  { label: "Equipment", Icon: IconEquipment },
+  { label: "Keys", Icon: IconKeys, badge: "4", word: " out" },
+  { label: "Timesheet", Icon: IconOverview },
+  { label: "Holiday", Icon: IconHoliday },
+  { label: "Meters", Icon: IconMeters },
+  { label: "Safety", Icon: IconSafety },
+  { label: "Settings & admin", Icon: IconSettings },
+];
+
+// Static replica of Layout.jsx's Sidebar, from the same CSS classes.
+function SidebarSpecimen({ collapsed }) {
+  return (
+    <div style={{ height: "720px", display: "flex", border: "1px solid var(--c-line-strong)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+      <aside className={`tt-sidebar${collapsed ? " tt-sidebar--collapsed" : ""}`}>
+        <div className="tt-sidebar__brand">
+          <span className="tt-sidebar__mark">TT</span>
+          <div className="tt-sidebar__brandtext">
+            <div className="tt-sidebar__org">Tree Tops Caravan Park</div>
+            <div className="tt-sidebar__site">Main Site</div>
+          </div>
+        </div>
+        <nav className="tt-sidebar__nav">
+          {SIDEBAR_SPECIMEN_LINKS.map((l) => (
+            <a key={l.label} href="#gallery" title={collapsed ? l.label : undefined} className={`tt-sidelink${l.active ? " tt-sidelink--active" : ""}`}>
+              <l.Icon size={18} />
+              <span className="tt-sidelink__label">{l.label}</span>
+              {l.badge && (
+                <span className={`tt-sidebar__badge${l.danger ? " tt-sidebar__badge--danger" : ""}`}>
+                  {l.badge}
+                  {l.word && <span className="tt-sidebar__badge-word">{l.word}</span>}
+                </span>
+              )}
+            </a>
+          ))}
+        </nav>
+        <div className="tt-sidebar__foot">
+          <div className="tt-menu__anchor tt-sidebar__syncanchor">
+            <span className="tt-statuschip tt-statuschip--syncing">
+              <IconSync size={13} />
+              <span className="tt-statuschip__label">Syncing 2</span>
+            </span>
+          </div>
+          <button type="button" className="tt-sidebar__collapse">
+            <IconChevronRight size={18} className="tt-sidebar__collapse-icon" />
+            <span className="tt-sidelink__label">Collapse menu</span>
+          </button>
+          <button type="button" className="tt-sidebar__me">
+            <span className="tt-sidebar__avatar">AW</span>
+            <span className="tt-sidelink__label tt-sidebar__who">
+              <span className="tt-sidebar__name">Andy Walker</span>
+              <span className="tt-sidebar__role">Admin</span>
+            </span>
+          </button>
+        </div>
+      </aside>
+      <div style={{ flex: 1, background: "var(--c-bg)" }} />
+    </div>
+  );
+}
 
 function Row({ title, note, children }) {
   return (
@@ -375,8 +445,19 @@ export default function Gallery() {
             Admin.css. The live components need an authenticated session, so
             this is the one place the header, the tab bar and the admin nav
             can be checked side by side. */}
-        <Row title="App chrome — desktop header" note="Three fixed zones. It used to be one flexWrap row holding eight unrelated things.">
-          <div style={{ width: "100%", border: "1px solid var(--c-line-strong)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
+        <Row title="App chrome — desktop sidebar" note="Replaced the top nav row, which clipped links on a laptop. Open, and collapsed to icons.">
+          <div style={{ display: "flex", gap: "var(--space-5)", width: "100%" }}>
+            <div style={{ flex: 1 }}>
+              <SidebarSpecimen />
+            </div>
+            <div style={{ flex: 1 }}>
+              <SidebarSpecimen collapsed />
+            </div>
+          </div>
+        </Row>
+
+        <Row title="App chrome — phone and tablet header" note="Identity and account only; navigation is the tab bar below.">
+          <div style={{ width: "420px", border: "1px solid var(--c-line-strong)", borderRadius: "var(--radius-sm)", overflow: "hidden" }}>
             <header className="tt-appbar">
               <div className="tt-appbar__identity">
                 <span className="tt-appbar__mark">TT</span>
@@ -385,29 +466,9 @@ export default function Gallery() {
                   <div className="tt-appbar__site">Main Site</div>
                 </div>
               </div>
-              <nav className="tt-appbar__nav">
-                <a href="#gallery" className="tt-navlink tt-navlink--active">
-                  <IconJobs size={15} /> Jobs
-                </a>
-                <a href="#gallery" className="tt-navlink">
-                  <IconMeters size={15} /> Dashboard
-                </a>
-                <a href="#gallery" className="tt-navlink">
-                  <IconEquipment size={15} /> Equipment
-                </a>
-                <a href="#gallery" className="tt-navlink">
-                  <IconKeys size={15} /> Keys
-                </a>
-                <a href="#gallery" className="tt-navlink">
-                  <IconMeters size={15} /> Meters
-                </a>
-                <a href="#gallery" className="tt-navlink">
-                  <IconSafety size={15} /> Safety
-                </a>
-              </nav>
               <div className="tt-appbar__right">
                 <span className="tt-statuschip tt-statuschip--syncing">
-                  <IconMeters size={13} />
+                  <IconSync size={13} />
                   <span className="tt-statuschip__label">Syncing 2</span>
                 </span>
                 <span className="tt-avatar">AW</span>

@@ -26,9 +26,65 @@ const PHONE_MAX_DIMENSION = 1000;
 // long side. Portrait: innerHeight is. Either way the max lands in
 // roughly the same place, so which orientation you're holding it in
 // stops mattering.
-function detectIsPhoneDevice() {
+export function detectIsPhoneDevice() {
   if (typeof window === "undefined") return false;
   return Math.max(window.innerWidth, window.innerHeight) <= PHONE_MAX_DIMENSION;
+}
+
+// Andy (2026-09-28): iPads should get the phone layout -- bottom tab bar,
+// collapsible admin groups -- not the desktop sidebar, unless the person
+// asks for the desktop layout. They're held in the hand and prodded with a
+// finger like a phone, just bigger.
+//
+// Width alone can't tell an iPad from a laptop (an iPad Pro is 1366 wide),
+// and since iPadOS 13 Safari identifies itself as a Mac by default, so the
+// user agent alone can't either. Any one of these is enough:
+//   - an older iPad, or Safari set to "Request Mobile Website", says iPad;
+//   - an iPad masquerading as a Mac still reports touch points, which no
+//     real Mac does;
+//   - any device whose main pointer is a finger with no hover (Android
+//     tablets) matches the media query. A touchscreen laptop doesn't: its
+//     primary pointer is still the trackpad/mouse.
+// The kiosk and key-station terminals are touch screens too, but they
+// render their own full-screen apps and never read this hook.
+export function detectIsTabletDevice() {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  if (/iPad/.test(ua)) return true;
+  if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;
+  return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+}
+
+// "Request desktop site" for this app. Safari's own toggle can't be used
+// for it: on an iPad, Safari *already* requests the desktop site by
+// default, so the two states are indistinguishable from here. Per device,
+// so it lives in localStorage rather than on the profile -- someone may
+// want the desktop layout on the office iPad but not on their own. Only
+// offered on a tablet; a phone is too narrow for the sidebar layout.
+const DESKTOP_LAYOUT_KEY = "tt.tabletUsesDesktopLayout";
+const LAYOUT_CHANGE_EVENT = "tt-layout-preference-change";
+
+export function getTabletUsesDesktopLayout() {
+  try {
+    return window.localStorage.getItem(DESKTOP_LAYOUT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setTabletUsesDesktopLayout(on) {
+  try {
+    if (on) window.localStorage.setItem(DESKTOP_LAYOUT_KEY, "1");
+    else window.localStorage.removeItem(DESKTOP_LAYOUT_KEY);
+  } catch {
+    // Private mode / blocked storage: the choice just won't stick.
+  }
+  window.dispatchEvent(new Event(LAYOUT_CHANGE_EVENT));
+}
+
+function detectIsMobile() {
+  if (detectIsPhoneDevice()) return true;
+  return detectIsTabletDevice() && !getTabletUsesDesktopLayout();
 }
 
 // This used to be the app's ONLY responsive mechanism, back when there was
@@ -40,7 +96,7 @@ function detectIsPhoneDevice() {
 //
 // This hook remains the right tool for the cases CSS genuinely cannot
 // reach: rendering a structurally *different* component tree on a phone
-// (Layout's bottom tab bar vs the desktop nav row, Admin's collapsible
+// or tablet (Layout's bottom tab bar vs the desktop sidebar, Admin's collapsible
 // group list vs its sidebar) rather than restyling the same one.
 // For the cases where the deciding factor is the viewport width itself
 // rather than "is this a phone" -- the permission matrices, which stop
@@ -59,16 +115,18 @@ export function useMediaQuery(query) {
 }
 
 export function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(detectIsPhoneDevice);
+  const [isMobile, setIsMobile] = useState(detectIsMobile);
   useEffect(() => {
     function handler() {
-      setIsMobile(detectIsPhoneDevice());
+      setIsMobile(detectIsMobile());
     }
     window.addEventListener("resize", handler);
     window.addEventListener("orientationchange", handler);
+    window.addEventListener(LAYOUT_CHANGE_EVENT, handler);
     return () => {
       window.removeEventListener("resize", handler);
       window.removeEventListener("orientationchange", handler);
+      window.removeEventListener(LAYOUT_CHANGE_EVENT, handler);
     };
   }, []);
   return isMobile;

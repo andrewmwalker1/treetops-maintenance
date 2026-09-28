@@ -14,7 +14,11 @@ const FOCUSABLE = '[data-menu-item]:not([disabled]):not([aria-disabled="true"])'
 // `trigger` is a render prop rather than an element so the caller can wire
 // the open state into its own button styling:
 //   <Menu trigger={({ open, ...props }) => <button {...props}>Menu</button>}>
-export default function Menu({ trigger, align = "right", children, menuProps = {} }) {
+//
+// `align="side"` opens beside the trigger, bottom-aligned with it, rather
+// than below: the desktop sidebar's account button sits at the very bottom
+// of the screen, where a menu opening downwards would be off-screen.
+export default function Menu({ trigger, align = "right", anchorClassName, children, menuProps = {} }) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef(null);
   const menuRef = useRef(null);
@@ -61,7 +65,7 @@ export default function Menu({ trigger, align = "right", children, menuProps = {
   const close = () => setOpen(false);
 
   return (
-    <div className="tt-menu__anchor" ref={anchorRef}>
+    <div className={["tt-menu__anchor", anchorClassName].filter(Boolean).join(" ")} ref={anchorRef}>
       {trigger({
         open,
         onClick: () => setOpen((o) => !o),
