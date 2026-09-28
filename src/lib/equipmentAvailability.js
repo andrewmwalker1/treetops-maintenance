@@ -6,6 +6,18 @@
 // checkout.sql).
 import { supabase } from "./supabaseClient.js";
 
+// The "Kit out" dial on the Dashboard and Office Hub. Machines, not
+// checkout rows: counted by distinct equipment_id so it matches the list
+// the dial opens (EquipmentList's ?out=1).
+export async function countMachinesCheckedOut(orgId) {
+  const { data } = await supabase
+    .from("equipment_checkouts")
+    .select("equipment_id, equipment!inner(org_id)")
+    .is("checked_in_at", null)
+    .eq("equipment.org_id", orgId);
+  return new Set((data || []).map((c) => c.equipment_id)).size;
+}
+
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
   const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
     supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout").eq("org_id", orgId).order("sort_order"),

@@ -8,6 +8,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { queryOpenKeyCheckouts } from "../lib/keysOutSummary.js";
+import { countMachinesCheckedOut } from "../lib/equipmentAvailability.js";
 import { tileColorValue } from "../lib/officeHubTiles.js";
 import StatDial from "../components/StatDial.jsx";
 import { colors, space } from "../lib/theme.js";
@@ -734,16 +735,9 @@ export default function OfficeHub() {
       .then(({ count }) => setFaultyCount(count || 0));
   }, [org, canOfficeHub]);
 
-  // Machines, not checkout rows: counted by distinct equipment_id so it
-  // matches the list the dial opens (EquipmentList's ?out=1).
   useEffect(() => {
     if (!org || !canOfficeHub) return;
-    supabase
-      .from("equipment_checkouts")
-      .select("equipment_id, equipment!inner(org_id)")
-      .is("checked_in_at", null)
-      .eq("equipment.org_id", org.id)
-      .then(({ data }) => setKitOutCount(new Set((data || []).map((c) => c.equipment_id)).size));
+    countMachinesCheckedOut(org.id).then(setKitOutCount);
   }, [org, canOfficeHub]);
 
   useEffect(() => {

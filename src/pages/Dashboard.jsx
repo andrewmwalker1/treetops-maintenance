@@ -6,6 +6,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { exportJobsCsv } from "../lib/csvExport.js";
 import { queryOpenKeyCheckouts, keyLocationLabel, keyIssuedToLabel, timeAgo, KEY_GROUPS } from "../lib/keysOutSummary.js";
+import { countMachinesCheckedOut } from "../lib/equipmentAvailability.js";
 import StatDial from "../components/StatDial.jsx";
 import { colors, fonts, priorityColor } from "../lib/theme.js";
 import { Alert, Button, Card, PageHeader } from "../ui/index.js";
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [faultyCount, setFaultyCount] = useState(0);
+  const [kitOutCount, setKitOutCount] = useState(0);
   const [openKeyCheckouts, setOpenKeyCheckouts] = useState([]);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
@@ -33,6 +35,7 @@ export default function Dashboard() {
       .eq("org_id", org.id)
       .eq("status", "faulty")
       .then(({ count }) => setFaultyCount(count || 0));
+    countMachinesCheckedOut(org.id).then(setKitOutCount);
   }, [org]);
 
   useEffect(() => {
@@ -102,6 +105,7 @@ export default function Dashboard() {
             onClick={() => navigate(`/?priority=${p.priority}`)}
           />
         ))}
+        <StatDial label="Kit out" value={kitOutCount} onClick={() => navigate("/equipment?out=1")} />
         <StatDial
           label="Faulty equipment"
           value={faultyCount}
