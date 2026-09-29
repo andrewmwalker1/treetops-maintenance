@@ -183,7 +183,18 @@ export default function EquipmentList() {
         ))}
 
       {!loading && !showGroups && (
-        <PageHeader title={selectedType ? selectedType.name : typeId === UNCATEGORISED_TYPE_ID ? "Uncategorised" : "Equipment"} level={2} />
+        <PageHeader
+          title={
+            outFilter
+              ? `${visibleEquipment.length} machine${visibleEquipment.length === 1 ? "" : "s"} checked out`
+              : selectedType
+                ? selectedType.name
+                : typeId === UNCATEGORISED_TYPE_ID
+                  ? "Uncategorised"
+                  : "Equipment"
+          }
+          level={2}
+        />
       )}
 
       {!loading && !showGroups && visibleEquipment.length === 0 && (
@@ -236,7 +247,15 @@ export default function EquipmentList() {
                 </div>
               )}
             </div>
-            <Pill color={statusColors[eq.status]}>{statusLabels[eq.status]}</Pill>
+            {/* A checked-out machine's badge says so -- "In service" next to
+                "Out with John" read as though it were back in the shed. Its
+                condition only gets its own badge when that's worth flagging. */}
+            <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: "var(--space-2)" }}>
+              {openCheckouts.has(eq.id) && <Pill tone="info">Checked out</Pill>}
+              {(!openCheckouts.has(eq.id) || eq.status !== "in_service") && (
+                <Pill color={statusColors[eq.status]}>{statusLabels[eq.status]}</Pill>
+              )}
+            </div>
           </Card>
         ))}
     </div>
