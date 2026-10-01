@@ -75,69 +75,17 @@ truth — update it in the same commit as any token change).
   separate document these tokens never reach, so they carry a deliberate,
   duplicated copy of the few values they need.
 - `scripts/check-styles.mjs` checks changed files for the first two rules
-  on every push and **blocks the build** in `.github/workflows/deploy.yml`
-  (confirmed 2026-09-11: a push with violations failed CI and never
-  deployed) — fix its warnings before pushing, don't treat them as
-  advisory. You can run it locally against a specific base commit with
+  and fails the deploy workflow (`.github/workflows/deploy.yml`) on any
+  violation, so fix its warnings before pushing. Run it locally against a
+  specific base commit with
   `CHECK_STYLES_BASE=<sha> node scripts/check-styles.mjs`.
 
-## Current known state (from git log — confirm anything time-sensitive
-with Andy rather than assuming it's still accurate)
+## Current state
 
-Already built: job creation/scheduling, offline sync with RLS fixes,
-equipment CRUD (Admin, with Make/Model/serial/other ID/date added,
-filter by type, popout modal for mobile), Roles & Permissions admin
-screen, checklist item editing, template activities, user admin, RA/MS
-documents on equipment types (mirrors activity types, same admin pattern),
-and a kiosk Health & Safety screen (browse/filter every RA/MS document by
-activity or equipment type) plus a Health & Safety button on kiosk
-check-out (now reachable even when a type has zero available units, not
-just once units exist). Kiosk jobs list now matches the main app's default
-(open jobs only, Completed behind a Filters toggle) and shows the same
-location/assignee detail line as the desktop job cards. Kiosk check-in now
-supports the same tick-many-then-continue flow as check-out for
-multi-checkout equipment types. The admin "Checkout Log" is now "Equipment
-history" — checkouts, faults, and repairs merged into one chronological,
-filterable log per machine. Contractors can now have documents (proof of
-qualifications/insurance/H&S, each with an optional expiry) attached via a
-"Documents" button; `contractor-document-reminders` (daily cron, confirmed
-live and succeeding — see RUNBOOK.md) raises an Office job and emails the
-contractor 7 days before each document's expiry. Equipment now has the
-same pattern: a "Documents" button on the Equipment admin screen
-(`equipment_documents`, `65-equipment-documents.sql`) stores JPG/PDF
-files per equipment item — pure reference (an invoice) or date-critical
-(Gas Test certs, MOT) — and `equipment-document-reminders` (deployed, cron
-**not yet scheduled** — see RUNBOOK.md §7) raises an Office job 7 days
-before expiry and emails every Office group member (resolved individually
-via the Auth Admin API, since a group has no email of its own).
-The New Job screen's photo field now accepts multiple photos, not just
-one (`job_photos` already supported this; only the create-screen UI was
-capped).
+What's built lives in `git log` and SYSTEMSPEC.md — read those rather
+than a summary here, and confirm anything time-sensitive with Andy.
 
-Since then: **push notifications** now actually fire — job creation and
-reassignment push the person/group assignee (`src/lib/jobAssignmentNotify.js`),
-and the recurring-job generator pushes both on generation and with a
-same-day due-date reminder if a scheduled job isn't completed yet (see
-SYSTEMSPEC.md §7/§13). **Recurring jobs (Schedules)** now have full field
-parity with New Job — required description, priority, person/group
-assignee, pitch/area location, activity types — plus a **pause/resume**
-toggle (`schedules.is_active`) instead of delete-only. **Mobile UI**: the
-header's account controls collapse into a single avatar menu below 640px
-(`AccountMenu` in `Layout.jsx`) so more than one job is visible on a
-phone screen, and the Jobs list's status/priority filter chip strips show
-a fading edge hint when they scroll. **User admin** can now edit a user's
-email address (`manage-users`' `update_email` action); the "Signups not
-allowed for this instance" bug some invited users hit at login is fixed
-by force-confirming email at invite time (root cause: `signInWithOtp` on
-a never-confirmed account is treated as a blocked fresh signup — see
-SYSTEMSPEC.md §7's `manage-users` row). **Per-checklist-item photo
-requirement**: safety-critical checklist items can be flagged (camera
-icon replaces the checkbox) via `can_require_checklist_item_photo`, with
-a separate `can_check_off_item_without_photo` override kept explicitly
-visible rather than folded into a checkbox — both granted to Head
-Gardener as well as Admin. Full detail in SYSTEMSPEC.md §6.3a.
-
-Still open per RUNBOOK.md: pitch CSV not yet supplied (pitches table has
-only `pitch_number_or_name` until Andy sends real data), genuine offline
-testing (aeroplane mode) not yet done. Deploy pipeline is confirmed live
-(see note above).
+Still open (RUNBOOK.md, "What's NOT done yet"): the
+`equipment-document-reminders` cron isn't scheduled yet, `role_visibility`
+beyond Head Gardener (see Hard rules), and genuine offline testing
+(aeroplane mode) hasn't been done.

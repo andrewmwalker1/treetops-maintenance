@@ -195,8 +195,6 @@ Pro+Micro bill now covers all three apps, and the old
 - `equipment-document-reminders` is deployed but not yet scheduled — run
   the step 7 SQL for it once (needs the service-role secret key from
   Settings → API, which Claude Code won't handle — paste it in yourself).
-- Pitch CSV not supplied — `pitches` only has a `pitch_number_or_name`
-  column until you send the real data.
 - `role_visibility` beyond Head Gardener needs your confirmation (see
   step 2.3 above).
 - Genuine offline testing (aeroplane mode, per Section 10 step 10 of
