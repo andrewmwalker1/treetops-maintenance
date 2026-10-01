@@ -12,6 +12,7 @@ const blank = {
   name: "",
   pre_use_checklist: [],
   allow_multi_checkout: false,
+  no_checkout: false,
   tracks_hours_default: false,
   hours_required_default: false,
   documentIds: [],
@@ -40,7 +41,7 @@ export default function EquipmentTypesTab() {
     Promise.all([
       supabase
         .from("equipment_types")
-        .select("id, name, pre_use_checklist, allow_multi_checkout, tracks_hours_default, hours_required_default, sort_order")
+        .select("id, name, pre_use_checklist, allow_multi_checkout, no_checkout, tracks_hours_default, hours_required_default, sort_order")
         .eq("org_id", org.id)
         .order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
@@ -138,6 +139,7 @@ export default function EquipmentTypesTab() {
       name: t.name,
       pre_use_checklist: t.pre_use_checklist || [],
       allow_multi_checkout: t.allow_multi_checkout || false,
+      no_checkout: t.no_checkout || false,
       tracks_hours_default: t.tracks_hours_default || false,
       hours_required_default: t.hours_required_default || false,
       documentIds: linksByType[t.id] || [],
@@ -168,6 +170,7 @@ export default function EquipmentTypesTab() {
       name: form.name,
       pre_use_checklist: form.pre_use_checklist,
       allow_multi_checkout: form.allow_multi_checkout,
+      no_checkout: form.no_checkout,
       tracks_hours_default: form.tracks_hours_default,
       hours_required_default: form.hours_required_default,
     };
@@ -264,7 +267,7 @@ export default function EquipmentTypesTab() {
           <div>
             <div style={{ fontWeight: 600 }}>{t.name}</div>
             <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
-              {counts[t.id] || 0} item(s){t.allow_multi_checkout ? " · multi-checkout" : ""}
+              {counts[t.id] || 0} item(s){t.no_checkout ? " · no checkout" : t.allow_multi_checkout ? " · multi-checkout" : ""}
               {t.tracks_hours_default ? ` · tracks hours${t.hours_required_default ? " (required)" : ""}` : ""}
               {" · "}{(linksByType[t.id] || []).length} RA/MS document(s) linked
               {" · Repairs: "}{assigneeLabel(assigneesByType[t.id], { people, groups, contractors }) || "default"}
@@ -307,6 +310,15 @@ export default function EquipmentTypesTab() {
                 items={form.pre_use_checklist}
                 onChange={(items) => setForm({ ...form, pre_use_checklist: items })}
               />
+
+              <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", color: colors.ink, marginTop: "var(--space-4)" }}>
+                <input type="checkbox" checked={form.no_checkout} onChange={(e) => setForm({ ...form, no_checkout: e.target.checked })} />
+                No checkout — asset only
+              </label>
+              <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: "var(--space-1)", marginBottom: 0 }}>
+                For kit like robomowers that's tracked as an asset (documents, reminders, repairs) but never checked
+                out by the team. Machines of this type won't appear on the check-out screens.
+              </p>
 
               <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)", color: colors.ink, marginTop: "var(--space-4)" }}>
                 <input

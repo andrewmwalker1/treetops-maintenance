@@ -54,8 +54,8 @@ export async function queryEquipmentSignals(orgId) {
 
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
   const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
-    supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout").eq("org_id", orgId).order("sort_order"),
-    supabase.from("equipment").select("id, equipment_type_id, status, no_checkout").eq("org_id", orgId),
+    supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout, no_checkout").eq("org_id", orgId).order("sort_order"),
+    supabase.from("equipment").select("id, equipment_type_id, status").eq("org_id", orgId),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
     // Kiosk checkout surfaces these via a "Health & Safety" button once
     // an equipment type has any linked -- fetched here, not on demand,
@@ -84,7 +84,11 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     docs.sort((a, b) => a.title.localeCompare(b.title));
   }
 
-  return (types || []).map((t) => ({
+  // A no-checkout type (robomowers, lodges...) is an asset-log entry, never
+  // offered for check-out -- left off the picker entirely, which is the only
+  // way in to its units. The insert policy (80-equipment-type-no-checkout.sql)
+  // refuses it in the database too.
+  return (types || []).filter((t) => !t.no_checkout).map((t) => ({
     id: t.id,
     name: t.name,
     preUseChecklist: t.pre_use_checklist || [],
