@@ -10,7 +10,8 @@ import { capturePhoto } from "../platform/camera.js";
 import SafetyDocumentLink from "../components/SafetyDocumentLink.jsx";
 import PhotoThumb from "../components/PhotoThumb.jsx";
 import { colors, fonts, statusColor, statusPillStyle, priorityBarStyle } from "../lib/theme.js";
-import { Alert, Button, Card, Chip, EmptyState, Field, IconArrowLeft, IconFilter, PageHeader, SkeletonList, Textarea } from "../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, Field, IconArrowLeft, IconFilter, IconUser, PageHeader, SkeletonList, Textarea } from "../ui/index.js";
+import { minimumPeopleMessage } from "../lib/minPeople.js";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -274,6 +275,12 @@ export default function KioskJobs() {
               <h1 style={{ fontFamily: fonts.display, color: colors.mossDark, fontSize: "var(--text-lg)", margin: "0 0 var(--space-2)" }}>
                 {selectedJob.description}
               </h1>
+              {minimumPeopleMessage(activityTypes) && (
+                <p style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", color: colors.warnInk, fontWeight: 700, fontSize: "var(--text-base)", margin: "0 0 var(--space-2)" }}>
+                  <IconUser size={18} style={{ flexShrink: 0 }} />
+                  {minimumPeopleMessage(activityTypes)}
+                </p>
+              )}
               <span style={statusPillStyle(selectedJob.job_status?.name)}>{selectedJob.job_status?.name}</span>
               {selectedJob.due_date && (
                 <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "var(--text-base)" }}>Due {selectedJob.due_date}</p>

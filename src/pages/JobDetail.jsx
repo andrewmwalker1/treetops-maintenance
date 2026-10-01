@@ -8,6 +8,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { capturePhoto } from "../platform/camera.js";
 import { loadJobForPrint, PHOTO_COLUMNS, SUBTASK_COLUMNS } from "../lib/loadJobForPrint.js";
+import { minimumPeopleMessage } from "../lib/minPeople.js";
 import { writeJobCompletion } from "../lib/completeJob.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
 import { newLinkedJobPath, notifyLinkedJobClosed, openBlockingLinks, PARENT_LINK_LABEL } from "../lib/linkedJobs.js";
@@ -36,6 +37,7 @@ import {
   IconLink,
   IconPlus,
   IconPrint,
+  IconUser,
   IconWaiting,
   IconButton,
   Input,
@@ -1478,6 +1480,12 @@ export default function JobDetail() {
             />
             <span style={statusPillStyle(job.job_status?.name)}>{job.job_status?.name}</span>
           </div>
+          {minimumPeopleMessage(activityTypes) && (
+            <p style={{ display: "flex", alignItems: "center", gap: "var(--space-1)", color: colors.warnInk, fontWeight: 600, fontSize: "var(--text-sm)", margin: "var(--space-2) 0 0" }}>
+              <IconUser size={14} style={{ flexShrink: 0 }} />
+              {minimumPeopleMessage(activityTypes)}
+            </p>
+          )}
           {job.completed_date && (
             <p style={{ fontFamily: fonts.mono, color: colors.inkSoft, fontSize: "var(--text-sm)" }}>Completed {job.completed_date}</p>
           )}

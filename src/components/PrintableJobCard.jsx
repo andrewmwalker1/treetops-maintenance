@@ -1,4 +1,5 @@
 import PhotoThumb from "./PhotoThumb.jsx";
+import { minimumPeopleMessage } from "../lib/minPeople.js";
 
 // One printable job sheet. Used both for the single "Print job card" button
 // on the job detail screen and for the bulk "Print selected" flow on the
@@ -9,6 +10,9 @@ export default function PrintableJobCard({ job, subtasks, photos, activity, acti
     <div className="print-job-card" style={{ padding: "24px", fontFamily: "'Work Sans', sans-serif", color: "#000", fontSize: "13px" }}>
       <img src="/logo.png" alt="Tree Tops Caravan Park" style={{ width: "89px", height: "79px", marginBottom: "8px" }} />
       <h1 style={{ fontFamily: "'Lora', serif", fontSize: "20px", margin: "0 0 12px" }}>{job.description}</h1>
+      {minimumPeopleMessage(activityTypes) && (
+        <p style={{ fontWeight: 700, margin: "-6px 0 12px" }}>{minimumPeopleMessage(activityTypes)}</p>
+      )}
 
       <table style={{ borderCollapse: "collapse" }}>
         <tbody>

@@ -36,7 +36,9 @@ export async function loadJobForPrint(jobId) {
       .select("id, event_type, previous_value, new_value, created_at, actor:profiles(display_name)")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false }),
-    supabase.from("job_activity_types").select("task_type:task_types(id, name)").eq("job_id", jobId),
+    // task_types(*) rather than naming min_people, so jobs still load on a
+    // database 82-activity-type-min-people.sql hasn't reached yet.
+    supabase.from("job_activity_types").select("task_type:task_types(*)").eq("job_id", jobId),
   ]);
 
   const subtasks = subtaskRows || [];

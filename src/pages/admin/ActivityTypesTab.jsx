@@ -3,9 +3,9 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, EmptyState, Input, PageHeader } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Field, Input, PageHeader } from "../../ui/index.js";
 
-const blank = { id: null, name: "", equipment_category: "", documentIds: [] };
+const blank = { id: null, name: "", equipment_category: "", min_people: "", documentIds: [] };
 
 export default function ActivityTypesTab() {
   const { org } = useAuth();
@@ -17,7 +17,9 @@ export default function ActivityTypesTab() {
 
   function refresh() {
     Promise.all([
-      supabase.from("task_types").select("id, name, equipment_category").eq("org_id", org.id),
+      // "*" rather than naming min_people, so this still loads on a database
+      // 82-activity-type-min-people.sql hasn't reached yet.
+      supabase.from("task_types").select("*").eq("org_id", org.id),
       supabase.from("ra_ms_documents").select("id, type, title").eq("org_id", org.id).order("title"),
       supabase.from("activity_type_documents").select("task_type_id, document_id"),
     ]).then(([{ data: tt }, { data: docs }, { data: links }]) => {
@@ -34,7 +36,13 @@ export default function ActivityTypesTab() {
   useEffect(refresh, [org]);
 
   function editType(t) {
-    setForm({ id: t.id, name: t.name, equipment_category: t.equipment_category || "", documentIds: linksByType[t.id] || [] });
+    setForm({
+      id: t.id,
+      name: t.name,
+      equipment_category: t.equipment_category || "",
+      min_people: t.min_people ? String(t.min_people) : "",
+      documentIds: linksByType[t.id] || [],
+    });
   }
 
   function toggleDocument(docId) {
@@ -49,6 +57,11 @@ export default function ActivityTypesTab() {
     setError(null);
 
     const payload = { org_id: org.id, name: form.name, equipment_category: form.equipment_category || null };
+    // Blank = no minimum. Only sent once the column exists (or a value is
+    // being set), so saving still works before the migration has run.
+    if (form.min_people !== "" || activityTypes.some((t) => "min_people" in t)) {
+      payload.min_people = form.min_people === "" ? null : Number(form.min_people);
+    }
     const { data: saved, error: err } = form.id
       ? await supabase.from("task_types").update(payload).eq("id", form.id).select().single()
       : await supabase.from("task_types").insert(payload).select().single();
@@ -102,7 +115,10 @@ export default function ActivityTypesTab() {
           <Card pad="sm" key={t.id} style={{ marginBottom: "var(--space-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 600 }}>{t.name}</div>
-              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>{(linksByType[t.id] || []).length} RA/MS document(s) linked</div>
+              <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
+                {t.min_people ? `Min. ${t.min_people} ${t.min_people === 1 ? "person" : "people"} · ` : ""}
+                {(linksByType[t.id] || []).length} RA/MS document(s) linked
+              </div>
             </div>
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
               <Button onClick={() => editType(t)}>Edit</Button>
@@ -118,6 +134,18 @@ export default function ActivityTypesTab() {
         <Card as="form" pad="md" onSubmit={handleSave}>
           <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Strimming" style={{ marginBottom: "var(--space-3)" }} />
           <Input value={form.equipment_category} onChange={(e) => setForm({ ...form, equipment_category: e.target.value })} placeholder="Equipment category (optional)" style={{ marginBottom: "var(--space-3)" }} />
+
+          <Field style={{ marginBottom: "var(--space-3)" }} label="Minimum people" hint="Leave blank if there's no minimum. Shown on every job with this activity type, e.g. Ladders: 2.">
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              inputMode="numeric"
+              value={form.min_people}
+              onChange={(e) => setForm({ ...form, min_people: e.target.value })}
+              placeholder="No minimum"
+            />
+          </Field>
 
           <label style={{ display: "block", fontSize: "var(--text-sm)", fontWeight: 600, color: colors.inkSoft, marginBottom: "var(--space-2)" }}>Linked RA/MS documents</label>
           <DocumentPicker documents={documents} selectedIds={form.documentIds} onToggle={toggleDocument} />
