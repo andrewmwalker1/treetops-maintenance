@@ -54,7 +54,9 @@ export async function queryEquipmentSignals(orgId) {
 
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
   const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
-    supabase.from("equipment_types").select("id, name, pre_use_checklist, allow_multi_checkout, no_checkout").eq("org_id", orgId).order("sort_order"),
+    // "*" rather than naming no_checkout, so the picker still loads on a
+    // database 80-equipment-type-no-checkout.sql hasn't reached yet.
+    supabase.from("equipment_types").select("*").eq("org_id", orgId).order("sort_order"),
     supabase.from("equipment").select("id, equipment_type_id, status").eq("org_id", orgId),
     supabase.from("equipment_checkouts").select("equipment_id").is("checked_in_at", null),
     // Kiosk checkout surfaces these via a "Health & Safety" button once

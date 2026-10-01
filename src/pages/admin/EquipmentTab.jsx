@@ -58,7 +58,7 @@ export default function EquipmentTab() {
         .select(
           `id, name, make, model, status, equipment_type_id, serial_number, other_id_number, date_added, decommissioned_at, decommission_reason, decommission_notes,
            tracks_hours, hours_required, last_hours_reading, last_hours_reading_at,
-           equipment_type:equipment_types(name, no_checkout, tracks_hours_default, hours_required_default)`
+           equipment_type:equipment_types(*)`
         )
         .eq("org_id", org?.id),
       supabase.from("equipment_types").select("id, name, tracks_hours_default, hours_required_default").eq("org_id", org?.id).order("name"),

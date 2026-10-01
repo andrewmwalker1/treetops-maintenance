@@ -35,13 +35,14 @@ export default function EquipmentTypesTab() {
   const [savingDefaultAssignee, setSavingDefaultAssignee] = useState(false);
   const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const [copyFromId, setCopyFromId] = useState("");
 
   function refresh() {
     Promise.all([
       supabase
         .from("equipment_types")
-        .select("id, name, pre_use_checklist, allow_multi_checkout, no_checkout, tracks_hours_default, hours_required_default, sort_order")
+        .select("*")
         .eq("org_id", org.id)
         .order("sort_order"),
       supabase.from("equipment").select("equipment_type_id"),
@@ -52,8 +53,10 @@ export default function EquipmentTypesTab() {
       supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name"),
       supabase.from("equipment_type_repair_assignees").select("id, equipment_type_id, assignee_profile_id, assignee_group_id, assignee_contractor_id").eq("org_id", org.id),
     ]).then(([{ data: t, error: err }, { data: eq }, { data: docs }, { data: links }, { data: p }, { data: g }, { data: c }, { data: assignees }]) => {
-      if (err) setError(err.message);
-      else setTypes(t || []);
+      // Shown on the page itself -- error only renders inside the edit
+      // modal, so a failed load used to look exactly like "no types".
+      setLoadError(err ? err.message : null);
+      if (!err) setTypes(t || []);
       const grouped = {};
       for (const row of eq || []) {
         if (row.equipment_type_id) grouped[row.equipment_type_id] = (grouped[row.equipment_type_id] || 0) + 1;
@@ -170,10 +173,12 @@ export default function EquipmentTypesTab() {
       name: form.name,
       pre_use_checklist: form.pre_use_checklist,
       allow_multi_checkout: form.allow_multi_checkout,
-      no_checkout: form.no_checkout,
       tracks_hours_default: form.tracks_hours_default,
       hours_required_default: form.hours_required_default,
     };
+    // Only sent once the column exists (80-equipment-type-no-checkout.sql),
+    // so saving a type still works on a database that hasn't had it yet.
+    if (form.no_checkout || types.some((t) => "no_checkout" in t)) payload.no_checkout = form.no_checkout;
     if (!form.id) {
       payload.sort_order = types.length > 0 ? Math.max(...types.map((t) => t.sort_order)) + 1 : 0;
     }
@@ -281,7 +286,12 @@ export default function EquipmentTypesTab() {
           </div>
         </Card>
       ))}
-      {types.length === 0 && <EmptyState title="No equipment types yet" />}
+      {loadError && (
+        <Alert tone="danger" title="Couldn't load equipment types" style={{ marginBottom: "var(--space-3)" }}>
+          {loadError}
+        </Alert>
+      )}
+      {!loadError && types.length === 0 && <EmptyState title="No equipment types yet" />}
 
       {form && (
         <Modal title={form.id ? "Edit equipment type" : "New equipment type"} onClose={() => setForm(null)}>
