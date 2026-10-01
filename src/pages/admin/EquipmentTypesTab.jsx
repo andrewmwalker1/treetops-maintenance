@@ -4,8 +4,10 @@ import { supabase } from "../../lib/supabaseClient.js";
 import ChecklistBuilder from "../../components/ChecklistBuilder.jsx";
 import DocumentPicker from "../../components/DocumentPicker.jsx";
 import AssigneePicker, { assigneeKindAndIdFromRow, assigneeLabel } from "../../components/AssigneePicker.jsx";
+import ChecklistVersionView from "../../components/ChecklistVersionView.jsx";
+import { getChecklistVersionsForType } from "../../lib/checklistVersions.js";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, EmptyState, IconArrowDown, IconArrowUp, IconButton, Input, Modal, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, IconArrowDown, IconArrowUp, IconButton, Input, Modal, PageHeader, Select, SkeletonList } from "../../ui/index.js";
 
 const blank = {
   id: null,
@@ -36,6 +38,7 @@ export default function EquipmentTypesTab() {
   const [form, setForm] = useState(null); // null = modal closed
   const [error, setError] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const [historyFor, setHistoryFor] = useState(null); // { type, versions } while the checklist history modal is open
   const [copyFromId, setCopyFromId] = useState("");
 
   function refresh() {
@@ -232,6 +235,12 @@ export default function EquipmentTypesTab() {
     refresh();
   }
 
+  async function openChecklistHistory(type) {
+    setHistoryFor({ type, versions: null });
+    const versions = await getChecklistVersionsForType(type.id);
+    setHistoryFor({ type, versions });
+  }
+
   async function handleDelete(id) {
     const { error: err } = await supabase.from("equipment_types").delete().eq("id", id);
     if (err) setError(err.message);
@@ -281,6 +290,7 @@ export default function EquipmentTypesTab() {
           <div style={{ display: "flex", gap: "var(--space-2)" }}>
             <IconButton size="sm" label="Move up" onClick={() => moveType(i, -1)} disabled={i === 0}><IconArrowUp size={14} /></IconButton>
             <IconButton size="sm" label="Move down" onClick={() => moveType(i, 1)} disabled={i === types.length - 1}><IconArrowDown size={14} /></IconButton>
+            <Button variant="ghost" onClick={() => openChecklistHistory(t)}>Checklist history</Button>
             <Button onClick={() => editType(t)}>Edit</Button>
             <Button variant="danger" onClick={() => handleDelete(t.id)}>Delete</Button>
           </div>
@@ -292,6 +302,22 @@ export default function EquipmentTypesTab() {
         </Alert>
       )}
       {!loadError && types.length === 0 && <EmptyState title="No equipment types yet" />}
+
+      {historyFor && (
+        <Modal title={`${historyFor.type.name} — checklist history`} onClose={() => setHistoryFor(null)}>
+          {historyFor.versions === null && <SkeletonList rows={2} />}
+          {historyFor.versions?.length === 0 && (
+            <EmptyState title="No checklist history yet">
+              History starts once 81-equipment-checklist-versions.sql has been run.
+            </EmptyState>
+          )}
+          {historyFor.versions?.map((v) => (
+            <Card key={v.id} pad="sm" style={{ marginBottom: "var(--space-2)" }}>
+              <ChecklistVersionView version={v} />
+            </Card>
+          ))}
+        </Modal>
+      )}
 
       {form && (
         <Modal title={form.id ? "Edit equipment type" : "New equipment type"} onClose={() => setForm(null)}>

@@ -3,8 +3,9 @@ import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import { queryEquipmentHistory } from "../../lib/equipmentCheckoutsQuery.js";
 import { exportEquipmentCheckoutsCsv } from "../../lib/csvExport.js";
+import ChecklistVersionView from "../../components/ChecklistVersionView.jsx";
 import { colors, space } from "../../lib/theme.js";
-import { Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, Input, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
+import { Alert, Button, Card, Chip, EmptyState, IconArrowDown, IconArrowUp, Input, Modal, PageHeader, Select, SkeletonList, Table } from "../../ui/index.js";
 
 const EVENT_TYPE = {
   checkout: { label: "Checkout", color: colors.gold },
@@ -33,6 +34,7 @@ export default function EquipmentCheckoutLogTab() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState(null);
+  const [checklistFor, setChecklistFor] = useState(null); // checkout event whose checklist is open
 
   const [status, setStatus] = useState("all");
   const [equipmentTypeId, setEquipmentTypeId] = useState("");
@@ -270,17 +272,36 @@ export default function EquipmentCheckoutLogTab() {
                   <td>{e.person || "—"}</td>
                   <td>{formatDateTime(e.date)}</td>
                   <td>
-                    {e.type === "checkout" && !e.raw.checked_in_at && (
-                      <Button size="sm" onClick={() => handleForceCheckIn(e.raw.id)}>
-                        Force check-in
-                      </Button>
-                    )}
+                    <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
+                      {e.checklistVersion && (
+                        <Button size="sm" variant="ghost" onClick={() => setChecklistFor(e)}>
+                          Checklist v{e.checklistVersion.version_number}
+                        </Button>
+                      )}
+                      {e.type === "checkout" && !e.raw.checked_in_at && (
+                        <Button size="sm" onClick={() => handleForceCheckIn(e.raw.id)}>
+                          Force check-in
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </Table>
         </Card>
+      )}
+
+      {checklistFor && (
+        <Modal title="Pre-use checklist at checkout" onClose={() => setChecklistFor(null)}>
+          <p style={{ fontSize: "var(--text-sm)", marginTop: 0 }}>
+            <strong>{checklistFor.equipment?.name}</strong>
+            {checklistFor.equipment?.equipment_type?.name && ` · ${checklistFor.equipment.equipment_type.name}`}
+            <br />
+            Checked out by {checklistFor.person || "—"}, {formatDateTime(checklistFor.date)}
+          </p>
+          <ChecklistVersionView version={checklistFor.checklistVersion} />
+        </Modal>
       )}
     </div>
   );

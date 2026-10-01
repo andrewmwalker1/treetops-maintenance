@@ -5,6 +5,7 @@
 // for short-term checkout state (see 16-rfid-kiosk-and-equipment-
 // checkout.sql).
 import { supabase } from "./supabaseClient.js";
+import { getLatestChecklistVersions } from "./checklistVersions.js";
 
 // The "Kit out" dial on the Dashboard and Office Hub. Machines, not
 // checkout rows: counted by distinct equipment_id so it matches the list
@@ -53,7 +54,7 @@ export async function queryEquipmentSignals(orgId) {
 }
 
 export async function getEquipmentTypeAvailabilityCounts(orgId) {
-  const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }] = await Promise.all([
+  const [{ data: types }, { data: equipment }, { data: openCheckouts }, { data: docLinks }, latestVersions] = await Promise.all([
     // "*" rather than naming no_checkout, so the picker still loads on a
     // database 80-equipment-type-no-checkout.sql hasn't reached yet.
     supabase.from("equipment_types").select("*").eq("org_id", orgId).order("sort_order"),
@@ -64,6 +65,7 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     // so the button's own visibility (has documents or not) doesn't need
     // a second round trip per type.
     supabase.from("equipment_type_documents").select("equipment_type_id, document:ra_ms_documents(id, type, title, description, pdf_storage_path)"),
+    getLatestChecklistVersions(),
   ]);
 
   const checkedOutIds = new Set((openCheckouts || []).map((c) => c.equipment_id));
@@ -94,6 +96,10 @@ export async function getEquipmentTypeAvailabilityCounts(orgId) {
     id: t.id,
     name: t.name,
     preUseChecklist: t.pre_use_checklist || [],
+    // Loaded alongside preUseChecklist, so the checkout records the version
+    // this screen actually showed. Null until 81-equipment-checklist-
+    // versions.sql has run; the database then fills in the latest itself.
+    checklistVersionId: latestVersions[t.id]?.id || null,
     allowMultiCheckout: t.allow_multi_checkout || false,
     availableCount: counts[t.id]?.available || 0,
     totalCount: counts[t.id]?.total || 0,

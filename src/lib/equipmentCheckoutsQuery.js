@@ -17,9 +17,12 @@
 // without the same fault being described twice in different words.
 
 import { supabase } from "./supabaseClient.js";
+import { getChecklistVersionsByIds } from "./checklistVersions.js";
 
+// "*" rather than naming checklist_version_id, so this still loads on a
+// database 81-equipment-checklist-versions.sql hasn't reached yet.
 const CHECKOUT_SELECT = `
-  id, checked_out_at, checked_in_at,
+  *,
   equipment:equipment!inner(id, name, equipment_type_id, equipment_type:equipment_types(id, name)),
   checked_out_by:profiles!equipment_checkouts_profile_id_fkey(id, display_name),
   checked_in_by_profile:profiles!equipment_checkouts_checked_in_by_fkey(id, display_name)
@@ -60,6 +63,7 @@ async function queryCheckoutEvents(filters) {
     console.error("queryEquipmentCheckouts (checkouts) failed", error);
     throw error;
   }
+  const versions = await getChecklistVersionsByIds((data || []).map((c) => c.checklist_version_id));
   return (data || [])
     .filter((c) => !filters.profileId || c.checked_out_by?.id === filters.profileId || c.checked_in_by_profile?.id === filters.profileId)
     .map((c) => ({
@@ -69,6 +73,8 @@ async function queryCheckoutEvents(filters) {
       person: c.checked_out_by?.display_name,
       date: c.checked_out_at,
       raw: c,
+      // The pre-use checklist as it was when this checkout was taken.
+      checklistVersion: versions[c.checklist_version_id] || null,
       details: c.checked_in_at
         ? `Checked out by ${c.checked_out_by?.display_name || "—"}, returned by ${c.checked_in_by_profile?.display_name || "—"}`
         : `Checked out by ${c.checked_out_by?.display_name || "—"} — still out`,

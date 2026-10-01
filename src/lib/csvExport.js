@@ -88,7 +88,7 @@ export async function exportEquipmentCheckoutsCsv({ orgId, profileId, filters = 
     throw new Error(`Export not permitted: ${logError.message}`);
   }
 
-  const columns = ["equipment", "equipment_type", "event", "date", "time", "person", "details"];
+  const columns = ["equipment", "equipment_type", "event", "date", "time", "person", "details", "checklist_version"];
   const eventLabel = { checkout: "Checkout", fault: "Fault", repair: "Repair" };
   const rows = events.map((e) => {
     const at = new Date(e.date);
@@ -100,6 +100,7 @@ export async function exportEquipmentCheckoutsCsv({ orgId, profileId, filters = 
       at.toLocaleTimeString("en-GB"),
       e.person || "",
       e.details || "",
+      e.checklistVersion ? `v${e.checklistVersion.version_number}` : "",
     ];
   });
 

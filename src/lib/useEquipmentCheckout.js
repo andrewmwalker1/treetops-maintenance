@@ -97,7 +97,11 @@ export function useEquipmentCheckout() {
         const unit = units.find((u) => u.id === id);
         const { data: inserted, error: err } = await supabase
           .from("equipment_checkouts")
-          .insert({ equipment_id: id, profile_id: profile.id })
+          .insert({
+            equipment_id: id,
+            profile_id: profile.id,
+            ...(selectedType?.checklistVersionId ? { checklist_version_id: selectedType.checklistVersionId } : {}),
+          })
           .select("id")
           .single();
         if (err) return { id, err };
