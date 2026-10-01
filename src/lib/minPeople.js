@@ -11,6 +11,13 @@ export function minimumPeopleFor(activityTypes) {
   return { count, typeNames: withMin.filter((t) => t.min_people === count).map((t) => t.name) };
 }
 
+// "Minimum 2 people" -- the banner heading.
+export function minimumPeopleTitle(activityTypes) {
+  const min = minimumPeopleFor(activityTypes);
+  if (!min) return null;
+  return `Minimum ${min.count} ${min.count === 1 ? "person" : "people"}`;
+}
+
 // "This job requires a minimum of 2 people (Ladders)."
 export function minimumPeopleMessage(activityTypes) {
   const min = minimumPeopleFor(activityTypes);

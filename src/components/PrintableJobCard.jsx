@@ -11,7 +11,9 @@ export default function PrintableJobCard({ job, subtasks, photos, activity, acti
       <img src="/logo.png" alt="Tree Tops Caravan Park" style={{ width: "89px", height: "79px", marginBottom: "8px" }} />
       <h1 style={{ fontFamily: "'Lora', serif", fontSize: "20px", margin: "0 0 12px" }}>{job.description}</h1>
       {minimumPeopleMessage(activityTypes) && (
-        <p style={{ fontWeight: 700, margin: "-6px 0 12px" }}>{minimumPeopleMessage(activityTypes)}</p>
+        <p style={{ fontWeight: 700, fontSize: "15px", border: "3px solid #000", padding: "8px 12px", margin: "0 0 12px" }}>
+          ⚠ {minimumPeopleMessage(activityTypes)}
+        </p>
       )}
 
       <table style={{ borderCollapse: "collapse" }}>
