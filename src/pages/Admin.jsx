@@ -11,6 +11,7 @@ import JobAssignmentTab from "./admin/JobAssignmentTab.jsx";
 import UsersTab from "./admin/UsersTab.jsx";
 import SchedulesTab from "./admin/SchedulesTab.jsx";
 import EquipmentTypesTab from "./admin/EquipmentTypesTab.jsx";
+import MachineCompetenciesTab from "./admin/MachineCompetenciesTab.jsx";
 import EquipmentTab from "./admin/EquipmentTab.jsx";
 import ServiceTemplatesTab from "./admin/ServiceTemplatesTab.jsx";
 import CommonFaultDescriptionsTab from "./admin/CommonFaultDescriptionsTab.jsx";
@@ -46,6 +47,7 @@ const ALL_TABS = [
   { key: "schedules", label: "Recurring jobs", Component: SchedulesTab, permission: "can_manage_reference_data" },
   { key: "equipment", label: "Equipment", Component: EquipmentTab, permission: "can_manage_equipment_status" },
   { key: "equipmentTypes", label: "Equipment types", Component: EquipmentTypesTab, permission: "can_manage_equipment_status" },
+  { key: "machineCompetencies", label: "Machine competencies", Component: MachineCompetenciesTab, permission: "can_manage_machine_competencies" },
   { key: "serviceTemplates", label: "Service templates", Component: ServiceTemplatesTab, permission: "can_manage_equipment_status" },
   { key: "faultDescriptions", label: "Common faults", Component: CommonFaultDescriptionsTab, permission: "can_manage_equipment_status" },
   { key: "checkoutLog", label: "Equipment history", Component: EquipmentCheckoutLogTab, permission: "can_manage_equipment_status" },
@@ -73,7 +75,7 @@ const ALL_TABS = [
 // settings (it was one flat 20-tab row before this).
 const GROUPS = [
   { name: "Jobs", keys: ["templates", "activities", "library", "schedules"] },
-  { name: "Equipment", keys: ["equipment", "equipmentTypes", "serviceTemplates", "faultDescriptions", "checkoutLog"] },
+  { name: "Equipment", keys: ["equipment", "equipmentTypes", "machineCompetencies", "serviceTemplates", "faultDescriptions", "checkoutLog"] },
   { name: "Keys", keys: ["keyTags", "keyActivity", "keyReports", "roleKeyReasons"] },
   { name: "People & access", keys: ["contractors", "groups", "users", "rfid", "roles", "roleVisibility", "jobAssignment"] },
   { name: "Holiday", keys: ["holidaySettings", "bankHolidays", "workPatterns"] },

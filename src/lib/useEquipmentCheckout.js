@@ -10,6 +10,7 @@ import { useAuth } from "./AuthContext.jsx";
 import { supabase } from "./supabaseClient.js";
 import { getEquipmentTypeAvailabilityCounts, getAvailableUnits } from "./equipmentAvailability.js";
 import { notifyJobAssigned } from "./jobAssignmentNotify.js";
+import { getCompetentTypeIds } from "./machineCompetencies.js";
 
 export function useEquipmentCheckout() {
   const { profile, org } = useAuth();
@@ -35,6 +36,17 @@ export function useEquipmentCheckout() {
     if (!org) return;
     getEquipmentTypeAvailabilityCounts(org.id).then(setCategories);
   }, [org]);
+
+  // The equipment types this person is competent on (83-machine-
+  // competencies.sql), or null when unknown -- then no warning is shown.
+  const [competentTypeIds, setCompetentTypeIds] = useState(null);
+  useEffect(() => {
+    if (!profile?.id) return;
+    getCompetentTypeIds(profile.id).then(setCompetentTypeIds);
+  }, [profile?.id]);
+  // Not blocking: the confirm screen shows a warning, and the database
+  // records competency_warning on the checkout itself.
+  const competencyWarning = !!(selectedType && competentTypeIds && !competentTypeIds.has(selectedType.id));
 
   function openCategory(type) {
     setError(null);
@@ -193,6 +205,7 @@ export function useEquipmentCheckout() {
   return {
     view,
     setView,
+    competencyWarning,
     categories,
     selectedType,
     units,

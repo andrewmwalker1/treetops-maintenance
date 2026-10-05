@@ -17,6 +17,7 @@ import { Alert, Button, Card, EmptyState, IconArrowLeft, Input, PageHeader, Pill
 export default function CheckoutKit() {
   const navigate = useNavigate();
   const {
+    competencyWarning,
     view,
     setView,
     categories,
@@ -91,6 +92,12 @@ export default function CheckoutKit() {
           Back
         </Button>
         <PageHeader title={selectedType.name} subtitle={selected.length === 1 ? [selected[0].name, equipmentMakeModel(selected[0])].filter(Boolean).join(" · ") : undefined} />
+
+        {competencyWarning && (
+          <Alert tone="danger" title={`${selectedType.name} isn't in your competency list`} style={{ marginBottom: "var(--space-4)", fontSize: "var(--text-base)" }}>
+            You can still check it out, but it'll be noted on the check-out record.
+          </Alert>
+        )}
 
         {selectedType.preUseChecklist.length > 0 && (
           <Card pad="md" style={{ marginBottom: "var(--space-4)" }}>

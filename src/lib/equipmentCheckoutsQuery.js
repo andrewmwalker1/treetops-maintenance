@@ -75,9 +75,12 @@ async function queryCheckoutEvents(filters) {
       raw: c,
       // The pre-use checklist as it was when this checkout was taken.
       checklistVersion: versions[c.checklist_version_id] || null,
-      details: c.checked_in_at
-        ? `Checked out by ${c.checked_out_by?.display_name || "—"}, returned by ${c.checked_in_by_profile?.display_name || "—"}`
-        : `Checked out by ${c.checked_out_by?.display_name || "—"} — still out`,
+      details:
+        (c.checked_in_at
+          ? `Checked out by ${c.checked_out_by?.display_name || "—"}, returned by ${c.checked_in_by_profile?.display_name || "—"}`
+          : `Checked out by ${c.checked_out_by?.display_name || "—"} — still out`) +
+        // 83-machine-competencies.sql: they weren't ticked for this type.
+        (c.competency_warning ? " · not in their competency list" : ""),
     }));
 }
 
