@@ -41,6 +41,12 @@ automatically, every session.
 - Any Supabase SQL change: add a new numbered file in `supabase/` (don't
   edit an already-applied one) AND actually run it against the live
   project — every migration file is idempotent, safe to re-run.
+- Every new `public` table needs its Data API grant in the same file
+  that creates it, straight after the `create table` — Supabase stopped
+  granting these automatically on 30 Oct 2026, so without it the app
+  gets "permission denied":
+  `grant select, insert, update, delete on public.<table> to anon, authenticated, service_role;`
+  (RLS still decides access; see `84-explicit-table-grants.sql`).
 - Never put the Supabase **service role key** in `.env` or any
   `VITE_`-prefixed variable — it must never reach the browser. Only
   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and
