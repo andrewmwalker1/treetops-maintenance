@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CampManager to Sage</title>
+<style>
+:root {
+  --bg: #f5f6f8; --panel: #ffffff; --text: #1c2230; --muted: #5c6574; --line: #dde2e9;
+  --accent: #1f6f4a; --accent-ink: #ffffff; --input: #ffffff;
+  --warn-bg: #fff5dc; --warn: #7d5200; --err-bg: #fdeaea; --err: #a12626; --ok-bg: #e7f4ec; --ok: #1f6f4a;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #13161b; --panel: #1b1f26; --text: #e5e8ee; --muted: #9aa2b1; --line: #2d333e;
+    --accent: #3fa772; --accent-ink: #08140d; --input: #13161b;
+    --warn-bg: #2f2610; --warn: #f0c35c; --err-bg: #371919; --err: #f29090; --ok-bg: #152d1e; --ok: #80d3a3;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+h2 { font-size: 16px; margin: 0 0 12px; }
+p { margin: 0 0 8px; }
+.muted { color: var(--muted); }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+.drop { border: 2px dashed var(--line); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; }
+.drop.over { border-color: var(--accent); background: var(--ok-bg); }
+.slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 12px; }
+.slot { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+.slot b { display: block; }
+.slot.loaded { border-color: var(--ok); background: var(--ok-bg); }
+.row { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; }
+label { font-size: 13px; color: var(--muted); display: block; }
+input, select, button { font: inherit; color: var(--text); }
+input, select { background: var(--input); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+label input, label select { display: block; margin-top: 4px; }
+button { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; padding: 10px 18px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.table-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+th { font-weight: 600; color: var(--muted); font-size: 13px; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tfoot td { font-weight: 600; border-bottom: 0; }
+tr.off td { color: var(--muted); }
+tr.off td.num { text-decoration: line-through; }
+.notice { border-radius: 8px; padding: 10px 12px; margin-top: 10px; font-size: 14px; }
+.notice.warn { background: var(--warn-bg); color: var(--warn); }
+.notice.err { background: var(--err-bg); color: var(--err); }
+.notice.ok { background: var(--ok-bg); color: var(--ok); }
+.notice ul { margin: 6px 0 0; padding-left: 20px; }
+details summary { cursor: pointer; font-weight: 600; }
+details[open] summary { margin-bottom: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+input.wide { width: 100%; min-width: 180px; }
+input.narrow { width: 90px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>CampManager to Sage</h1>
+  <p class="muted">Turns a CampManager billing run into a Sage sales quick-entry CSV. Files are read on this computer only; nothing is uploaded.</p>
+
+  <section class="panel">
+    <h2>1. CampManager exports</h2>
+    <div class="drop" id="drop">
+      <p><b>Drop the CSV files here</b>, or click to choose them</p>
+      <p class="muted">Invoice Items and Holiday Homes are required. Invoices is optional and is used to check the totals.</p>
+      <input type="file" id="fileInput" accept=".csv,text/csv" multiple hidden>
+    </div>
+    <div class="slots" id="slots"></div>
+    <div id="fileErrors"></div>
+  </section>
+
+  <section class="panel">
+    <h2>2. Posting details</h2>
+    <div class="row">
+      <label>Date to post into Sage<input type="date" id="postDate"></label>
+      <label>Year used in references<input type="text" id="refYear" class="narrow" placeholder="2026"></label>
+    </div>
+  </section>
+
+  <div id="result"></div>
+
+  <section class="panel">
+    <details id="settingsPanel">
+      <summary>Settings</summary>
+      <div id="settings"></div>
+    </details>
+  </section>
+</main>
+
+<script>
+// ==CORE START== (pure logic, no DOM; also loaded by the test script)
+const DEFAULT_TYPES = [
+  { id: "electric", label: "Electric", nominal: "4005", ref: "Electric" },
+  { id: "gas", label: "Gas", nominal: "4006", ref: "Gas" },
+  { id: "pitch", label: "Pitch Fees", nominal: "4003", ref: "Pitch Fees" },
+  { id: "extended", label: "Extended Season", nominal: "4003", ref: "Extended Season" },
+  { id: "wifi", label: "WiFi Usage", nominal: "7500", ref: "Wifi Usage" },
+  { id: "rates", label: "Rates, Water & Refuse", nominal: "4011", ref: "Rates Water & Refuse" },
+];
+// "manual" = left out of the CSV because it's keyed into Sage by hand.
+const MANUAL = "manual";
+const VAT_NAMES = ["Standard", "Lower Rate", "Zero Rated", "Exempt"];
+const VAT_BY_PERCENT = { 20: "Standard", 5: "Lower Rate", 0: "Zero Rated" };
+const SAGE_HEADER = ["Type", "Customer Reference", "Date", "Customer Name", "Reference", "Ledger Account", "Details", "Net", "VAT Rate", "VAT", "Total"];
+
+function parseCsv(text) {
+  text = text.replace(/^﻿/, "");
+  const records = [];
+  let row = [], field = "", quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; } else quoted = false;
+      } else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") { row.push(field); field = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); records.push(row); row = []; field = "";
+    } else field += ch;
+  }
+  if (field !== "" || row.length) { row.push(field); records.push(row); }
+  const headers = (records.shift() || []).map((h) => h.trim());
+  const rows = records
+    .filter((r) => r.some((v) => v.trim() !== ""))
+    .map((r) => Object.fromEntries(headers.map((h, i) => [h, (r[i] ?? "").trim()])));
+  return { headers, rows };
+}
+
+function detectKind(headers) {
+  if (headers.includes("Invoice Item Code")) return "items";
+  if (headers.includes("Unit Site")) return "homes";
+  if (headers.includes("Invoice Number") && headers.includes("Invoice Total")) return "invoices";
+  return null;
+}
+
+// Sage's accounts are the unpadded pitch numbers: YH-D01 -> YH-D1.
+function stripPitchZeros(pitch) {
+  return (pitch || "").trim().toUpperCase().replace(/([A-Z])0+(?=\d)/g, "$1");
+}
+
+// Key for remembering how an unrecognised line was coded: the description
+// with numbers stripped, so "Fee 2026/27" next year still matches.
+function lineKey(name) {
+  return name.toLowerCase().replace(/\d+/g, " ").replace(/[^a-z&]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function money(value) {
+  const n = Number(String(value ?? "").replace(/[£,\s]/g, ""));
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+}
+
+function classify(item, learned) {
+  const name = item["Invoice Item Name"] || "";
+  const code = item["Invoice Item Code"] || "";
+  const cmNominal = item["Invoice Item Nominal Code"] || "";
+  const remembered = learned[lineKey(name)];
+  if (remembered) return remembered;
+  if (code === "20002" || (/install/i.test(name) && /wi-?fi/i.test(name))) return MANUAL;
+  if (code === "6510" || /^electric/i.test(name)) return "electric";
+  if (code === "6511" || /^gas\b/i.test(name)) return "gas";
+  if (cmNominal === "10004" || /extended season/i.test(name)) return "extended";
+  if (code === "20001" || /wi-?fi/i.test(name)) return "wifi";
+  if (cmNominal === "10001" || /pitch fee/i.test(name)) return "pitch";
+  if (/water|rates|refuse/i.test(name)) return "rates";
+  return null;
+}
+
+function buildHomesIndex(homes) {
+  const byCustomer = new Map();
+  for (const h of homes || []) {
+    const id = h["Unit Customer ID"];
+    const site = stripPitchZeros(h["Unit Site"]);
+    if (!id || id === "0" || !site) continue;
+    if (!byCustomer.has(id)) byCustomer.set(id, new Set());
+    byCustomer.get(id).add(site);
+  }
+  return byCustomer;
+}
+
+// cfg: { types, learned, pitches (customerId -> pitch), year, refOverrides, vatOverrides, excludedTypes (Set of type ids left out of this export) }
+function buildExport(data, cfg) {
+  const typesById = new Map(cfg.types.map((t) => [t.id, t]));
+  const homesIndex = buildHomesIndex(data.homes);
+  const out = { rows: [], zero: [], manual: [], deselected: [], unknown: new Map(), missingPitch: new Map(), warnings: [], summary: new Map() };
+
+  (data.items || []).forEach((item, index) => {
+    const name = item["Invoice Item Name"] || "";
+    const custId = item["Invoice Customer ID"] || "";
+    const invoiceNo = item["Invoice No"] || "";
+    const net = money(item["Invoice Item NET"]);
+    const vat = money(item["Invoice Item VAT"]);
+    const total = money(item["Invoice Item Total"]);
+    const customer = [item["Invoice Customer Title"], item["Invoice Customer First Name"], item["Invoice Customer Last Name"]].filter(Boolean).join(" ");
+    const line = { index, invoiceNo, custId, customer, name, net, vat, total, vatPercent: item["Invoice Item VAT Rate"] };
+
+    if ([net, vat, total].some(Number.isNaN)) {
+      out.warnings.push(`Invoice ${invoiceNo}: couldn't read the amounts on "${name}".`);
+      return;
+    }
+    if (net === 0 && total === 0) { out.zero.push(line); return; }
+
+    const known = homesIndex.get(custId);
+    line.pitch = cfg.pitches[custId] ? stripPitchZeros(cfg.pitches[custId]) : known && known.size === 1 ? [...known][0] : null;
+
+    const typeId = classify(item, cfg.learned);
+    if (typeId === MANUAL) { out.manual.push(line); return; }
+    const type = typesById.get(typeId);
+    if (!type) {
+      const key = lineKey(name);
+      if (!out.unknown.has(key)) out.unknown.set(key, { key, name, count: 0, total: 0 });
+      const u = out.unknown.get(key);
+      u.count++; u.total += total;
+      return;
+    }
+
+    const percent = Number(line.vatPercent);
+    if (!out.summary.has(type.id)) out.summary.set(type.id, { count: 0, net: 0, vat: 0, total: 0, percents: new Set() });
+    const s = out.summary.get(type.id);
+    s.count++; s.net += net; s.vat += vat; s.total += total; s.percents.add(percent);
+    if (cfg.excludedTypes?.has(type.id)) { out.deselected.push(line); return; }
+
+    if (!line.pitch) {
+      if (!out.missingPitch.has(custId)) out.missingPitch.set(custId, { custId, customer, invoices: new Set(), options: known ? [...known] : [] });
+      out.missingPitch.get(custId).invoices.add(invoiceNo);
+    }
+
+    const vatName = cfg.vatOverrides[type.id] || VAT_BY_PERCENT[percent];
+    if (!vatName) out.warnings.push(`Invoice ${invoiceNo}: VAT rate ${line.vatPercent}% has no Sage VAT name. Pick one for ${type.label} below.`);
+    if (Math.abs(net + vat - total) > 0.005) out.warnings.push(`Invoice ${invoiceNo}: net ${net.toFixed(2)} + VAT ${vat.toFixed(2)} doesn't equal total ${total.toFixed(2)} on "${name}".`);
+    if ((vatName === "Exempt" || vatName === "Zero Rated") && vat !== 0) out.warnings.push(`Invoice ${invoiceNo}: ${type.label} is set to ${vatName} but the line carries £${vat.toFixed(2)} VAT.`);
+
+    Object.assign(line, {
+      typeId: type.id,
+      nominal: type.nominal,
+      reference: cfg.refOverrides[type.id] ?? `${type.ref} ${cfg.year}`.trim(),
+      vatName: vatName || "",
+    });
+    out.rows.push(line);
+  });
+
+  out.rows.sort((a, b) => Number(a.invoiceNo) - Number(b.invoiceNo) || a.index - b.index);
+
+  if (data.invoices) {
+    const itemTotals = new Map();
+    for (const item of data.items || []) {
+      const no = item["Invoice No"];
+      itemTotals.set(no, (itemTotals.get(no) || 0) + money(item["Invoice Item Total"]));
+    }
+    const invoiceNos = new Set();
+    let mismatches = 0;
+    for (const inv of data.invoices) {
+      const no = inv["Invoice Number"];
+      invoiceNos.add(no);
+      if (!itemTotals.has(no)) {
+        if (money(inv["Invoice Total"]) === 0) continue; // empty £0 invoice, nothing to post
+        out.warnings.push(`Invoice ${no} is in the Invoices file but has no lines in the Invoice Items file.`); continue; }
+      if (Math.abs(itemTotals.get(no) - money(inv["Invoice Total"])) > 0.005) {
+        mismatches++;
+        out.warnings.push(`Invoice ${no}: lines add up to £${itemTotals.get(no).toFixed(2)} but the invoice total is £${money(inv["Invoice Total"]).toFixed(2)}.`);
+      }
+    }
+    for (const no of itemTotals.keys()) if (!invoiceNos.has(no)) out.warnings.push(`Invoice ${no} has lines but isn't in the Invoices file. Were both exported from the same run?`);
+    out.invoiceCheck = { invoices: data.invoices.length, mismatches, grandTotal: data.invoices.reduce((a, i) => a + money(i["Invoice Total"]), 0) };
+  }
+  return out;
+}
+
+function csvField(value) {
+  const s = String(value ?? "");
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function toSageCsv(rows, postDate) {
+  const lines = [SAGE_HEADER.join(",")];
+  for (const r of rows) {
+    lines.push(["Inv", r.pitch, postDate, "", r.reference, r.nominal, "", r.net.toFixed(2), r.vatName, r.vat.toFixed(2), r.total.toFixed(2)].map(csvField).join(","));
+  }
+  return lines.join("\r\n") + "\r\n";
+}
+// ==CORE END==
+
+const STORE_KEY = "campmanager-to-sage-settings-v1";
+const state = { files: {}, fileNames: {}, fileErrors: [], refOverrides: {}, vatOverrides: {}, excludedTypes: new Set() };
+let settings = loadSettings();
+let lastResult = null;
+
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const gbp = (n) => "£" + n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function normalizeSettings(s) {
+  const saved = Array.isArray(s.types) ? s.types : [];
+  const builtIn = DEFAULT_TYPES.map((d) => {
+    const o = saved.find((t) => t.id === d.id) || {};
+    return { id: d.id, label: d.label, nominal: o.nominal ?? d.nominal, ref: o.ref ?? d.ref, builtIn: true };
+  });
+  const custom = saved
+    .filter((t) => t && t.id && !DEFAULT_TYPES.some((d) => d.id === t.id))
+    .map((t) => ({ id: t.id, label: t.label || "", nominal: t.nominal || "", ref: t.ref || "" }));
+  return { types: [...builtIn, ...custom], learned: s.learned || {}, pitches: s.pitches || {} };
+}
+function loadSettings() {
+  try { return normalizeSettings(JSON.parse(localStorage.getItem(STORE_KEY) || "{}")); }
+  catch (e) { return normalizeSettings({}); }
+}
+function saveSettings() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); } catch (e) { /* storage unavailable: settings last this session only */ }
+}
+
+function postDateUk() {
+  const v = $("#postDate").value;
+  if (!v) return "";
+  const [y, m, d] = v.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+const KIND_LABELS = { items: "Invoice Items", homes: "Holiday Homes", invoices: "Invoices (optional)" };
+
+function loadText(fileName, text) {
+  const parsed = parseCsv(text);
+  const kind = detectKind(parsed.headers);
+  if (!kind) { state.fileErrors.push(`${fileName} doesn't look like an Invoice Items, Invoices or Holiday Homes export.`); return; }
+  state.files[kind] = parsed.rows;
+  state.fileNames[kind] = fileName;
+  state.refOverrides = {};
+  state.vatOverrides = {};
+  state.excludedTypes = new Set();
+}
+
+async function loadFiles(fileList) {
+  state.fileErrors = [];
+  for (const f of fileList) loadText(f.name, await f.text());
+  render();
+}
+
+function renderSlots() {
+  $("#slots").innerHTML = Object.entries(KIND_LABELS).map(([kind, label]) => {
+    const rows = state.files[kind];
+    return `<div class="slot ${rows ? "loaded" : ""}"><b>${label}</b>${rows ? `${esc(state.fileNames[kind])} · ${rows.length} rows` : '<span class="muted">Not loaded</span>'}</div>`;
+  }).join("");
+  $("#fileErrors").innerHTML = state.fileErrors.map((e) => `<div class="notice err">${esc(e)}</div>`).join("");
+}
+
+function typeOptions(selected, includeManual) {
+  const opts = ['<option value="">Choose…</option>'];
+  for (const t of settings.types) opts.push(`<option value="${esc(t.id)}" ${t.id === selected ? "selected" : ""}>${esc(t.label)} (${esc(t.nominal)})</option>`);
+  if (includeManual) opts.push(`<option value="${MANUAL}">Leave out: post by hand in Sage</option>`);
+  return opts.join("");
+}
+
+function renderResult() {
+  const el = $("#result");
+  if (!state.files.items) { el.innerHTML = ""; lastResult = null; return; }
+  if (!$("#refYear").value) $("#refYear").value = ($("#postDate").value || "").slice(0, 4) || String(new Date().getFullYear());
+
+  const r = buildExport(state.files, {
+    types: settings.types, learned: settings.learned, pitches: settings.pitches,
+    year: $("#refYear").value.trim(), refOverrides: state.refOverrides, vatOverrides: state.vatOverrides,
+    excludedTypes: state.excludedTypes,
+  });
+  lastResult = r;
+  const blockers = [];
+  if (!state.files.homes) blockers.push("Load the Holiday Homes export.");
+  if (!postDateUk()) blockers.push("Enter the date to post into Sage.");
+  if (r.unknown.size) blockers.push(`Choose a charge type for ${r.unknown.size} unrecognised line type${r.unknown.size > 1 ? "s" : ""}.`);
+  if (state.files.homes && r.missingPitch.size) blockers.push(`Enter the pitch for ${r.missingPitch.size} customer${r.missingPitch.size > 1 ? "s" : ""}.`);
+  if (r.rows.some((x) => !x.vatName)) blockers.push("Pick a VAT rate for every charge type.");
+  if (!r.rows.length) blockers.push("There are no lines to export.");
+
+  let html = "";
+
+  if (r.unknown.size || (state.files.homes && r.missingPitch.size)) {
+    html += `<section class="panel"><h2>Needs your attention</h2>`;
+    if (r.unknown.size) {
+      html += `<p>These lines don't match a known charge type. Your choice is remembered for future runs.</p><div class="table-wrap"><table><thead><tr><th>Line description</th><th class="num">Lines</th><th class="num">Total</th><th>Charge type</th></tr></thead><tbody>`;
+      for (const u of r.unknown.values()) {
+        html += `<tr><td>${esc(u.name)}</td><td class="num">${u.count}</td><td class="num">${gbp(u.total)}</td><td><select data-learn="${esc(u.key)}">${typeOptions("", true)}</select></td></tr>`;
+      }
+      html += `</tbody></table></div><p class="muted">Need a nominal code that isn't listed? Add a charge type under Settings.</p>`;
+    }
+    if (state.files.homes && r.missingPitch.size) {
+      html += `<p style="margin-top:12px">These customers aren't on a pitch in the Holiday Homes export, usually because they've left since the invoice was raised. Enter their pitch; it's remembered for future runs.</p><div class="table-wrap"><table><thead><tr><th>Customer</th><th>CampManager ID</th><th>Invoices</th><th>Pitch</th></tr></thead><tbody>`;
+      for (const m of r.missingPitch.values()) {
+        const input = m.options.length > 1
+          ? `<select data-pitch="${esc(m.custId)}"><option value="">Choose…</option>${m.options.map((p) => `<option>${esc(p)}</option>`).join("")}</select>`
+          : `<input type="text" class="narrow" data-pitch="${esc(m.custId)}" placeholder="YH-D1">`;
+        html += `<tr><td>${esc(m.customer)}</td><td>${esc(m.custId)}</td><td>${esc([...m.invoices].join(", "))}</td><td>${input}</td></tr>`;
+      }
+      html += `</tbody></table></div>`;
+    }
+    html += `</section>`;
+  }
+
+  html += `<section class="panel"><h2>3. What will go into Sage</h2>`;
+  if (r.summary.size) {
+    html += `<p class="muted">Untick a charge type to leave it out of this export.</p>`;
+    html += `<div class="table-wrap"><table><thead><tr><th>Include</th><th>Charge type</th><th>Nominal</th><th>Reference</th><th>VAT rate</th><th class="num">Lines</th><th class="num">Net</th><th class="num">VAT</th><th class="num">Total</th></tr></thead><tbody>`;
+    let tn = 0, tv = 0, tt = 0, tc = 0;
+    for (const t of settings.types) {
+      const s = r.summary.get(t.id);
+      if (!s) continue;
+      const off = state.excludedTypes.has(t.id);
+      const include = `<input type="checkbox" data-include="${esc(t.id)}" ${off ? "" : "checked"} aria-label="Include ${esc(t.label)}">`;
+      if (off) {
+        html += `<tr class="off"><td>${include}</td><td>${esc(t.label)}</td><td>${esc(t.nominal)}</td><td colspan="2" class="muted">Left out of this export</td><td class="num">${s.count}</td><td class="num">${gbp(s.net)}</td><td class="num">${gbp(s.vat)}</td><td class="num">${gbp(s.total)}</td></tr>`;
+        continue;
+      }
+      tn += s.net; tv += s.vat; tt += s.total; tc += s.count;
+      const ref = state.refOverrides[t.id] ?? `${t.ref} ${$("#refYear").value.trim()}`.trim();
+      const auto = [...s.percents].map((p) => `${p}% → ${VAT_BY_PERCENT[p] || "?"}`).join(", ");
+      const vatSel = `<select data-vat="${esc(t.id)}"><option value="">As invoiced (${esc(auto)})</option>${VAT_NAMES.map((v) => `<option ${state.vatOverrides[t.id] === v ? "selected" : ""}>${v}</option>`).join("")}</select>`;
+      html += `<tr><td>${include}</td><td>${esc(t.label)}</td><td>${esc(t.nominal)}</td><td><input type="text" class="wide" data-ref="${esc(t.id)}" value="${esc(ref)}"></td><td>${vatSel}</td><td class="num">${s.count}</td><td class="num">${gbp(s.net)}</td><td class="num">${gbp(s.vat)}</td><td class="num">${gbp(s.total)}</td></tr>`;
+    }
+    html += `</tbody><tfoot><tr><td colspan="5">Total to Sage</td><td class="num">${tc}</td><td class="num">${gbp(tn)}</td><td class="num">${gbp(tv)}</td><td class="num">${gbp(tt)}</td></tr></tfoot></table></div>`;
+  } else {
+    html += `<p class="muted">No lines ready yet.</p>`;
+  }
+
+  if (r.zero.length) html += `<div class="notice ok">${r.zero.length} zero-value line${r.zero.length > 1 ? "s" : ""} left out.</div>`;
+  if (r.manual.length) {
+    html += `<div class="notice warn"><b>${r.manual.length} line${r.manual.length > 1 ? "s" : ""} left out to post by hand in Sage:</b><ul>${r.manual.map((m) => `<li>Invoice ${esc(m.invoiceNo)} · ${esc(m.pitch || m.customer)} · ${esc(m.name)} · ${gbp(m.total)}</li>`).join("")}</ul></div>`;
+  }
+  if (r.invoiceCheck) {
+    const exported = r.rows.reduce((a, x) => a + x.total, 0);
+    const left = [...r.manual, ...r.deselected].reduce((a, x) => a + x.total, 0) + [...r.unknown.values()].reduce((a, u) => a + u.total, 0);
+    const balanced = !r.invoiceCheck.mismatches && Math.abs(exported + left - r.invoiceCheck.grandTotal) < 0.005;
+    const status = !balanced ? " These don't reconcile; see the checks below." : r.unknown.size ? " Choose a charge type for the waiting lines above." : " Everything is accounted for.";
+    html += `<div class="notice ${!balanced ? "err" : r.unknown.size ? "warn" : "ok"}">${r.invoiceCheck.invoices} invoices totalling ${gbp(r.invoiceCheck.grandTotal)} in CampManager. ${gbp(exported)} goes to Sage${left ? `, ${gbp(left)} left out or waiting for a charge type` : ""}.${status}</div>`;
+  }
+  if (r.warnings.length) html += `<div class="notice warn"><b>Checks</b><ul>${r.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></div>`;
+
+  html += `<div class="actions"><button class="primary" id="download" ${blockers.length ? "disabled" : ""}>Download Sage CSV (${r.rows.length} lines)</button></div>`;
+  if (blockers.length) html += `<div class="notice err"><ul>${blockers.map((b) => `<li>${esc(b)}</li>`).join("")}</ul></div>`;
+
+  if (r.rows.length) {
+    html += `<details style="margin-top:14px"><summary>Preview every line</summary><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Pitch</th><th>Reference</th><th>Nominal</th><th>CampManager description</th><th class="num">Net</th><th>VAT rate</th><th class="num">VAT</th><th class="num">Total</th></tr></thead><tbody>`;
+    html += r.rows.map((x) => `<tr><td>${esc(x.invoiceNo)}</td><td>${esc(x.pitch || "—")}</td><td>${esc(x.reference)}</td><td>${esc(x.nominal)}</td><td>${esc(x.name.length > 70 ? x.name.slice(0, 70) + "…" : x.name)}</td><td class="num">${x.net.toFixed(2)}</td><td>${esc(x.vatName)}</td><td class="num">${x.vat.toFixed(2)}</td><td class="num">${x.total.toFixed(2)}</td></tr>`).join("");
+    html += `</tbody></table></div></details>`;
+  }
+  html += `</section>`;
+  el.innerHTML = html;
+}
+
+function renderSettings() {
+  let html = `<h2 style="margin-top:8px">Charge types</h2><p class="muted">The nominal code and reference wording for each kind of line. Built-in types are recognised automatically; any you add can be chosen for unrecognised lines.</p>`;
+  html += `<div class="table-wrap"><table><thead><tr><th>Charge type</th><th>Nominal</th><th>Reference wording (year is added)</th><th></th></tr></thead><tbody>`;
+  for (const t of settings.types) {
+    html += `<tr><td>${t.builtIn ? esc(t.label) : `<input type="text" data-type-field="label" data-type="${esc(t.id)}" value="${esc(t.label)}">`}</td>`
+      + `<td><input type="text" class="narrow" data-type-field="nominal" data-type="${esc(t.id)}" value="${esc(t.nominal)}"></td>`
+      + `<td><input type="text" class="wide" data-type-field="ref" data-type="${esc(t.id)}" value="${esc(t.ref)}"></td>`
+      + `<td>${t.builtIn ? "" : `<button data-remove-type="${esc(t.id)}">Remove</button>`}</td></tr>`;
+  }
+  html += `</tbody></table></div><div class="actions"><button id="addType">Add charge type</button></div>`;
+
+  const learned = Object.entries(settings.learned);
+  html += `<h2 style="margin-top:20px">Remembered line types</h2>`;
+  html += learned.length
+    ? `<div class="table-wrap"><table><tbody>${learned.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${v === MANUAL ? "Left out (by hand)" : esc(settings.types.find((t) => t.id === v)?.label || v)}</td><td><button data-forget-line="${esc(k)}">Forget</button></td></tr>`).join("")}</tbody></table></div>`
+    : `<p class="muted">None yet.</p>`;
+
+  const pitches = Object.entries(settings.pitches);
+  html += `<h2 style="margin-top:20px">Remembered pitches</h2>`;
+  html += pitches.length
+    ? `<div class="table-wrap"><table><thead><tr><th>CampManager customer ID</th><th>Pitch</th><th></th></tr></thead><tbody>${pitches.map(([k, v]) => `<tr><td>${esc(k)}</td><td>${esc(v)}</td><td><button data-forget-pitch="${esc(k)}">Forget</button></td></tr>`).join("")}</tbody></table></div>`
+    : `<p class="muted">None yet.</p>`;
+
+  html += `<h2 style="margin-top:20px">Backup</h2><p class="muted">Settings are saved in this browser only. Back them up to move them to another computer.</p>`
+    + `<div class="actions"><button id="backup">Back up settings</button><button id="restore">Restore from backup</button><button id="reset">Reset to defaults</button><input type="file" id="restoreInput" accept=".json,application/json" hidden></div>`;
+  $("#settings").innerHTML = html;
+}
+
+function render() {
+  renderSlots();
+  renderResult();
+  renderSettings();
+}
+
+function downloadBlob(content, filename, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ---- events ----
+const drop = $("#drop");
+drop.addEventListener("click", () => $("#fileInput").click());
+$("#fileInput").addEventListener("change", (e) => { loadFiles(e.target.files); e.target.value = ""; });
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); loadFiles(e.dataTransfer.files); });
+
+$("#postDate").addEventListener("change", () => {
+  const y = $("#postDate").value.slice(0, 4);
+  if (y) $("#refYear").value = y;
+  state.refOverrides = {};
+  render();
+});
+$("#refYear").addEventListener("change", () => { state.refOverrides = {}; render(); });
+
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.dataset.learn !== undefined && t.value) { settings.learned[t.dataset.learn] = t.value; saveSettings(); render(); }
+  else if (t.dataset.pitch !== undefined && t.value.trim()) { settings.pitches[t.dataset.pitch] = stripPitchZeros(t.value); saveSettings(); render(); }
+  else if (t.dataset.include !== undefined) { if (t.checked) state.excludedTypes.delete(t.dataset.include); else state.excludedTypes.add(t.dataset.include); render(); }
+  else if (t.dataset.ref !== undefined) { state.refOverrides[t.dataset.ref] = t.value.trim(); render(); }
+  else if (t.dataset.vat !== undefined) { if (t.value) state.vatOverrides[t.dataset.vat] = t.value; else delete state.vatOverrides[t.dataset.vat]; render(); }
+  else if (t.dataset.typeField) {
+    const type = settings.types.find((x) => x.id === t.dataset.type);
+    if (type) { type[t.dataset.typeField] = t.value.trim(); saveSettings(); render(); }
+  }
+});
+
+document.addEventListener("click", (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.id === "download" && lastResult) {
+    downloadBlob(toSageCsv(lastResult.rows, postDateUk()), `Sage quick entries ${$("#postDate").value}.csv`, "text/csv;charset=utf-8");
+  } else if (t.id === "addType") {
+    settings.types.push({ id: "custom-" + Date.now(), label: "New charge type", nominal: "", ref: "" });
+    saveSettings(); render();
+  } else if (t.dataset.removeType) {
+    settings.types = settings.types.filter((x) => x.id !== t.dataset.removeType);
+    for (const [k, v] of Object.entries(settings.learned)) if (v === t.dataset.removeType) delete settings.learned[k];
+    saveSettings(); render();
+  } else if (t.dataset.forgetLine) {
+    delete settings.learned[t.dataset.forgetLine]; saveSettings(); render();
+  } else if (t.dataset.forgetPitch) {
+    delete settings.pitches[t.dataset.forgetPitch]; saveSettings(); render();
+  } else if (t.id === "backup") {
+    downloadBlob(JSON.stringify(settings, null, 2), "campmanager-to-sage-settings.json", "application/json");
+  } else if (t.id === "restore") {
+    $("#restoreInput").click();
+  } else if (t.id === "reset") {
+    if (confirm("Reset charge types and forget all remembered lines and pitches?")) { settings = normalizeSettings({}); saveSettings(); render(); }
+  }
+});
+
+document.addEventListener("change", async (e) => {
+  if (e.target.id !== "restoreInput" || !e.target.files[0]) return;
+  try { settings = normalizeSettings(JSON.parse(await e.target.files[0].text())); saveSettings(); render(); }
+  catch (err) { alert("That file isn't a settings backup."); }
+});
+
+render();
+</script>
+</body>
+</html>
