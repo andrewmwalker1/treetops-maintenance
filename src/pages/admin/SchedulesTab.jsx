@@ -344,15 +344,21 @@ export default function SchedulesTab() {
         <PageHeader title={form.id ? "Edit recurring job" : "New recurring job"} level={2} />
         <Card as="form" pad="md" onSubmit={handleSave}>
           <label className="tt-field__label" htmlFor="schedule-job-type">Job template (optional)</label>
-          <SearchPicker
+          <Select
             id="schedule-job-type"
-            items={jobTypes}
             value={form.jobTypeId}
-            onChange={handleJobTypeChange}
-            placeholder="Type to search job templates…"
-            ariaLabel="Job template"
+            onChange={(e) => handleJobTypeChange(e.target.value)}
             style={{ marginBottom: "var(--space-3)" }}
-          />
+          >
+            <option value="">No template</option>
+            {[...jobTypes]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((jt) => (
+                <option key={jt.id} value={jt.id}>
+                  {jt.name}
+                </option>
+              ))}
+          </Select>
 
           <label className="tt-field__label">Description</label>
           <Textarea required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={2} style={{ marginBottom: "var(--space-3)" }} />

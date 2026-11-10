@@ -87,7 +87,6 @@ export default function NewJob() {
   const [activityTypes, setActivityTypes] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [defaultActivitiesByType, setDefaultActivitiesByType] = useState({}); // job_type_id -> [task_type_id]
-  const [recentJobTypeIds, setRecentJobTypeIds] = useState([]);
 
   const [step, setStep] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -185,32 +184,6 @@ export default function NewJob() {
     };
   }, [linkedToId, handoffItemId]);
 
-  // The last few *distinct* job templates this person has actually used --
-  // shown as one-tap chips above the search box so a repeat job (the same
-  // 2-3 templates most days) doesn't need reopening a full list every time.
-  useEffect(() => {
-    if (!org || !profile) return;
-    supabase
-      .from("jobs")
-      .select("job_type_id, created_at")
-      .eq("org_id", org.id)
-      .eq("created_by", profile.id)
-      .not("job_type_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        const seen = new Set();
-        const ids = [];
-        for (const row of data || []) {
-          if (seen.has(row.job_type_id)) continue;
-          seen.add(row.job_type_id);
-          ids.push(row.job_type_id);
-          if (ids.length === 3) break;
-        }
-        setRecentJobTypeIds(ids);
-      });
-  }, [org, profile]);
-
   // navigator.onLine only tells you the state at the moment you read it --
   // these events are what keep the offline chip (and the submit-time queue
   // check below) current while the user is sitting on this form.
@@ -229,9 +202,12 @@ export default function NewJob() {
     };
   }, []);
 
-  const recentTemplates = jobTypes
-    .filter((jt) => recentJobTypeIds.includes(jt.id))
-    .sort((a, b) => recentJobTypeIds.indexOf(a.id) - recentJobTypeIds.indexOf(b.id));
+  // Few enough templates (5 at time of writing) that a plain dropdown beats a
+  // type-to-search box: every option is visible at once, and on a phone it
+  // opens the native picker.
+  const sortedJobTypes = [...jobTypes].sort((a, b) => a.name.localeCompare(b.name));
+  const selectedJobType = jobTypes.find((jt) => jt.id === jobTypeId);
+  const selectedChecklistCount = selectedJobType?.template_schema?.length || 0;
 
   function handleJobTypeChange(newJobTypeId) {
     setJobTypeId(newJobTypeId);
@@ -628,27 +604,23 @@ export default function NewJob() {
                 {({ id }) => <Textarea id={id} value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />}
               </Field>
 
-              <Field label="Job template (optional)">
+              <Field
+                label="Job template (optional)"
+                hint={
+                  selectedJobType
+                    ? `Adds ${selectedChecklistCount} checklist item${selectedChecklistCount === 1 ? "" : "s"}.`
+                    : "Pick one to fill in the description and checklist for you."
+                }
+              >
                 {({ id }) => (
-                  <>
-                    {recentTemplates.length > 0 && (
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
-                        {recentTemplates.map((jt) => (
-                          <Chip key={jt.id} active={jobTypeId === jt.id} onClick={() => handleJobTypeChange(jt.id)}>
-                            {jt.name}
-                          </Chip>
-                        ))}
-                      </div>
-                    )}
-                    <SearchPicker
-                      id={id}
-                      items={jobTypes}
-                      value={jobTypeId}
-                      onChange={handleJobTypeChange}
-                      placeholder="Type to search job templates…"
-                      ariaLabel="Job template"
-                    />
-                  </>
+                  <Select id={id} value={jobTypeId} onChange={(e) => handleJobTypeChange(e.target.value)}>
+                    <option value="">No template</option>
+                    {sortedJobTypes.map((jt) => (
+                      <option key={jt.id} value={jt.id}>
+                        {jt.name}
+                      </option>
+                    ))}
+                  </Select>
                 )}
               </Field>
 
