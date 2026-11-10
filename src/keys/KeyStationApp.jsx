@@ -9,6 +9,7 @@ import KeyStationLookup from "./KeyStationLookup.jsx";
 import KeyStationRelocate from "./KeyStationRelocate.jsx";
 import KeyStationForceCheckIn from "./KeyStationForceCheckIn.jsx";
 import KeyStationHandover from "./KeyStationHandover.jsx";
+import KeyStationActivityLog from "./KeyStationActivityLog.jsx";
 import { colors } from "../lib/theme.js";
 import { Button, SkeletonList } from "../ui/index.js";
 
@@ -86,6 +87,7 @@ export default function KeyStationApp() {
         <Route path="/keys/relocate" element={<KeyStationRelocate />} />
         <Route path="/keys/force-checkin" element={<KeyStationForceCheckIn />} />
         <Route path="/keys/handover" element={<KeyStationHandover />} />
+        <Route path="/keys/activity" element={<KeyStationActivityLog />} />
       </Routes>
     </div>
   );

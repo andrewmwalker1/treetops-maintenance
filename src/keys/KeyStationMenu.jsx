@@ -218,6 +218,9 @@ export default function KeyStationMenu() {
               <Button variant="secondary" size="lg" block onClick={() => navigate("/keys/handover")}>
                 Handover
               </Button>
+              <Button variant="secondary" size="lg" block onClick={() => navigate("/keys/activity")}>
+                Activity log
+              </Button>
             </>
           )}
         </div>
