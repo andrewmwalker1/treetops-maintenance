@@ -34,7 +34,12 @@ import {
 // critique (.impeccable/critique/) for why this replaced one flat list of
 // 10+ fields: a one-handed, outdoor, often-interrupted user scans each step
 // as one decision at a time instead of the whole form at once.
-const STEPS = ["What", "Who & where", "Evidence"];
+// Step 2's fields run in the same order as the job detail screen's edit
+// grid (JobDetail.jsx: due date, priority, location, assignee), so the
+// same job reads the same way whether you're creating it or amending it.
+// The old order here was priority, due date, assignee, location under a
+// "Who & where" heading that opened with two fields that are neither.
+const STEPS = ["What", "When, where & who", "Requirements"];
 
 export default function NewJob() {
   const { profile, org, activeSite, terminology } = useAuth();
@@ -88,6 +93,9 @@ export default function NewJob() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const [description, setDescription] = useState("");
+  // Free text for whoever picks the job up (jobs.notes, 85-job-notes.sql).
+  // Distinct from description, which is the one-line title on job cards.
+  const [notes, setNotes] = useState("");
   const [jobTypeId, setJobTypeId] = useState("");
   const [priority, setPriority] = useState("medium");
   const [dueDate, setDueDate] = useState("");
@@ -385,6 +393,7 @@ export default function NewJob() {
       site_id: activeSite.id,
       job_type_id: jobTypeId || null,
       description,
+      notes: notes.trim() || null,
       priority,
       status_id: openStatus.id,
       due_date: dueDate || null,
@@ -606,6 +615,19 @@ export default function NewJob() {
         <Fieldset>
           {step === 0 && (
             <>
+              <Field label="Description" required>
+                {({ id }) => (
+                  <Textarea id={id} required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+                )}
+              </Field>
+
+              <Field
+                label="Notes (optional)"
+                hint="Anything the person doing this needs to know — access, timing, who to speak to."
+              >
+                {({ id }) => <Textarea id={id} value={notes} onChange={(e) => setNotes(e.target.value)} rows={4} />}
+              </Field>
+
               <Field label="Job template (optional)">
                 {({ id }) => (
                   <>
@@ -630,52 +652,34 @@ export default function NewJob() {
                 )}
               </Field>
 
-              <Field label="Description" required>
-                {({ id }) => (
-                  <Textarea id={id} required value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
-                )}
-              </Field>
-
-              <Field label="Activity types (optional)">
-                {activityTypes.length === 0 ? (
-                  <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>None set up yet.</span>
-                ) : (
-                  <ActivityTypePicker allTypes={activityTypes} selectedIds={activityTypeIds} onToggle={toggleActivityType} />
-                )}
-              </Field>
-
-              <Field label="Checklist">
-                <Card pad="sm">
-                  <ChecklistBuilder
-                    items={checklistItems}
-                    onChange={setChecklistItems}
-                    readOnly={!canEditChecklist}
-                    canRequirePhoto={canRequireChecklistItemPhoto}
-                  />
-                  {!canEditChecklist && checklistItems.length === 0 && (
-                    <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>
-                      Pick a job template above to attach its checklist.
-                    </p>
-                  )}
-                  {canManageTemplates && (
-                    <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)", flexWrap: "wrap" }}>
-                      <Button size="sm" onClick={() => setShowSaveAsModal(true)}>
-                        Save as new template
-                      </Button>
-                      {jobTypeId && (
-                        <Button size="sm" onClick={handleUpdateTemplate}>
-                          Update "{jobTypes.find((jt) => jt.id === jobTypeId)?.name}" template
-                        </Button>
-                      )}
+              {/* Moved up from the old "Evidence" step: a photo of the
+                  problem is usually the thing that prompted the job, so
+                  it belongs with the description rather than three
+                  screens later. */}
+              <Field label="Photos (optional)" error={photoError}>
+                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: "var(--space-3)" }}>
+                  {photos.map((p, i) => (
+                    <div key={p.previewUrl} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
+                      <img
+                        src={p.previewUrl}
+                        alt={`Attached photo ${i + 1} of ${photos.length}`}
+                        style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
+                      />
+                      <Button size="sm" onClick={() => handleRemovePhoto(i)}>Remove</Button>
                     </div>
-                  )}
-                </Card>
+                  ))}
+                  <Button onClick={handleAddPhoto}>Add photo</Button>
+                </div>
               </Field>
             </>
           )}
 
           {step === 1 && (
             <>
+              <Field label="Due date (optional)">
+                {({ id }) => <Input id={id} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />}
+              </Field>
+
               <Field label="Priority">
                 {({ id }) => (
                   <Select id={id} value={priority} onChange={(e) => setPriority(e.target.value)}>
@@ -686,60 +690,6 @@ export default function NewJob() {
                   </Select>
                 )}
               </Field>
-
-              <Field label="Due date (optional)">
-                {({ id }) => <Input id={id} type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />}
-              </Field>
-
-              <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
-                <legend className="tt-field__label" style={{ padding: 0 }}>Assign to</legend>
-                <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
-                  <label>
-                    <input
-                      type="radio"
-                      name="assigneeKind"
-                      checked={assigneeKind === "person"}
-                      onChange={() => {
-                        setAssigneeKind("person");
-                        setAssigneeId("");
-                      }}
-                    />{" "}
-                    Person
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="assigneeKind"
-                      checked={assigneeKind === "group"}
-                      onChange={() => {
-                        setAssigneeKind("group");
-                        setAssigneeId("");
-                      }}
-                    />{" "}
-                    Group
-                  </label>
-                  <label>
-                    <input
-                      type="radio"
-                      name="assigneeKind"
-                      checked={assigneeKind === "contractor"}
-                      onChange={() => {
-                        setAssigneeKind("contractor");
-                        setAssigneeId("");
-                      }}
-                    />{" "}
-                    Contractor
-                  </label>
-                </div>
-                <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} aria-label="Assign to">
-                  <option value="">Unassigned</option>
-                  {(assigneeKind === "person" ? people : assigneeKind === "group" ? groups : contractors).map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.display_name || item.name}
-                    </option>
-                  ))}
-                </Select>
-              </fieldset>
 
               <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
                 <legend className="tt-field__label" style={{ padding: 0 }}>Location</legend>
@@ -811,33 +761,103 @@ export default function NewJob() {
                   </>
                 )}
               </fieldset>
+
+              <fieldset style={{ border: "none", margin: 0, padding: 0, minWidth: 0 }}>
+                <legend className="tt-field__label" style={{ padding: 0 }}>Assign to</legend>
+                <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-2)", flexWrap: "wrap" }}>
+                  <label>
+                    <input
+                      type="radio"
+                      name="assigneeKind"
+                      checked={assigneeKind === "person"}
+                      onChange={() => {
+                        setAssigneeKind("person");
+                        setAssigneeId("");
+                      }}
+                    />{" "}
+                    Person
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="assigneeKind"
+                      checked={assigneeKind === "group"}
+                      onChange={() => {
+                        setAssigneeKind("group");
+                        setAssigneeId("");
+                      }}
+                    />{" "}
+                    Group
+                  </label>
+                  <label>
+                    <input
+                      type="radio"
+                      name="assigneeKind"
+                      checked={assigneeKind === "contractor"}
+                      onChange={() => {
+                        setAssigneeKind("contractor");
+                        setAssigneeId("");
+                      }}
+                    />{" "}
+                    Contractor
+                  </label>
+                </div>
+                <Select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} aria-label="Assign to">
+                  <option value="">Unassigned</option>
+                  {(assigneeKind === "person" ? people : assigneeKind === "group" ? groups : contractors).map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.display_name || item.name}
+                    </option>
+                  ))}
+                </Select>
+              </fieldset>
             </>
           )}
 
           {step === 2 && (
             <>
+              <Field label="Activity types (optional)">
+                {activityTypes.length === 0 ? (
+                  <span style={{ color: colors.inkSoft, fontSize: "var(--text-base)" }}>None set up yet.</span>
+                ) : (
+                  <ActivityTypePicker allTypes={activityTypes} selectedIds={activityTypeIds} onToggle={toggleActivityType} />
+                )}
+              </Field>
+
+              <Field label="Checklist">
+                <Card pad="sm">
+                  <ChecklistBuilder
+                    items={checklistItems}
+                    onChange={setChecklistItems}
+                    readOnly={!canEditChecklist}
+                    canRequirePhoto={canRequireChecklistItemPhoto}
+                  />
+                  {!canEditChecklist && checklistItems.length === 0 && (
+                    <p style={{ color: colors.inkSoft, fontSize: "var(--text-sm)", margin: 0 }}>
+                      Pick a job template on the first step to attach its checklist.
+                    </p>
+                  )}
+                  {canManageTemplates && (
+                    <div style={{ display: "flex", gap: "var(--space-2)", marginTop: "var(--space-4)", flexWrap: "wrap" }}>
+                      <Button size="sm" onClick={() => setShowSaveAsModal(true)}>
+                        Save as new template
+                      </Button>
+                      {jobTypeId && (
+                        <Button size="sm" onClick={handleUpdateTemplate}>
+                          Update "{jobTypes.find((jt) => jt.id === jobTypeId)?.name}" template
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </Card>
+              </Field>
+
               {canRequirePhoto && (
                 <label style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", fontSize: "var(--text-base)" }}>
                   <input type="checkbox" checked={requiresPhoto} onChange={(e) => setRequiresPhoto(e.target.checked)} />
                   Require a photo before this job can be completed
                 </label>
               )}
-
-              <Field label="Photos (optional)" error={photoError}>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: "var(--space-3)" }}>
-                  {photos.map((p, i) => (
-                    <div key={p.previewUrl} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-1)" }}>
-                      <img
-                        src={p.previewUrl}
-                        alt={`Attached photo ${i + 1} of ${photos.length}`}
-                        style={{ width: 64, height: 64, objectFit: "cover", borderRadius: "var(--radius-sm)" }}
-                      />
-                      <Button size="sm" onClick={() => handleRemovePhoto(i)}>Remove</Button>
-                    </div>
-                  ))}
-                  <Button onClick={handleAddPhoto}>Add photo</Button>
-                </div>
-              </Field>
 
               {submitError && (
                 <Alert tone="danger" title="Could not create the job">

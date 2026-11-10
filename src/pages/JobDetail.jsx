@@ -214,6 +214,9 @@ export default function JobDetail() {
   const [recallTemplateId, setRecallTemplateId] = useState("");
   const [recalling, setRecalling] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState("");
+  // jobs.notes (85-job-notes.sql) -- the longer detail behind the one-line
+  // description. Kept as a draft and saved on blur, like the description.
+  const [notesDraft, setNotesDraft] = useState("");
   const [progressPercent, setProgressPercent] = useState(0);
   const [loggingProgress, setLoggingProgress] = useState(false);
   const [progressLogged, setProgressLogged] = useState(false);
@@ -228,6 +231,7 @@ export default function JobDetail() {
     }
     setJob(data.job);
     setDescriptionDraft(data.job.description);
+    setNotesDraft(data.job.notes || "");
     setLocationKind(data.job.pitch_id ? "pitch" : data.job.area_id ? "area" : "none");
     setAreaDraft(data.job.area?.name || "");
     setSubtasks(data.subtasks);
@@ -845,6 +849,29 @@ export default function JobDetail() {
       actor_profile_id: profile.id,
       previous_value: { description: job.description },
       new_value: { description: trimmed },
+    });
+    loadAll();
+  }
+
+  // Same save-on-blur shape as persistDescription above. Unlike the
+  // description, notes are allowed to be emptied -- clearing the box is a
+  // real edit, so "" is stored as null rather than bounced back.
+  async function persistNotes() {
+    const trimmed = notesDraft.trim();
+    const current = job.notes || "";
+    if (trimmed === current) return;
+    const { error: err } = await supabase.from("jobs").update({ notes: trimmed || null }).eq("id", job.id);
+    if (err) {
+      setError(err.message);
+      setNotesDraft(current);
+      return;
+    }
+    await supabase.from("job_activity").insert({
+      job_id: job.id,
+      event_type: "edit",
+      actor_profile_id: profile.id,
+      previous_value: { notes: job.notes },
+      new_value: { notes: trimmed || null },
     });
     loadAll();
   }
@@ -1509,6 +1536,27 @@ export default function JobDetail() {
           )}
 
           <div style={{ display: "grid", gap: "var(--space-4)", marginTop: "var(--space-4)" }}>
+            <Field label="Notes">
+              {({ id }) =>
+                canEditJobDetails ? (
+                  <Textarea
+                    id={id}
+                    rows={4}
+                    value={notesDraft}
+                    onChange={(e) => setNotesDraft(e.target.value)}
+                    onBlur={persistNotes}
+                    placeholder="Anything the person doing this needs to know — access, timing, who to speak to."
+                  />
+                ) : job.notes ? (
+                  // pre-wrap so the line breaks someone typed in the box
+                  // survive -- notes are often a short list, not a paragraph.
+                  <p style={{ margin: 0, whiteSpace: "pre-wrap" }}>{job.notes}</p>
+                ) : (
+                  <p style={{ margin: 0, color: colors.inkSoft }}>No notes</p>
+                )
+              }
+            </Field>
+
             <Field label="Due date">
               {({ id }) =>
                 canEditJobDetails ? (
@@ -1632,7 +1680,7 @@ export default function JobDetail() {
             </Field>
 
             {permissions.has("can_reallocate_jobs") && (
-              <Field label="Reassign to">
+              <Field label="Assign to">
                 {({ id }) => (
                   <Select
                     id={id}
