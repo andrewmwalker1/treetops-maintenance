@@ -158,6 +158,9 @@ export default function KeysHome() {
             <Action as={Link} to="/key-register/handover">
               Handover a key
             </Action>
+            <Action as={Link} to="/key-register/activity">
+              Key activity log
+            </Action>
           </>
         )}
       </ActionList>

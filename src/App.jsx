@@ -11,6 +11,7 @@ import EquipmentDetail from "./pages/EquipmentDetail.jsx";
 import CheckoutKit from "./pages/CheckoutKit.jsx";
 import CheckinKit from "./pages/CheckinKit.jsx";
 import KeysHome from "./pages/KeysHome.jsx";
+import KeyActivityLog from "./pages/KeyActivityLog.jsx";
 import CheckOutKey from "./pages/CheckOutKey.jsx";
 import CheckInKey from "./pages/CheckInKey.jsx";
 import FindKey from "./pages/FindKey.jsx";
@@ -227,6 +228,7 @@ function AppShell() {
         <Route path="/key-register/relocate" element={<KeysGate><RelocateKey /></KeysGate>} />
         <Route path="/key-register/force-checkin" element={<KeysGate><ForceCheckInKey /></KeysGate>} />
         <Route path="/key-register/handover" element={<KeysGate><HandoverKey /></KeysGate>} />
+        <Route path="/key-register/activity" element={<KeysGate><KeyActivityLog /></KeysGate>} />
         <Route path="/timesheets" element={<TimesheetsGate><Timesheet /></TimesheetsGate>} />
         <Route path="/holidays" element={<HolidayHome />} />
         <Route path="/dashboard" element={<Dashboard />} />
