@@ -44,7 +44,7 @@ Every other part of the app should call these three modules, never the underlyin
 - **profiles**: `id` (matches `auth.users.id`), `org_id`, `role_id`, `display_name`, `is_contractor` (boolean), `dnd_enabled` (boolean, default false).
 - **roles**: `id`, `org_id`, `name`. Tree Tops seed: Admin, Head Gardener, Gardener, Maintenance, Office.
 - **permissions**: fixed list of permission keys (`can_reallocate_jobs`, `can_export_jobs`, `can_manage_equipment_status`, etc.) — implement as a `role_permissions` join table (`role_id`, `permission_key`, `enabled`).
-- **role_visibility**: `role_id`, `visible_role_id` — which other roles' jobs this role can see. Fixed per org, configured once. Tree Tops seed: Head Gardener sees Gardener + Maintenance (not Office); Admin sees all; Gardener/Maintenance/Office see only their own role by default (adjust per Andy's actual requirements when confirmed).
+- **role_visibility**: `role_id`, `visible_role_id` — which other roles' jobs this role can see. Fixed per org, configured once. Tree Tops seed: Head Gardener sees Gardener + Maintenance (not Office); Admin sees all; Gardener/Maintenance/Office see only their own role by default. **Confirmed 17 Nov 2026**: the live mapping, set in Admin → Role Visibility, is the intended one — Admin, Office and Park Manager → every role; Head Gardener → itself, Gardener, Maintenance and Contractor; Gardener, Maintenance and Caravan Prep → their own role only; Contractor → none (contractors see jobs through their company instead, migration 57).
 - **groups**: `id`, `org_id`, `name`. Tree Tops seed: Gardeners, Maintenance, Office.
 - **group_members**: `group_id`, `profile_id`.
 - **site_scope**: `profile_id`, `site_id` — which sites a user can access. For Tree Tops (single site) every user gets one row; this table is what makes the "skip the site picker" UI rule work (if a user's site_scope resolves to exactly one site, don't show a site selector).
@@ -249,6 +249,6 @@ deliberately. Keep the two in step.
 
 ## 11. Open Questions to Resolve During or Before Build
 
-- Exact `role_visibility` mapping for every role at Tree Tops (only Head Gardener's has been explicitly specified so far — confirm the rest with Andy). Now configurable from Admin → Role Visibility (2026-08-28) rather than only via the SQL editor; the actual mapping choices per role are still open.
+- ~~Exact `role_visibility` mapping for every role at Tree Tops.~~ **Resolved 17 Nov 2026** — Andy confirmed the live Admin → Role Visibility settings as intended (see §3 above). Head Gardener *does* see Maintenance's jobs; the comment in `44-role-assignable-job-targets.sql` saying otherwise is wrong.
 - Backup/DR tier on Supabase — Andy is reviewing this against Tree Tops' actual scale; not a blocker for initial build but confirm before go-live.
 - `equipment_type_repair_assignees`' fallback row (equipment_type_id is null — 49-equipment-repair-jobs.sql) is org-wide, not per-site: once Tree Tops has a second park, an equipment type with no type-specific assignee configured would route to the same fallback person/group regardless of which site reported the fault. Deliberately not built yet (single site today — see the "don't build multi-tenant UI Tree Tops doesn't need yet" rule in §0); revisit once a second site is actually being added.

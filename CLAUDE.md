@@ -60,9 +60,6 @@ automatically, every session.
   --no-git-tag-version`, e.g. → 1.2.0) when Andy says a release is a new
   version. Numbering started at 1.1.0 on 24 Sep 2026. It's shown to users
   as `v1.1.0 · 24 Sep 2026, 16:32` (`src/lib/buildInfo.js`).
-- `role_visibility` beyond Head Gardener needs Andy's confirmation before
-  building further on it (flagged as pending in BUILD-BRIEF.md/RUNBOOK.md
-  since the project started).
 
 ## UI rules
 
@@ -92,9 +89,10 @@ What's built lives in `git log` and SYSTEMSPEC.md — read those rather
 than a summary here, and confirm anything time-sensitive with Andy.
 
 Still open (RUNBOOK.md, "What's NOT done yet"): the
-`equipment-document-reminders` cron isn't scheduled yet, `role_visibility`
-beyond Head Gardener (see Hard rules), and genuine offline testing
-(aeroplane mode) hasn't been done.
+`equipment-document-reminders` cron isn't scheduled yet, and genuine
+offline testing (aeroplane mode) hasn't been done. (`role_visibility` was
+confirmed by Andy on 17 Nov 2026 — the live Admin → Role Visibility
+settings are the intended ones; see SYSTEMSPEC.md §4.)
 
 ## graphify
 
