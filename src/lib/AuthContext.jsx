@@ -45,6 +45,46 @@ function consumePendingTerminalLogin() {
   }
 }
 
+// Last successfully loaded profile/org/site bundle, so the app can still
+// open with no signal (BUILD-BRIEF.md: offline-first PWA). Without it a
+// cold start offline had nothing to render -- every one of these comes
+// from a network query in loadProfileAndScope. localStorage, keyed by user
+// id, cleared on sign-out; only ever read when the network load fails.
+const OFFLINE_PROFILE_CACHE_KEY = "auth:offlineProfileCache";
+
+function saveOfflineProfileCache(bundle) {
+  try {
+    localStorage.setItem(OFFLINE_PROFILE_CACHE_KEY, JSON.stringify(bundle));
+  } catch {
+    // Storage full/blocked -- offline cold start just won't have a cache.
+  }
+}
+
+function loadOfflineProfileCache(userId) {
+  try {
+    const bundle = JSON.parse(localStorage.getItem(OFFLINE_PROFILE_CACHE_KEY) || "null");
+    return bundle && bundle.userId === userId ? bundle : null;
+  } catch {
+    return null;
+  }
+}
+
+// supabase-js keeps the session in storage when a token refresh fails for
+// lack of network (only a real rejection removes it), but getSession()
+// still reports "no session" once the access token has expired -- which
+// offline means any app opened more than an hour after its last refresh
+// would bounce to the login screen. Reading the stored session directly
+// keeps the UI usable; actual writes are queued (syncQueue.js) and only
+// sent once back online, by which point the client refreshes normally.
+function storedSessionWhileOffline() {
+  if (navigator.onLine) return null;
+  try {
+    return JSON.parse(localStorage.getItem(supabase.auth.storageKey) || "null");
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(undefined); // undefined = not checked yet, null = signed out
   const [profile, setProfile] = useState(null);
@@ -69,10 +109,37 @@ export function AuthProvider({ children }) {
   // since there's no real person to look up.
   const [viewingAsTargetId, setViewingAsTargetId] = useState(() => loadStoredViewingAs()?.targetId ?? null);
   const loadedUserIdRef = useRef(null);
+  // True while the app is running on the offline cache above -- the next
+  // `online` event re-runs the real load to pick up any changes.
+  const usingOfflineCacheRef = useRef(false);
+
+  // Restore the last good profile/org/site bundle. Returns false if there
+  // isn't one for this user.
+  const applyOfflineCache = useCallback((userId) => {
+    const cached = loadOfflineProfileCache(userId);
+    if (!cached) return false;
+    setProfile(cached.profile);
+    setCanAccessDesktop(cached.canAccessDesktop);
+    setOrg(cached.org);
+    setSites(cached.sites);
+    setActiveSite(cached.activeSite);
+    setTerminology(cached.terminology);
+    loadedUserIdRef.current = userId;
+    usingOfflineCacheRef.current = true;
+    return true;
+  }, []);
 
   const loadProfileAndScope = useCallback(async (user) => {
     setDeactivated(false);
     const userId = user.id;
+
+    // Known offline: don't even try. Every Supabase request first waits for
+    // the auth client's token refresh, which retries for ~30s with no
+    // signal -- the app would sit on "Loading…" all that time.
+    if (!navigator.onLine && applyOfflineCache(userId)) {
+      setLoading(false);
+      return;
+    }
 
     // A kiosk/key-station sign-in registers its own session_id against
     // terminal_sessions (46-terminal-session-scoped-login-context.sql),
@@ -108,6 +175,10 @@ export function AuthProvider({ children }) {
       .single();
     if (profileError) {
       console.error("Failed to load profile", profileError);
+      // Only a network failure falls back to the cache -- a real rejection
+      // (e.g. a deactivated user's revoked token) must not be papered over.
+      const networkFailure = !navigator.onLine || /fetch|network/i.test(profileError.message || "");
+      if (networkFailure) applyOfflineCache(userId);
       setLoading(false);
       return;
     }
@@ -154,20 +225,55 @@ export function AuthProvider({ children }) {
     const chosenSite = scopedSites.length === 1 ? scopedSites[0] : null;
     setActiveSite(chosenSite);
 
+    let terms = {};
     if (chosenSite) {
-      const terms = await loadTerminology(chosenSite);
+      terms = await loadTerminology(chosenSite);
       setTerminology(terms);
     }
 
+    usingOfflineCacheRef.current = false;
+    saveOfflineProfileCache({
+      userId,
+      profile: profileRow,
+      canAccessDesktop: Boolean(desktopGrant?.enabled),
+      org: orgRow || null,
+      sites: scopedSites,
+      activeSite: chosenSite,
+      terminology: terms,
+    });
+
     setLoading(false);
-  }, []);
+  }, [applyOfflineCache]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      if (data.session) loadProfileAndScope(data.session.user);
-      else setLoading(false);
-    });
+    // Same reason as the short-circuit in loadProfileAndScope: offline,
+    // getSession() itself waits out the refresh retries, so use the stored
+    // session straight away when there is one.
+    const offlineSession = storedSessionWhileOffline();
+    if (offlineSession) {
+      setSession(offlineSession);
+      loadProfileAndScope(offlineSession.user);
+    } else {
+      supabase.auth.getSession().then(({ data }) => {
+        const current = data.session || storedSessionWhileOffline();
+        setSession(current);
+        if (current) loadProfileAndScope(current.user);
+        else setLoading(false);
+      });
+    }
+
+    // Started offline on the cached bundle -- refresh it for real once
+    // signal is back (quietly: no loading screen, nothing unmounts).
+    function handleOnline() {
+      if (!usingOfflineCacheRef.current) return;
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          setSession(data.session);
+          loadProfileAndScope(data.session.user);
+        }
+      });
+    }
+    window.addEventListener("online", handleOnline);
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
@@ -186,6 +292,8 @@ export function AuthProvider({ children }) {
         }
       } else if (event === "SIGNED_OUT") {
         loadedUserIdRef.current = null;
+        usingOfflineCacheRef.current = false;
+        localStorage.removeItem(OFFLINE_PROFILE_CACHE_KEY);
         setProfile(null);
         setOrg(null);
         setSites([]);
@@ -201,7 +309,10 @@ export function AuthProvider({ children }) {
       // don't re-run the full load.
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      listener.subscription.unsubscribe();
+      window.removeEventListener("online", handleOnline);
+    };
   }, [loadProfileAndScope]);
 
   const signOut = useCallback(() => supabase.auth.signOut(), []);

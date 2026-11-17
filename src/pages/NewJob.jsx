@@ -6,7 +6,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { queueJob } from "../platform/syncQueue.js";
 import { capturePhoto } from "../platform/camera.js";
 import { notifyJobAssigned } from "../lib/jobAssignmentNotify.js";
-import { getAssignableTargets } from "../lib/assignableTargets.js";
+import { loadNewJobReferenceData } from "../lib/newJobReferenceData.js";
 import ChecklistBuilder from "../components/ChecklistBuilder.jsx";
 import SearchPicker from "../components/SearchPicker.jsx";
 import ActivityTypePicker from "../components/ActivityTypePicker.jsx";
@@ -116,24 +116,29 @@ export default function NewJob() {
 
   useEffect(() => {
     if (!org || !activeSite) return;
-    supabase.from("job_types").select("id, name, template_schema").eq("org_id", org.id).then(({ data }) => setJobTypes(data || []));
-    supabase.from("job_statuses").select("id, name, sort_order").eq("org_id", org.id).order("sort_order").then(({ data }) => setStatuses(data || []));
-    getAssignableTargets(org.id, profile.role_id).then(({ people: p, groups: g, error: assignErr }) => {
-      setPeople(p);
-      setGroups(g);
-      if (assignErr) setSubmitError(`Couldn't load people/groups to assign to: ${assignErr}`);
-    });
-    supabase.from("contractors").select("id, name").eq("org_id", org.id).order("name").then(({ data }) => setContractors(data || []));
-    supabase.from("pitches").select("id, pitch_number_or_name").eq("site_id", activeSite.id).then(({ data }) => setPitches(data || []));
-    supabase.from("areas").select("id, name").eq("site_id", activeSite.id).then(({ data }) => setAreas(data || []));
-    supabase.from("task_types").select("id, name").eq("org_id", org.id).then(({ data }) => setActivityTypes(data || []));
-    supabase.from("job_type_task_types").select("job_type_id, task_type_id").then(({ data }) => {
-      const grouped = {};
-      for (const link of data || []) {
-        grouped[link.job_type_id] = [...(grouped[link.job_type_id] || []), link.task_type_id];
+    // Cached on the device (newJobReferenceData.js) so the form can still
+    // save -- into the offline queue -- with no signal.
+    let cancelled = false;
+    loadNewJobReferenceData({ orgId: org.id, siteId: activeSite.id, roleId: profile.role_id }).then(({ data, assignError }) => {
+      if (cancelled) return;
+      if (assignError) setSubmitError(`Couldn't load people/groups to assign to: ${assignError}`);
+      if (!data) {
+        setSubmitError("You're offline and this phone hasn't loaded the job lists yet -- open the app once with signal, then try again.");
+        return;
       }
-      setDefaultActivitiesByType(grouped);
+      setJobTypes(data.jobTypes);
+      setStatuses(data.statuses);
+      setPeople(data.people);
+      setGroups(data.groups);
+      setContractors(data.contractors);
+      setPitches(data.pitches);
+      setAreas(data.areas);
+      setActivityTypes(data.activityTypes);
+      setDefaultActivitiesByType(data.defaultActivitiesByType);
     });
+    return () => {
+      cancelled = true;
+    };
   }, [org, activeSite]);
 
   // Load the job being linked from, and pre-fill from it: same location
