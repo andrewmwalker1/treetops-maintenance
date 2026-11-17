@@ -5,6 +5,7 @@ import { usePermissions } from "../lib/permissions.js";
 import { colors, fonts, pageStyle } from "../lib/theme.js";
 import { subscribeToPush, setDNDEnabled } from "../platform/notifications.js";
 import { flushQueue, getQueueStatus, flushReadingQueue, getReadingQueueStatus } from "../platform/syncQueue.js";
+import { loadNewJobReferenceData } from "../lib/newJobReferenceData.js";
 import {
   useIsMobile,
   detectIsPhoneDevice,
@@ -100,6 +101,19 @@ export default function Layout({ children }) {
       window.removeEventListener("offline", refreshStatus);
     };
   }, []);
+
+  // Keep the New job form's on-device copy of its lists fresh on every
+  // online load, so a job can still be raised offline later even if the
+  // form itself was never opened with signal (newJobReferenceData.js).
+  // Skipped while "viewing as" -- that's an admin preview, not this
+  // phone's real user.
+  useEffect(() => {
+    const roleId = profile?.role_id;
+    if (!navigator.onLine || viewingAs || !org || !activeSite || !roleId) return;
+    loadNewJobReferenceData({ orgId: org.id, siteId: activeSite.id, roleId }).catch((err) =>
+      console.error("Failed to refresh offline New job lists", err)
+    );
+  }, [org?.id, activeSite?.id, profile?.role_id, viewingAs]);
 
   async function handleDndToggle(next) {
     setDnd(next);
