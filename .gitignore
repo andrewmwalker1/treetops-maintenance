@@ -11,3 +11,4 @@ supabase/.temp/
 graphify-out/.graphify_python
 graphify-out/.graphify_root
 graphify-out/graph.html
+graphify-out/cache/hook_sessions/
