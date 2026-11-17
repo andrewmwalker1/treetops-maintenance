@@ -96,11 +96,21 @@ settings are the intended ones; see SYSTEMSPEC.md §4.)
 
 ## graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+This project has a knowledge graph at graphify-out/ — a map of how the
+code, database schema and docs connect (`/graphify` builds or queries it).
 
 Rules:
-- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. When the answer is under a Markdown heading, `graphify section "<heading>"` prints that section's text, so the .md need not be opened. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
-- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.
+- Use it for "how is X connected" questions — what references a table or
+  function, how a feature spans files, every definition of something
+  redefined across migrations: `graphify explain "<concept>"`,
+  `graphify path "<A>" "<B>"`, `graphify query "<question>"`. For a
+  targeted lookup where you already know the file or the exact name, just
+  grep/read directly — no need to query the graph first.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review.
+- After modifying code, run `graphify update .` to keep the graph current
+  (AST-only, no token cost). A committed graphify-out/graph.json is
+  rewritten whole on every build, so a large diff to it is expected.
+- There are deliberately no graphify hooks in `.claude/settings.json`
+  (removed 17 Nov 2026 — they nudged on every search/read and cost more
+  tokens than they saved). Don't re-add them, e.g. by re-running
+  `graphify install`, without asking Andy.
