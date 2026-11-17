@@ -1,7 +1,7 @@
 # Graph Report - treetops-maintenance  (2026-11-17)
 
 ## Corpus Check
-- 301 files · ~230,382 words
+- 292 files · ~230,533 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 9 file(s) not represented in the graph (top: .css 4, (none) 3, .example 1)
 
@@ -9,6 +9,11 @@
 - 2098 nodes · 6907 edges · 114 communities (78 shown, 36 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 189 edges (avg confidence: 0.85)
 - Token cost: 401,249 input · 0 output
+
+## Graph Freshness
+- Built from commit: `e64cfa9d`
+- Run `git rev-parse HEAD` and compare to check if the graph is stale.
+- Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - Shared Components & Auth Context
@@ -105,30 +110,30 @@
 10. `JobDetail()` - 96 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `==CORE== Pure Logic Block (shared with tests)` --semantically_similar_to--> `One Runnable Check Rule`  [INFERRED] [semantically similar]
-  public/tools/campmanager-to-sage.html → .claude/skills/ponytail/SKILL.md
 - `index.html App Entry` --references--> `TT Monogram Apple Touch Icon (cream TT on dark green)`  [EXTRACTED]
   index.html → public/apple-touch-icon.png
-- `TT Monogram App Icon 512px (cream TT on dark green)` --conceptually_related_to--> `PWA Manifest (/manifest.webmanifest)`  [INFERRED]
-  public/icon-512.png → index.html
-- `TT Monogram Maskable App Icon 512px (cream TT on dark green)` --conceptually_related_to--> `PWA Manifest (/manifest.webmanifest)`  [INFERRED]
-  public/icon-512-maskable.png → index.html
 - `TT Monogram App Icon 192px (cream TT on dark green)` --conceptually_related_to--> `PWA Manifest (/manifest.webmanifest)`  [INFERRED]
   public/icon-192.png → index.html
+- `TT Monogram Maskable App Icon 512px (cream TT on dark green)` --conceptually_related_to--> `PWA Manifest (/manifest.webmanifest)`  [INFERRED]
+  public/icon-512-maskable.png → index.html
+- `TT Monogram App Icon 512px (cream TT on dark green)` --conceptually_related_to--> `PWA Manifest (/manifest.webmanifest)`  [INFERRED]
+  public/icon-512.png → index.html
+- `==CORE== Pure Logic Block (shared with tests)` --semantically_similar_to--> `One Runnable Check Rule`  [INFERRED] [semantically similar]
+  public/tools/campmanager-to-sage.html → .claude/skills/ponytail/SKILL.md
 
 ## Import Cycles
 - None detected.
 
 ## Hyperedges (group relationships)
-- **Platform abstraction boundary modules** — src_platform_notifications, src_platform_syncqueue, src_platform_camera [EXTRACTED 1.00]
-- **Single filtered-jobs query reused across surfaces** — src_lib_jobsquery, src_pages_jobslist, src_pages_dashboard, src_kiosk_kioskjobs, src_lib_csvexport [EXTRACTED 1.00]
-- **RFID terminal sign-in and login_context flow** — src_kiosk_kiosksignin, src_components_rfidscanlistener, supabase_functions_rfid_login, supabase_functions_clear_login_context, src_app [EXTRACTED 1.00]
-- **Six-Phase UI Redesign Programme** — ui_redesign_plan_phase_1_foundation, ui_redesign_plan_phase_2_ui_primitives, ui_redesign_plan_phase_3_navigation_rebuild, ui_redesign_plan_phase_4_screen_pass, ui_redesign_plan_phase_5_polish, ui_redesign_plan_phase_6_guardrails [EXTRACTED 1.00]
-- **Per-App Namespace Isolation in One Supabase Project** — supabase_consolidation_plan_schema_per_app, supabase_consolidation_plan_edge_function_prefixing, supabase_consolidation_plan_secret_prefixing, supabase_consolidation_plan_db_schema_client_option, supabase_consolidation_plan_accept_content_profile_headers [INFERRED 0.85]
-- **Token Layer (tokens.css, base.css, theme.js)** — src_styles_tokens, src_styles_base, src_lib_theme, ui_redesign_plan_design_tokens [EXTRACTED 1.00]
-- **Ponytail Skill Suite** — _claude_skills_ponytail_skill_ponytail_skill, _claude_skills_ponytail_review_skill_ponytail_review_skill, _claude_skills_ponytail_audit_skill_ponytail_audit_skill, _claude_skills_ponytail_debt_skill_ponytail_debt_skill, _claude_skills_ponytail_gain_skill_ponytail_gain_skill, _claude_skills_ponytail_help_skill_ponytail_help_skill [EXTRACTED 1.00]
 - **GitHub Pages SPA Deep-link Flow** — public_404_github_pages_spa_fallback, index_spa_redirect_restore, public_404_kiosk_magic_link_redirect [EXTRACTED 1.00]
+- **Platform abstraction boundary modules** — src_platform_notifications, src_platform_syncqueue, src_platform_camera [EXTRACTED 1.00]
+- **Ponytail Skill Suite** — _claude_skills_ponytail_skill_ponytail_skill, _claude_skills_ponytail_review_skill_ponytail_review_skill, _claude_skills_ponytail_audit_skill_ponytail_audit_skill, _claude_skills_ponytail_debt_skill_ponytail_debt_skill, _claude_skills_ponytail_gain_skill_ponytail_gain_skill, _claude_skills_ponytail_help_skill_ponytail_help_skill [EXTRACTED 1.00]
+- **RFID terminal sign-in and login_context flow** — src_kiosk_kiosksignin, src_components_rfidscanlistener, supabase_functions_rfid_login, supabase_functions_clear_login_context, src_app [EXTRACTED 1.00]
+- **Single filtered-jobs query reused across surfaces** — src_lib_jobsquery, src_pages_jobslist, src_pages_dashboard, src_kiosk_kioskjobs, src_lib_csvexport [EXTRACTED 1.00]
+- **Six-Phase UI Redesign Programme** — ui_redesign_plan_phase_1_foundation, ui_redesign_plan_phase_2_ui_primitives, ui_redesign_plan_phase_3_navigation_rebuild, ui_redesign_plan_phase_4_screen_pass, ui_redesign_plan_phase_5_polish, ui_redesign_plan_phase_6_guardrails [EXTRACTED 1.00]
+- **Token Layer (tokens.css, base.css, theme.js)** — src_styles_tokens, src_styles_base, src_lib_theme, ui_redesign_plan_design_tokens [EXTRACTED 1.00]
 - **CampManager CSV to Sage CSV Pipeline** — public_tools_campmanager_to_sage_parsecsv, public_tools_campmanager_to_sage_detectkind, public_tools_campmanager_to_sage_buildexport, public_tools_campmanager_to_sage_tosagecsv, public_tools_campmanager_to_sage_downloadblob [INFERRED 0.85]
+- **Per-App Namespace Isolation in One Supabase Project** — supabase_consolidation_plan_schema_per_app, supabase_consolidation_plan_edge_function_prefixing, supabase_consolidation_plan_secret_prefixing, supabase_consolidation_plan_db_schema_client_option, supabase_consolidation_plan_accept_content_profile_headers [INFERRED 0.85]
 
 ## Communities (114 total, 36 thin omitted)
 
@@ -449,7 +454,7 @@ Nodes (3): Overdue Pill, Phase 5 - Polish, Redesign Constraints (must not break)
   RUNBOOK.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
-- **53 isolated node(s):** `graphify skill instructions`, `Andy`, `treetops-maintenance.jsx prototype`, `Tree Tops Caravan Park Ltd`, `Supabase backend` (+48 more)
+- **53 isolated node(s):** `theme.js Rewritten to Read Tokens (hinge)`, `role_key_reasons table`, `Auth Identity / UID Reconciliation`, `Cloud Session Egress Block to Supabase`, `Freeze Window and Cutover` (+48 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 484 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
 - **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
@@ -457,8 +462,8 @@ Nodes (3): Overdue Pill, Phase 5 - Polish, Redesign Constraints (must not break)
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Runbook` connect `Runbook & Secrets` to `Open Items & graphify`, `RLS & Permissions Schema`, `Seed Users Script`, `Platform & PWA Architecture`?**
-  _High betweenness centrality (0.194) - this node is a cross-community bridge._
-- **What connects `graphify skill instructions`, `Andy`, `treetops-maintenance.jsx prototype` to the rest of the system?**
+  _High betweenness centrality (0.196) - this node is a cross-community bridge._
+- **What connects `theme.js Rewritten to Read Tokens (hinge)`, `role_key_reasons table`, `Auth Identity / UID Reconciliation` to the rest of the system?**
   _53 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Shared Components & Auth Context` be split into smaller, more focused modules?**
   _Cohesion score 0.08373658741847255 - nodes in this community are weakly interconnected._
@@ -467,7 +472,7 @@ _Questions this graph is uniquely positioned to answer:_
 - **Should `App Shell & Routing` be split into smaller, more focused modules?**
   _Cohesion score 0.09635651912074676 - nodes in this community are weakly interconnected._
 - **Why does `public.profiles` connect `RLS & Permissions Schema` to `Organisations & Key Reasons`, `Equipment Types & Competencies Schema`, `RFID Kiosk Checkout Schema`, `Jobs Schema`, `Contractors Schema`, `Supabase Consolidation & Roles`, `Fault Reports & Repairs Schema`, `Holiday Accrual Schema`, `Pitches, Meters & Key Tags Schema`, `Job Photos & Subtasks Schema`, `Timesheets Schema`?**
-  _High betweenness centrality (0.089) - this node is a cross-community bridge._
+  _High betweenness centrality (0.090) - this node is a cross-community bridge._
 
 ### Low-confidence Hints
 _AMBIGUOUS edges — the extractor was unsure. Verify before acting on these._

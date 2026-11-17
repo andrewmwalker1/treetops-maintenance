@@ -366,10 +366,10 @@
     "semantic_hash": "55ab8c583d376004c06971d84125fd34"
   },
   "src/lib/jobsQuery.js": {
-    "mtime": 1794830440.1223385,
-    "seen": 1794938995.964281,
-    "ast_hash": "220b72748012cedc550d85c5bcb70d49",
-    "semantic_hash": "220b72748012cedc550d85c5bcb70d49"
+    "mtime": 1794943539.2936392,
+    "seen": 1794943556.7012377,
+    "ast_hash": "96841701d2d216b56409c037bc87b109",
+    "semantic_hash": ""
   },
   "src/lib/keyCheckoutsQuery.js": {
     "mtime": 1794830440.1223385,
@@ -450,10 +450,10 @@
     "semantic_hash": "a6d8e7845f896166af551107f5323e8d"
   },
   "src/lib/simulateJobVisibility.js": {
-    "mtime": 1794830440.1223385,
-    "seen": 1794938995.9642935,
-    "ast_hash": "db52b649098c14facc15a4c8deb55581",
-    "semantic_hash": "db52b649098c14facc15a4c8deb55581"
+    "mtime": 1794943539.2963946,
+    "seen": 1794943556.7012553,
+    "ast_hash": "c4562d60d0ca585913f6afafea4c6bc2",
+    "semantic_hash": ""
   },
   "src/lib/supabaseClient.js": {
     "mtime": 1794830440.1223385,
@@ -1740,10 +1740,10 @@
     "semantic_hash": "3936a552ff69aeb62cf870ecbaff353a"
   },
   "SYSTEMSPEC.md": {
-    "mtime": 1794830440.115632,
-    "seen": 1794938995.9645054,
-    "ast_hash": "c85842ebdac80629f8dfc3b06e737d9a",
-    "semantic_hash": "c85842ebdac80629f8dfc3b06e737d9a"
+    "mtime": 1794943548.6870162,
+    "seen": 1794943556.7015624,
+    "ast_hash": "e769a960851282f70875abc021143757",
+    "semantic_hash": ""
   },
   "UI-REDESIGN-PLAN.md": {
     "mtime": 1794830440.115632,
@@ -1804,5 +1804,11 @@
     "seen": 1794938995.9645205,
     "ast_hash": "7e9d10d5b33498169a82fba115651c0a",
     "semantic_hash": "7e9d10d5b33498169a82fba115651c0a"
+  },
+  "package-lock.json": {
+    "mtime": 1794830440.115632,
+    "seen": 1794943556.7015758,
+    "ast_hash": "507b8df033d2df0050c8ecef3e698a0d",
+    "semantic_hash": ""
   }
 }
