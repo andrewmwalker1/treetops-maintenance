@@ -1,0 +1,1 @@
+{"nodes": [{"id": "$graphify-root$_supabase_85_job_notes_sql", "label": "85-job-notes.sql", "file_type": "code", "source_file": "supabase/85-job-notes.sql", "source_location": null}, {"id": "public_jobs", "label": "public.jobs", "file_type": "code", "source_file": "", "source_location": "", "origin_file": "$graphify-root$/supabase/85-job-notes.sql"}], "edges": []}

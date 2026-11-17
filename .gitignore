@@ -6,3 +6,13 @@ dev-dist/
 *.local
 .DS_Store
 supabase/.temp/
+
+# graphify: machine-specific paths and regenerable viz (graphify export html)
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/graph.html
+graphify-out/cache/hook_sessions/
+graphify-out/cache/last_query_stamp
+graphify-out/20*/
+graphify-out/.graphify_build_state.json
+graphify-out/*.sig
