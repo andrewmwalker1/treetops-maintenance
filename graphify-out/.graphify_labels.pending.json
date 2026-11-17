@@ -1,0 +1,21 @@
+{
+  "4": "OfficeHub.jsx",
+  "5": "Gallery.jsx",
+  "6": "Alert",
+  "9": "EmptyState",
+  "10": "public.jobs",
+  "18": "KeyStationMenu.jsx",
+  "19": "PageHeader",
+  "20": "JobDetail.jsx",
+  "23": "Build Brief",
+  "33": "supabaseClient.js",
+  "38": "csvExport.js",
+  "40": "AuthProvider",
+  "43": "Layout.jsx",
+  "47": "newJobReferenceData.js",
+  "51": "check-styles.mjs",
+  "58": "equipmentCheckoutsQuery.js",
+  "62": "ActivityTypesTab",
+  "66": "useKeyHandover",
+  "68": "useKeyRelocate"
+}
