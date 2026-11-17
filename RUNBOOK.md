@@ -101,22 +101,22 @@ notify.
 
 This project has no Cron UI in the Dashboard (not under Edge Functions,
 not under Database) — scheduling is done directly via SQL (`pg_cron` +
-`pg_net`, both already enabled on this project). As of 10 Sep 2026, three
-functions are scheduled this way (confirmed live and succeeding daily via
-`cron.job_run_details`):
+`pg_net`, both already enabled on this project). Four functions are
+scheduled this way, all daily at 06:00 UTC (job names `<function>-daily`):
 - `generate-scheduled-jobs` — expands recurring job schedules.
 - `generate-service-jobs` — equipment service schedule jobs.
 - `contractor-document-reminders` — raises an Office job + emails the
   contractor 7 days before a contractor document expires.
+- `equipment-document-reminders` — raises an Office job 7 days before an
+  equipment document (Gas Test, MOT) expires; see
+  `65-equipment-documents.sql`. Scheduled 17 Nov 2026.
 
-`equipment-document-reminders` (raises an Office job 7 days before an
-equipment document — Gas Test, MOT — expires; see
-`65-equipment-documents.sql`) is deployed but **not yet scheduled** — run
-the SQL below for it once, same as the others.
-
-Dashboard → SQL Editor → run, once per function (needs a service-role
+To (re)schedule one: Dashboard → SQL Editor → run (needs a service-role
 secret key from Settings → API — the `sb_secret_...` one, not the anon
-key):
+key). **Check the project first**: the address bar must show
+`/project/ozhwgrzlpvfdemmogmav` — the org also has a separate Websites
+project (`pnzmyvmidrxpnsyhotst`) whose SQL editor looks identical, and a
+job scheduled there silently fails against this app's functions:
 
 ```sql
 select cron.schedule(
@@ -192,9 +192,6 @@ Pro+Micro bill now covers all three apps, and the old
 
 ## What's NOT done yet
 
-- `equipment-document-reminders` is deployed but not yet scheduled — run
-  the step 7 SQL for it once (needs the service-role secret key from
-  Settings → API, which Claude Code won't handle — paste it in yourself).
 - Genuine offline testing (aeroplane mode, per Section 10 step 10 of
   BUILD-BRIEF.md) hasn't been done — needs a live project to test
   against first.
