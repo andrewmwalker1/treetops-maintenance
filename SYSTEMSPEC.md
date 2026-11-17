@@ -152,7 +152,7 @@ primary keys. Postgres enums used: `job_priority` (low/medium/high/immediate),
 | **roles** | `id`, `org_id→organisations`, `name`, unique(`org_id`,`name`) | Full CRUD from the admin UI. Seed: Admin, Head Gardener, Gardener, Maintenance, Office. A role in use by any profile cannot be deleted (enforced by trigger). |
 | **permissions** | `key` (text, PK), `description` | A fixed, growing list of permission keys — new features add new keys via migration, never a free-text/dynamic permission system. Full current list in §5.2. |
 | **role_permissions** | `role_id→roles`, `permission_key→permissions`, `enabled` (bool), PK(`role_id`,`permission_key`) | The actual grant table. Managed via the Roles & Permissions admin matrix. |
-| **role_visibility** | `role_id→roles`, `visible_role_id→roles`, PK(both) | Which *other roles'* job assignees a role can see jobs for. Seeded by `03-seed-treetops.sql`; editable from Admin → Role Visibility (`RoleVisibilityTab.jsx`, write policies in `50-role-visibility-write-policies.sql`, gated by `can_manage_roles_and_permissions`). Only Head Gardener's mapping has been confirmed — every other role's is still the seed's "own role only" assumption. |
+| **role_visibility** | `role_id→roles`, `visible_role_id→roles`, PK(both) | Which *other roles'* job assignees a role can see jobs for. Seeded by `03-seed-treetops.sql`; editable from Admin → Role Visibility (`RoleVisibilityTab.jsx`, write policies in `50-role-visibility-write-policies.sql`, gated by `can_manage_roles_and_permissions`). **Confirmed by Andy 17 Nov 2026** — the live mapping is the intended one: Admin, Office and Park Manager → every role; Head Gardener → itself, Gardener, Maintenance and Contractor; Gardener, Maintenance and Caravan Prep → their own role only; Contractor → none (contractors see jobs through their company instead, migration 57). The admin tab, not the seed, is the source of truth. |
 | **groups** | `id`, `org_id→organisations`, `name`, unique(`org_id`,`name`) | Seed: Gardeners, Maintenance, Office. Full CRUD via admin. |
 | **group_members** | `group_id→groups`, `profile_id→profiles`, PK(both) | Managed inline on the Groups admin tab (checkbox list, diffed on save). |
 | **site_scope** | `profile_id→profiles`, `site_id→sites`, PK(both) | Which sites a user can access. **A user with exactly one row here has that site auto-selected — no picker UI exists for 2+.** |
@@ -1162,8 +1162,8 @@ Caravan Park Ltd"), site ("Tree Tops", `caravan_park`), the five roles,
 three groups, four job statuses, terminology defaults, and a
 `role_visibility` matrix (Admin → every role; Head Gardener → itself +
 Gardener + Maintenance, not Office; every other role → itself only —
-this "own role only" reading was flagged as a placeholder assumption
-pending explicit confirmation from the business owner). `supabase/05-seed-pitches.sql`
+only a starting point — the confirmed mapping lives in Admin → Role
+Visibility, see §4). `supabase/05-seed-pitches.sql`
 loads 206 real pitch codes from an actual CSV export.
 
 `scripts/seed-users.mjs` is a one-shot manual bootstrap (run once,
@@ -1184,7 +1184,7 @@ a rebuild — several are genuine open questions for the business owner,
 not bugs:
 
 1. **No site picker.** The data model supports a user scoped to multiple sites, but the UI only ever auto-selects when exactly one site is in scope; with 0 or 2+, pages needing `activeSite` simply hang. Fine while Tree Tops is single-site; must be built before a second site is onboarded anywhere.
-2. **`role_visibility` beyond Head Gardener is a placeholder.** Confirm the intended visibility matrix for Gardener/Maintenance/Office with the business owner rather than assuming "own role only."
+2. ~~`role_visibility` beyond Head Gardener is a placeholder.~~ **Resolved 17 Nov 2026** — Andy confirmed the live Admin → Role Visibility mapping as intended (§4).
 3. **`admin_access_log` is unused.** The table and RLS carve-out for `platform_admins` exist, but nothing writes an audit row on cross-org access yet. Wire this up before onboarding a second organisation.
 4. ~~No `schedules` pause/active flag.~~ **Resolved** — `schedules.is_active` (migration 30) plus a Pause/Resume button on the admin tab (§11).
 5. **No admin CRUD for `training_videos`.** Content must be inserted directly against the database — no UI exists to manage it, unlike every other reference table.

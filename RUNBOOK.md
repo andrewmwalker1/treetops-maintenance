@@ -27,10 +27,10 @@ SQL Editor → paste each file's contents → Run. All four are idempotent
 1. `supabase/01-schema.sql` — every table.
 2. `supabase/02-rls-policies.sql` — every RLS policy and helper function.
 3. `supabase/03-seed-treetops.sql` — Tree Tops org/site/roles/groups/
-   statuses/terminology. **Before running**: open it and check the
-   `role_visibility` block — it currently assumes "own role only" means
-   literal self-visibility per role, flagged inline as pending your
-   confirmation.
+   statuses/terminology. Its `role_visibility` block is only a starting
+   point: the confirmed mapping (17 Nov 2026) is what's set in Admin →
+   Role Visibility on the live project — re-apply it there after seeding
+   a new project (SYSTEMSPEC.md §4 lists it).
 4. `supabase/04-storage.sql` — creates the `job-photos` and
    `fault-photos` storage buckets and their access policies.
 5. Then run every remaining numbered file in `supabase/` in order
@@ -195,8 +195,6 @@ Pro+Micro bill now covers all three apps, and the old
 - `equipment-document-reminders` is deployed but not yet scheduled — run
   the step 7 SQL for it once (needs the service-role secret key from
   Settings → API, which Claude Code won't handle — paste it in yourself).
-- `role_visibility` beyond Head Gardener needs your confirmation (see
-  step 2.3 above).
 - Genuine offline testing (aeroplane mode, per Section 10 step 10 of
   BUILD-BRIEF.md) hasn't been done — needs a live project to test
   against first.
