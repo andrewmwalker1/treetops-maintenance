@@ -192,6 +192,9 @@ Pro+Micro bill now covers all three apps, and the old
 
 ## What's NOT done yet
 
+- Security fixes from the 17 Nov 2026 review — planned, approved, not yet
+  built. Most important: fob sign-in (`rfid-login`) works from anywhere
+  for anyone who has a fob's ID. Full plan in `SECURITY-PLAN.md`.
 - Genuine offline testing (aeroplane mode, per Section 10 step 10 of
   BUILD-BRIEF.md) hasn't been done — needs a live project to test
   against first.

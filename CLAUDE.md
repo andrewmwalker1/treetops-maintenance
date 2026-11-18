@@ -88,8 +88,10 @@ truth — update it in the same commit as any token change).
 What's built lives in `git log` and SYSTEMSPEC.md — read those rather
 than a summary here, and confirm anything time-sensitive with Andy.
 
-Still open (RUNBOOK.md, "What's NOT done yet"): genuine offline testing
-(aeroplane mode) hasn't been done. (All four daily cron functions,
+Still open (RUNBOOK.md, "What's NOT done yet"): the security fixes in
+`SECURITY-PLAN.md` (17 Nov 2026 review — approved by Andy, not yet built;
+start there if asked about security, fob sign-in or the key station), and
+genuine offline testing (aeroplane mode) hasn't been done. (All four daily cron functions,
 including `equipment-document-reminders`, are scheduled as of 17 Nov
 2026 — RUNBOOK.md §7.) (`role_visibility` was
 confirmed by Andy on 17 Nov 2026 — the live Admin → Role Visibility
