@@ -70,6 +70,10 @@ station; her email login and the main system are unaffected.
 
 ## 2. Bank-holiday helpers callable by any user (medium)
 
+**Status (18 Nov 2026):** migration written —
+`supabase/89-revoke-bank-holiday-helpers.sql`. Not yet run against the
+live project (no SQL route from a cloud session); run it in the SQL Editor.
+
 `apply_bank_holiday_for_profile` and `remove_bank_holiday_for_profile`
 (`70-holiday-accrual-and-booking.sql`) are `security definer` with no
 caller check and Postgres's default `EXECUTE` to `PUBLIC`, so any signed-in
