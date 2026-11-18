@@ -102,9 +102,9 @@
     "semantic_hash": "5d4952916639a64884a8677ee2d9ad32"
   },
   "src/components/Layout.jsx": {
-    "mtime": 1795008177.3880315,
-    "seen": 1795016355.350786,
-    "ast_hash": "3637dfd13480daac1911ab1ca34beb6a",
+    "mtime": 1795021243.679651,
+    "seen": 1795021545.5731585,
+    "ast_hash": "f37d61e0cdb9dd888f70812d324deb90",
     "semantic_hash": ""
   },
   "src/components/MeterReadingsGate.jsx": {
@@ -162,10 +162,10 @@
     "semantic_hash": "af9917204d87fcf400347832ef8ddc0f"
   },
   "src/components/TimesheetsGate.jsx": {
-    "mtime": 1795008177.3880315,
-    "seen": 1795016355.3508465,
-    "ast_hash": "c4a24c85dafc5aef68eef86c3f1a90e7",
-    "semantic_hash": "c4a24c85dafc5aef68eef86c3f1a90e7"
+    "mtime": 1795021243.6802511,
+    "seen": 1795021545.5731697,
+    "ast_hash": "bc64d8a5ca093e63e542e90332a19957",
+    "semantic_hash": ""
   },
   "src/components/ViewAsControl.jsx": {
     "mtime": 1795008177.3880315,
@@ -264,10 +264,10 @@
     "semantic_hash": "ce366e12dc7cd51286d5f20aefbe7caa"
   },
   "src/kiosk/KioskMenu.jsx": {
-    "mtime": 1795008177.390134,
-    "seen": 1795016355.3508787,
-    "ast_hash": "7d0c8a3a5a62a73a5bf101cd442c0123",
-    "semantic_hash": "7d0c8a3a5a62a73a5bf101cd442c0123"
+    "mtime": 1795021243.6800714,
+    "seen": 1795021545.5731883,
+    "ast_hash": "febc8747e4fb59408ecfdcae22a88437",
+    "semantic_hash": ""
   },
   "src/kiosk/KioskSafety.jsx": {
     "mtime": 1795008177.390134,
@@ -282,10 +282,10 @@
     "semantic_hash": "46ac0c0dcaecd4a25dc9457ef9bf1083"
   },
   "src/kiosk/KioskTimesheet.jsx": {
-    "mtime": 1795008177.390134,
-    "seen": 1795016355.3508835,
-    "ast_hash": "2cf5bffba03ada321dd16c14700ea29b",
-    "semantic_hash": "2cf5bffba03ada321dd16c14700ea29b"
+    "mtime": 1795021179.0480018,
+    "seen": 1795021545.5731914,
+    "ast_hash": "44adc98879fe09dc547a4daa8c7579c2",
+    "semantic_hash": ""
   },
   "src/kiosk/ReportIssueForm.jsx": {
     "mtime": 1795008177.390134,
@@ -354,10 +354,10 @@
     "semantic_hash": "84ac9fa14a80f27195cc21297c9309d9"
   },
   "src/lib/holidayQueries.js": {
-    "mtime": 1795008177.3911068,
-    "seen": 1795016355.350906,
-    "ast_hash": "ce482b2d81677ef93835b6b2bb1b1293",
-    "semantic_hash": "ce482b2d81677ef93835b6b2bb1b1293"
+    "mtime": 1795021197.7933354,
+    "seen": 1795021545.5732048,
+    "ast_hash": "bbbe1da719ecf2b7b3f6a7ec707e7730",
+    "semantic_hash": ""
   },
   "src/lib/jobAssignmentNotify.js": {
     "mtime": 1795008177.3911068,
@@ -480,10 +480,10 @@
     "semantic_hash": "fd1256bdfb308a8f27a70f6863b764ed"
   },
   "src/lib/timesheetQueries.js": {
-    "mtime": 1795008177.3916073,
-    "seen": 1795016355.3509488,
-    "ast_hash": "fdb5311b6231d038f9ffdd2b5d81108b",
-    "semantic_hash": "fdb5311b6231d038f9ffdd2b5d81108b"
+    "mtime": 1795021197.7929094,
+    "seen": 1795021545.5732317,
+    "ast_hash": "f07b85418f614f8790bc963273a9c091",
+    "semantic_hash": ""
   },
   "src/lib/useEquipmentCheckin.js": {
     "mtime": 1795008177.3916073,
@@ -834,10 +834,10 @@
     "semantic_hash": "41fc1cbad0694b5b65e3972ebc406536"
   },
   "src/pages/admin/StaffTimeProfilesTab.jsx": {
-    "mtime": 1795008177.3966508,
-    "seen": 1795016355.3510582,
-    "ast_hash": "3fce34e849e6055a8b182d8d27eeb483",
-    "semantic_hash": "3fce34e849e6055a8b182d8d27eeb483"
+    "mtime": 1795021224.6534069,
+    "seen": 1795021545.5733027,
+    "ast_hash": "3f5226e9b0d3bb432cd15c0564c73983",
+    "semantic_hash": ""
   },
   "src/pages/admin/UsersTab.jsx": {
     "mtime": 1795008177.3966508,
@@ -852,10 +852,10 @@
     "semantic_hash": "0d64be8a5eb0dcfb80708ed5cdec37a3"
   },
   "src/pages/holidays/BookHoliday.jsx": {
-    "mtime": 1795008177.3992908,
-    "seen": 1795016355.3510635,
-    "ast_hash": "c45c98a1bd14ff0e9609af9371dc05ad",
-    "semantic_hash": "c45c98a1bd14ff0e9609af9371dc05ad"
+    "mtime": 1795021207.434908,
+    "seen": 1795021545.5733058,
+    "ast_hash": "4c6f04c56353aa250d32cb81b5d9b3ea",
+    "semantic_hash": ""
   },
   "src/pages/holidays/BookingCalendar.jsx": {
     "mtime": 1795008177.3992908,
@@ -870,10 +870,10 @@
     "semantic_hash": "edd359818600f0d92c52db406b6b3023"
   },
   "src/pages/holidays/HolidayHome.jsx": {
-    "mtime": 1795008177.3992908,
-    "seen": 1795016355.3510685,
-    "ast_hash": "d6b15601ea720d18656a76ee8d7b2604",
-    "semantic_hash": "d6b15601ea720d18656a76ee8d7b2604"
+    "mtime": 1795021227.655248,
+    "seen": 1795021545.5733092,
+    "ast_hash": "3fda3596953dacf5ccf65262e2df0b63",
+    "semantic_hash": ""
   },
   "src/pages/holidays/MyHolidayStatus.jsx": {
     "mtime": 1795008177.3992908,
@@ -984,10 +984,10 @@
     "semantic_hash": "5749c373bb66a0f76187846e5008b113"
   },
   "src/pages/timesheets/Timesheet.jsx": {
-    "mtime": 1795008177.4008558,
-    "seen": 1795016355.3511004,
-    "ast_hash": "16854500ccfce32b97eb660b619c6cf9",
-    "semantic_hash": "16854500ccfce32b97eb660b619c6cf9"
+    "mtime": 1795021173.0820026,
+    "seen": 1795021545.5733328,
+    "ast_hash": "3349b797db8c4545ea573b5581a765c9",
+    "semantic_hash": ""
   },
   "src/pages/timesheets/TimesheetOverrides.jsx": {
     "mtime": 1795008177.4008558,
@@ -996,22 +996,22 @@
     "semantic_hash": "fdc3a26632fed8ca337971e82d461cd2"
   },
   "src/pages/timesheets/TimesheetsGrid.jsx": {
-    "mtime": 1795008177.4008558,
-    "seen": 1795016355.3511035,
-    "ast_hash": "f05b968286a0f3b5189346b8b0cd0949",
-    "semantic_hash": "f05b968286a0f3b5189346b8b0cd0949"
+    "mtime": 1795021460.6820197,
+    "seen": 1795021545.5733347,
+    "ast_hash": "eeb7ac72bb5a3a71ec08b283a1ab1eb0",
+    "semantic_hash": ""
   },
   "src/pages/timesheets/copyForward.js": {
-    "mtime": 1795008177.4008558,
-    "seen": 1795016355.351105,
-    "ast_hash": "22f97a788a332d72bd19b56e35bee493",
-    "semantic_hash": "22f97a788a332d72bd19b56e35bee493"
+    "mtime": 1795021490.917297,
+    "seen": 1795021545.5733361,
+    "ast_hash": "58abdf8e7a4212c8601963157e37e7a5",
+    "semantic_hash": ""
   },
   "src/pages/timesheets/useTimesheetEntry.js": {
-    "mtime": 1795008177.4008558,
-    "seen": 1795016355.3511066,
-    "ast_hash": "3bca2d994d97c2365a7840af6373e458",
-    "semantic_hash": "3bca2d994d97c2365a7840af6373e458"
+    "mtime": 1795021446.3259823,
+    "seen": 1795021545.5733368,
+    "ast_hash": "46ec8d34c7cbb85feefda859c8397369",
+    "semantic_hash": ""
   },
   "src/pages/timesheets/weekMath.js": {
     "mtime": 1795008177.4008558,
@@ -1827,6 +1827,18 @@
     "mtime": 1795017166.9085188,
     "seen": 1795017172.347396,
     "ast_hash": "ffa6a7c1692ad40070d3c2dc1c4215fd",
+    "semantic_hash": ""
+  },
+  "src/lib/useTimesheetExcluded.js": {
+    "mtime": 1795021235.177374,
+    "seen": 1795021545.5732443,
+    "ast_hash": "657032e6079aec5998bfc147437c0f14",
+    "semantic_hash": ""
+  },
+  "supabase/91-exclude-from-timesheets.sql": {
+    "mtime": 1795021252.5500073,
+    "seen": 1795021545.5734477,
+    "ast_hash": "c88bbb0f17f54cb079e70fb162f29fc8",
     "semantic_hash": ""
   },
   "package-lock.json": {

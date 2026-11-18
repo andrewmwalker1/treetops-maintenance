@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { getHolidaySettings, getProfilesForTimeProfileAdmin, upsertStaffTimeProfile } from "../../lib/holidayQueries.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Field, Input, PageHeader, Select } from "../../ui/index.js";
+import { Alert, Button, Field, Input, PageHeader, Pill, Select } from "../../ui/index.js";
 
 const DAYS = [
   ["works_monday", "Mon"], ["works_tuesday", "Tue"], ["works_wednesday", "Wed"], ["works_thursday", "Thu"],
@@ -16,6 +16,7 @@ const DEFAULT_PATTERN = {
   works_monday: true, works_tuesday: true, works_wednesday: true, works_thursday: true, works_friday: true,
   works_saturday: false, works_sunday: false,
   has_fixed_entitlement: true,
+  exclude_from_timesheets: false,
 };
 
 function entitlementHours(pattern, settings) {
@@ -26,6 +27,9 @@ function entitlementHours(pattern, settings) {
 function PersonRow({ profileId, displayName, initial, settings, onSave }) {
   const [pattern, setPattern] = useState(() => ({ ...DEFAULT_PATTERN, ...initial }));
   const [saving, setSaving] = useState(false);
+  // No staff_time_profiles row yet: what's on screen is DEFAULT_PATTERN, not
+  // anything saved -- say so, or it looks set up when it isn't.
+  const [isSetUp, setIsSetUp] = useState(!!initial);
   const isStandard = !pattern.has_fixed_pattern
     ? false
     : pattern.works_monday && pattern.works_tuesday && pattern.works_wednesday && pattern.works_thursday && pattern.works_friday
@@ -36,7 +40,7 @@ function PersonRow({ profileId, displayName, initial, settings, onSave }) {
     setPattern(next);
     setSaving(true);
     try {
-      await onSave(profileId, next);
+      if (await onSave(profileId, next)) setIsSetUp(true);
     } finally {
       setSaving(false);
     }
@@ -45,15 +49,29 @@ function PersonRow({ profileId, displayName, initial, settings, onSave }) {
   return (
     <div style={{ background: colors.surfaceHover, border: `1px solid ${colors.line}`, borderRadius: "var(--radius-sm)", padding: 14, marginBottom: 10 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-        <span style={{ fontWeight: 600 }}>{displayName}</span>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: colors.inkSoft, cursor: "pointer" }}>
-          <input
-            type="checkbox"
-            checked={!pattern.has_fixed_pattern}
-            onChange={(e) => persist({ ...pattern, has_fixed_pattern: !e.target.checked })}
-          />
-          Varies week to week
-        </label>
+        <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+          {displayName}
+          {!isSetUp && <Pill tone="warn">Not set up — defaults shown, nothing saved</Pill>}
+          {pattern.exclude_from_timesheets && <Pill tone="neutral">Excluded from timesheets</Pill>}
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-4)", flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: colors.inkSoft, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={!!pattern.exclude_from_timesheets}
+              onChange={(e) => persist({ ...pattern, exclude_from_timesheets: e.target.checked })}
+            />
+            Exclude from timesheets
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--text-xs)", color: colors.inkSoft, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={!pattern.has_fixed_pattern}
+              onChange={(e) => persist({ ...pattern, has_fixed_pattern: !e.target.checked })}
+            />
+            Varies week to week
+          </label>
+        </div>
       </div>
 
       <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
@@ -130,8 +148,10 @@ export default function StaffTimeProfilesTab() {
     setError("");
     try {
       await upsertStaffTimeProfile(profileId, org.id, pattern);
+      return true;
     } catch (err) {
       setError(err.message || String(err));
+      return false;
     }
   }
 
@@ -141,7 +161,8 @@ export default function StaffTimeProfilesTab() {
       <p style={{ fontSize: "var(--text-sm)", color: colors.inkSoft, marginTop: 0 }}>
         Baseline: {settings ? `${settings.baseline_annual_days} days at ${settings.baseline_weekly_hours} hrs/week` : "…"}.
         Everyone else is pro-rated from this. Which days someone works drives bank-holiday auto-booking and which
-        days are greyed out as non-working on their booking calendar.
+        days are greyed out as non-working on their booking calendar. "Exclude from timesheets" takes someone off the
+        Office Hub timesheet grid and hides their own Timesheet page; they can still book holiday.
       </p>
       {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
       {!loading && people.map((p) => (

@@ -8,6 +8,7 @@ import { getBankHolidays, getMyHolidayRequests, getStaffTimeProfile } from "../.
 import { Alert, SkeletonList } from "../../ui/index.js";
 import BookingCalendar from "./BookingCalendar.jsx";
 import BookingReview from "./BookingReview.jsx";
+import { formatShortDate } from "../timesheets/weekMath.js";
 
 export default function BookHoliday() {
   const { profile } = useAuth();
@@ -18,6 +19,9 @@ export default function BookHoliday() {
   const [error, setError] = useState("");
   const [selectedDates, setSelectedDates] = useState([]);
   const [reviewing, setReviewing] = useState(false);
+  // Shown above the calendar after a submit, so it's clear the request
+  // went -- otherwise you land back on an empty calendar with no sign of it.
+  const [sentDates, setSentDates] = useState(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -51,6 +55,7 @@ export default function BookHoliday() {
   }
 
   function handleSubmitted() {
+    setSentDates(selectedDates);
     setSelectedDates([]);
     setReviewing(false);
     if (profile) getMyHolidayRequests(profile.id).then(setExistingRequests);
@@ -80,13 +85,25 @@ export default function BookHoliday() {
   }
 
   return (
-    <BookingCalendar
-      timeProfile={timeProfile}
-      bankHolidayDates={bankHolidayDates}
-      disabledDates={alreadyRequestedDates}
-      selectedDates={selectedDates}
-      onToggleDate={toggleDate}
-      onContinue={() => setReviewing(true)}
-    />
+    <>
+      {sentDates && (
+        <Alert tone="ok" title="Request sent">
+          Your request for {sentDates.length} day{sentDates.length === 1 ? "" : "s"} ({formatShortDate(sentDates[0])}
+          {sentDates.length > 1 ? ` – ${formatShortDate(sentDates[sentDates.length - 1])}` : ""}) is waiting for approval.
+          You'll see it under My Holiday.
+        </Alert>
+      )}
+      <BookingCalendar
+        timeProfile={timeProfile}
+        bankHolidayDates={bankHolidayDates}
+        disabledDates={alreadyRequestedDates}
+        selectedDates={selectedDates}
+        onToggleDate={(iso) => {
+          setSentDates(null);
+          toggleDate(iso);
+        }}
+        onContinue={() => setReviewing(true)}
+      />
+    </>
   );
 }

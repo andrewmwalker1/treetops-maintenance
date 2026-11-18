@@ -2,7 +2,7 @@
 // everyone regardless of permissions, since booking/viewing your own
 // status needs none (resolved purely via profile_id = auth.uid()). Internal
 // tabs: "My Holiday" and "Book" always shown; "Team calendar" needs
-// can_submit_timesheet; "Approvals" needs can_approve_holiday or
+// can_submit_timesheet, can_approve_holiday or can_manage_timesheets; "Approvals" needs can_approve_holiday or
 // can_manage_timesheets -- same gating ApprovalsInbox.jsx's other mount
 // point (Office Hub) uses.
 import { useState } from "react";
@@ -16,8 +16,10 @@ import ApprovalsInbox from "./ApprovalsInbox.jsx";
 
 export default function HolidayHome() {
   const permissions = usePermissions();
-  const canSeeTeamCalendar = permissions.has("can_submit_timesheet");
   const canApprove = permissions.has("can_approve_holiday") || permissions.has("can_manage_timesheets");
+  // Approvers and the office need the calendar most -- it's how they check
+  // who else is off before approving.
+  const canSeeTeamCalendar = permissions.has("can_submit_timesheet") || canApprove;
   const [tab, setTab] = useState("my");
 
   return (

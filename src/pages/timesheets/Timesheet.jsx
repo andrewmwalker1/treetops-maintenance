@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, Input, PageHeader, Select, SkeletonList, Textarea } from "../../ui/index.js";
+import { useIsMobile } from "../../lib/useIsMobile.js";
+import { Alert, Button, Card, Input, PageHeader, Pill, Select, SkeletonList, Textarea } from "../../ui/index.js";
 import { addWeeks, DAY_LABELS, formatShortDate, formatWeekLabel, isForecastEntry } from "./weekMath.js";
 import { useTimesheetEntry } from "./useTimesheetEntry.js";
 
@@ -12,33 +13,59 @@ function CardTitle({ children }) {
 // Input -- avoids a network write on every keystroke. Keyed by date from
 // the parent, so switching weeks mounts a fresh instance per day rather
 // than carrying stale local text into a different date's row.
-function DayRow({ label, isForecast, initialMorning, initialAfternoon, disabled, onSave }) {
+//
+// On a phone the day name sits on its own line above the inputs -- five
+// fixed columns side by side don't fit a 390px screen.
+function DayRow({ label, isForecast, holidayHours, initialMorning, initialAfternoon, disabled, onSave }) {
+  const isMobile = useIsMobile();
   const [morning, setMorning] = useState(initialMorning ?? "");
   const [afternoon, setAfternoon] = useState(initialAfternoon ?? "");
-  const total = (Number(morning) || 0) + (Number(afternoon) || 0);
+  const total = (Number(morning) || 0) + (Number(afternoon) || 0) + (Number(holidayHours) || 0);
   const commit = () => onSave(morning, afternoon);
+  const dayLabel = (
+    <span style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: "var(--space-2)", flexWrap: "wrap" }}>
+      <span>
+        {label}
+        {isForecast && <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 400, color: colors.inkSoft }}>forecast</span>}
+      </span>
+      {holidayHours > 0 && <Pill tone="ok">Holiday · {Number(holidayHours)} hrs</Pill>}
+    </span>
+  );
+  const inputs = (
+    <>
+      <Input
+        type="number" step="0.25" min="0" placeholder="0" disabled={disabled}
+        value={morning}
+        onChange={(e) => setMorning(e.target.value)}
+        onBlur={commit}
+        aria-label={`${label} morning hours`}
+      />
+      <span style={{ textAlign: "center", fontSize: "var(--text-xs)", color: colors.inkSoft }}>lunch</span>
+      <Input
+        type="number" step="0.25" min="0" placeholder="0" disabled={disabled}
+        value={afternoon}
+        onChange={(e) => setAfternoon(e.target.value)}
+        onBlur={commit}
+        aria-label={`${label} afternoon hours`}
+      />
+      <span style={{ textAlign: "right", fontWeight: 600 }}>{total || "—"}</span>
+    </>
+  );
   return (
-    <div style={{ padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
-      <div style={{ display: "grid", gridTemplateColumns: "110px 90px 50px 90px 60px", gap: 10, alignItems: "center" }}>
-        <span style={{ fontWeight: 600 }}>
-          {label}
-          {isForecast && <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 400, color: colors.inkSoft }}>forecast</span>}
-        </span>
-        <Input
-          type="number" step="0.25" min="0" placeholder="0" disabled={disabled}
-          value={morning}
-          onChange={(e) => setMorning(e.target.value)}
-          onBlur={commit}
-        />
-        <span style={{ textAlign: "center", fontSize: "var(--text-xs)", color: colors.inkSoft }}>lunch</span>
-        <Input
-          type="number" step="0.25" min="0" placeholder="0" disabled={disabled}
-          value={afternoon}
-          onChange={(e) => setAfternoon(e.target.value)}
-          onBlur={commit}
-        />
-        <span style={{ textAlign: "right", fontWeight: 600 }}>{total || "—"}</span>
-      </div>
+    <div style={{ padding: "var(--space-2) 0", borderBottom: `1px solid ${colors.line}` }}>
+      {isMobile ? (
+        <>
+          <div style={{ marginBottom: "var(--space-1)" }}>{dayLabel}</div>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto minmax(0, 1fr) var(--space-8)", gap: "var(--space-2)", alignItems: "center" }}>
+            {inputs}
+          </div>
+        </>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "170px 90px 50px 90px 60px", gap: "var(--space-3)", alignItems: "center" }}>
+          {dayLabel}
+          {inputs}
+        </div>
+      )}
     </div>
   );
 }
@@ -143,6 +170,7 @@ export default function Timesheet() {
                 key={`${t.loadedWeek}-${date}`}
                 label={DAY_LABELS[i]}
                 isForecast={entry ? isForecastEntry(entry) : false}
+                holidayHours={t.holidayByDate[date]}
                 initialMorning={entry?.morning_hours}
                 initialAfternoon={entry?.afternoon_hours}
                 disabled={t.isFrozen || t.saving}

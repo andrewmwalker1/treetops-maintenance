@@ -5,7 +5,7 @@
 // KioskCheckOut.jsx. Always operates on the logged-in profile; office
 // entering on someone else's behalf goes through PersonWeekEditModal.jsx
 // instead, which calls the same timesheetQueries.js functions directly.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import {
   getRecentDailyEntries, getWeekEntries, getWeekFreezeStatus, getWeekNote, insertAdjustment, saveWeekNote, upsertDailyEntry,
@@ -32,8 +32,16 @@ export function useTimesheetEntry() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  // Bumped on every load; a response only lands if it's still the latest.
+  // Without this, clicking Next week quickly let a slower reply for an
+  // earlier week arrive last and show that week's hours under the new
+  // week's heading.
+  const loadSeq = useRef(0);
+
   const load = useCallback(async () => {
     if (!profile) return;
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current;
     setError("");
     try {
       const [weekEntries, freezeStatus, recent, note] = await Promise.all([
@@ -42,14 +50,18 @@ export function useTimesheetEntry() {
         getRecentDailyEntries(profile.id),
         getWeekNote(profile.id, weekStart),
       ]);
+      if (stale()) return;
       setWeekNote(note);
 
       const hasAnyDaily = weekEntries.some((e) => e.entry_kind === "daily");
       if (!hasAnyDaily && !freezeStatus?.frozen_at) {
         const copied = await copyFromPreviousWeek(profile.id, weekStart);
+        if (stale()) return;
         if (copied) {
+          const copiedEntries = await getWeekEntries(profile.id, weekStart);
+          if (stale()) return;
           setCopiedFromLastWeek(true);
-          setEntries(await getWeekEntries(profile.id, weekStart));
+          setEntries(copiedEntries);
           setFreeze(freezeStatus);
           setRecentEntries(recent);
           setLoadedWeek(weekStart);
@@ -63,7 +75,7 @@ export function useTimesheetEntry() {
       setRecentEntries(recent);
       setLoadedWeek(weekStart);
     } catch (err) {
-      setError(err.message || String(err));
+      if (!stale()) setError(err.message || String(err));
     } finally {
       setInitialLoading(false);
     }
@@ -78,6 +90,12 @@ export function useTimesheetEntry() {
   }
 
   const dailyByDate = Object.fromEntries(entries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
+  // Approved holiday and auto-booked bank holidays are their own
+  // entry_kind = 'holiday' rows -- summed per date so the day can say so.
+  const holidayByDate = {};
+  for (const e of entries) {
+    if (e.entry_kind === "holiday") holidayByDate[e.work_date] = (holidayByDate[e.work_date] || 0) + Number(e.daily_total || 0);
+  }
   const adjustments = entries.filter((e) => e.entry_kind === "adjustment");
   const weekTotal = entries.reduce((sum, e) => sum + Number(e.daily_total || 0), 0);
   const isFrozen = !!freeze?.frozen_at;
@@ -125,7 +143,7 @@ export function useTimesheetEntry() {
   return {
     weekStart, setWeekStart,
     days: weekDates(weekStart),
-    dailyByDate, adjustments, weekTotal, weekNote, loadedWeek,
+    dailyByDate, holidayByDate, adjustments, weekTotal, weekNote, loadedWeek,
     isFrozen, frozenByName: freeze?.frozen_by_profile?.display_name,
     copiedFromLastWeek,
     recentEntries,

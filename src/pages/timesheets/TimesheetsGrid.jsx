@@ -2,13 +2,13 @@
 // operations (view hours, enter on someone's behalf, freeze/unfreeze a
 // week), not a settings screen. Admin (Roles & Permissions) is still
 // where can_submit_timesheet/can_manage_timesheets get assigned to roles.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import {
-  freezeWeek, getSubmittableProfiles, getWeekEntriesForProfiles, getWeekFreezeStatus, movePersonOrder, unfreezeWeek,
+  freezeWeek, getSubmittableProfiles, getWeekEntriesForProfiles, getWeekFreezeStatus, getWeekNotesForProfiles, movePersonOrder, unfreezeWeek,
 } from "../../lib/timesheetQueries.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, IconArrowDown, IconArrowUp, IconButton, IconEdit, PageHeader, Table } from "../../ui/index.js";
+import { Alert, Button, Card, IconArrowDown, IconArrowUp, IconButton, IconEdit, PageHeader, Pill, Table } from "../../ui/index.js";
 import FixedHoursSection from "./FixedHoursSection.jsx";
 import PersonWeekEditModal from "./PersonWeekEditModal.jsx";
 import { addWeeks, DAY_LABELS, formatShortDate, formatWeekLabel, mondayOf, todayIso, weekDates } from "./weekMath.js";
@@ -18,26 +18,43 @@ export default function TimesheetsGrid() {
   const [weekStart, setWeekStart] = useState(() => mondayOf(todayIso()));
   const [people, setPeople] = useState([]);
   const [entries, setEntries] = useState([]);
+  const [notes, setNotes] = useState({}); // profile id -> that week's note
   const [freeze, setFreeze] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editingProfile, setEditingProfile] = useState(null); // { id, displayName } or null
   const [openAdjustmentsFor, setOpenAdjustmentsFor] = useState(null); // profile id or null
 
+  // Only the latest week's responses land -- see useTimesheetEntry.js.
+  const loadSeq = useRef(0);
+
   const refresh = useCallback(() => {
     if (!org) return;
+    const seq = ++loadSeq.current;
+    const stale = () => seq !== loadSeq.current;
     setLoading(true);
     setError("");
     getSubmittableProfiles()
       .then((profiles) => {
         setPeople(profiles);
-        return getWeekEntriesForProfiles(profiles.map((p) => p.id), weekStart);
+        const ids = profiles.map((p) => p.id);
+        return Promise.all([getWeekEntriesForProfiles(ids, weekStart), getWeekNotesForProfiles(ids, weekStart)]);
       })
-      .then(setEntries)
-      .catch((err) => setError(err.message || String(err)))
-      .finally(() => setLoading(false));
+      .then(([weekEntries, weekNotes]) => {
+        if (stale()) return;
+        setEntries(weekEntries);
+        setNotes(weekNotes);
+      })
+      .catch((err) => {
+        if (!stale()) setError(err.message || String(err));
+      })
+      .finally(() => {
+        if (!stale()) setLoading(false);
+      });
     getWeekFreezeStatus(weekStart)
-      .then(setFreeze)
+      .then((f) => {
+        if (!stale()) setFreeze(f);
+      })
       .catch((err) => setError(err.message || String(err)));
   }, [org, weekStart]);
 
@@ -128,6 +145,10 @@ export default function TimesheetsGrid() {
               {people.map((person, i) => {
                 const personEntries = entriesByProfile[person.id] || [];
                 const dailyByDate = Object.fromEntries(personEntries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
+                const holidayByDate = {};
+                for (const e of personEntries) {
+                  if (e.entry_kind === "holiday") holidayByDate[e.work_date] = (holidayByDate[e.work_date] || 0) + Number(e.daily_total || 0);
+                }
                 const adjustments = personEntries.filter((e) => e.entry_kind === "adjustment");
                 const adjustmentTotal = adjustments.reduce((sum, a) => sum + Number(a.adjustment_hours || 0), 0);
                 const weekTotal = personEntries.reduce((sum, e) => sum + Number(e.daily_total || 0), 0);
@@ -138,12 +159,21 @@ export default function TimesheetsGrid() {
                       <IconButton size="sm" label="Move down" disabled={i === people.length - 1} onClick={() => handleMove(i, 1)}><IconArrowDown size={14} /></IconButton>
                       <IconButton size="sm" label={`Edit ${person.displayName}'s week`} onClick={() => setEditingProfile(person)}><IconEdit size={14} /></IconButton>
                     </td>
-                    <td>{person.displayName}</td>
+                    <td>
+                      {person.displayName}
+                      {notes[person.id] && (
+                        <span style={{ display: "block", fontSize: "var(--text-xs)", color: colors.inkSoft, maxWidth: "var(--width-sm)", whiteSpace: "pre-wrap" }}>
+                          {notes[person.id]}
+                        </span>
+                      )}
+                    </td>
                     {days.map((date) => {
                       const total = dailyByDate[date]?.daily_total;
+                      const holiday = holidayByDate[date];
                       return (
                         <td key={date} className="tt-num" style={{ textAlign: "center", color: total ? colors.ink : colors.inkSoft }}>
-                          {total || "—"}
+                          {total || (holiday ? "" : "—")}
+                          {holiday > 0 && <Pill tone="ok" title="Holiday">Hol {holiday}</Pill>}
                         </td>
                       );
                     })}

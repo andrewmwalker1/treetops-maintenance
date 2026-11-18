@@ -14,6 +14,7 @@ import {
   setTabletUsesDesktopLayout,
 } from "../lib/useIsMobile.js";
 import { useNavBadges } from "../lib/useNavBadges.js";
+import { useTimesheetExcluded } from "../lib/useTimesheetExcluded.js";
 import { BUILD_LABEL } from "../lib/buildInfo.js";
 import { ViewAsPicker, ViewAsBanner } from "./ViewAsControl.jsx";
 import Menu, { MenuHeader, MenuItem, MenuSeparator } from "../ui/Menu.jsx";
@@ -57,6 +58,7 @@ function readSidebarCollapsed() {
 export default function Layout({ children }) {
   const { profile, viewingAs, org, activeSite, signOut } = useAuth();
   const permissions = usePermissions();
+  const timesheetExcluded = useTimesheetExcluded();
   const isMobile = useIsMobile();
   const location = useLocation();
   const [dnd, setDnd] = useState(Boolean(profile?.dnd_enabled));
@@ -170,7 +172,7 @@ export default function Layout({ children }) {
       : []),
     { to: "/equipment", label: "Equipment", shortLabel: "Kit", Icon: IconEquipment, tabBar: true },
     ...(canUseKeys ? [{ to: "/key-register", label: "Keys", Icon: IconKeys, tabBar: true, badge: "keys" }] : []),
-    ...(permissions.has("can_submit_timesheet")
+    ...(permissions.has("can_submit_timesheet") && !timesheetExcluded
       ? [{ to: "/timesheets", label: "Timesheet", Icon: IconOverview, tabBar: true }]
       : []),
     // Universal -- unlike Timesheet above, everyone can book/view their

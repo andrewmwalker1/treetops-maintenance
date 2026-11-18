@@ -1,6 +1,5 @@
 {
   "1": "App Shell & Routing",
-  "2": "Holidays & Bank Holidays",
   "3": "License Agreement Calculations",
   "7": "Staff Timesheets UI",
   "8": "Ponytail Skills & Sage Tool",
@@ -14,7 +13,6 @@
   "25": "Meter Scanning & Cache",
   "27": "Runtime Dependencies",
   "28": "Assignee Picker & Templates",
-  "29": "Job Photos & Subtasks Schema",
   "31": "New Job Form",
   "36": "License Agreement Settings",
   "37": "Equipment Types & Competencies Schema",
@@ -25,7 +23,6 @@
   "50": "RLS Helper Functions",
   "52": "Push Notification Functions",
   "53": "Meter CSV Import",
-  "55": "Build & Versioning",
   "56": "Machine Competencies",
   "57": "Equipment Doc Reminders Fn",
   "59": "Users Admin",

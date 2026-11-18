@@ -51,6 +51,7 @@ export async function getFixedHoursProfiles() {
     .from("staff_time_profiles")
     .select("profile_id, weekly_hours, profile:profiles!profile_id!inner(id, display_name, is_active, is_contractor)")
     .eq("pay_basis", "fixed_weekly")
+    .eq("exclude_from_timesheets", false)
     .eq("profile.is_active", true)
     .eq("profile.is_contractor", false);
   if (error) {
@@ -66,9 +67,13 @@ export async function upsertStaffTimeProfile(profileId, orgId, fields) {
   // updated_by/updated_at are force-set server-side by
   // staff_time_profiles_before_upsert (72-staff-time-profiles-audit-
   // trigger.sql) to the actual actor, not passed from here.
+  // is_standard_5_day is a generated column -- Postgres rejects any
+  // explicit value for it, and the row passed in here is often a whole
+  // previously-loaded row.
+  const { is_standard_5_day, updated_by, updated_at, ...writable } = fields;
   const { error } = await supabase
     .from("staff_time_profiles")
-    .upsert({ profile_id: profileId, org_id: orgId, ...fields }, { onConflict: "profile_id" });
+    .upsert({ ...writable, profile_id: profileId, org_id: orgId }, { onConflict: "profile_id" });
   if (error) {
     console.error("upsertStaffTimeProfile failed", error);
     throw error;

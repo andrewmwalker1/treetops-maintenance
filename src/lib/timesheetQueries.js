@@ -130,6 +130,22 @@ export async function getWeekNote(profileId, weekStart) {
   return data?.note ?? "";
 }
 
+// Every person's week note for one week -- the office grid shows them
+// under each name rather than hiding them in the edit modal.
+export async function getWeekNotesForProfiles(profileIds, weekStart) {
+  if (!profileIds.length) return {};
+  const { data, error } = await supabase
+    .from("timesheet_week_notes")
+    .select("profile_id, note")
+    .in("profile_id", profileIds)
+    .eq("week_start", weekStart);
+  if (error) {
+    console.error("getWeekNotesForProfiles failed", error);
+    throw error;
+  }
+  return Object.fromEntries((data || []).filter((r) => r.note).map((r) => [r.profile_id, r.note]));
+}
+
 export async function saveWeekNote(profileId, weekStart, note) {
   const { error } = await supabase
     .from("timesheet_week_notes")
@@ -166,7 +182,8 @@ export async function insertAdjustment({ profileId, correctsEntryId, workDate, e
 // straight into profiles, so this is two queries rather than one join.
 // Excludes anyone on a fixed_weekly pay basis (Jayne) -- she never fills
 // in a daily grid, so she'd otherwise double up between this table and
-// FixedHoursSection.jsx's own list below it.
+// FixedHoursSection.jsx's own list below it -- and anyone ticked "Exclude
+// from timesheets" on Admin -> Work patterns.
 export async function getSubmittableProfiles() {
   const { data: rolePerms, error: rpErr } = await supabase
     .from("role_permissions")
@@ -182,7 +199,7 @@ export async function getSubmittableProfiles() {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, display_name, role_id, roles(name), timesheet_person_order(sort_order), staff_time_profiles!profile_id(pay_basis)")
+    .select("id, display_name, role_id, roles(name), timesheet_person_order(sort_order), staff_time_profiles!profile_id(pay_basis, exclude_from_timesheets)")
     .in("role_id", roleIds)
     .eq("is_active", true)
     .order("display_name");
@@ -192,7 +209,7 @@ export async function getSubmittableProfiles() {
   }
 
   return (data || [])
-    .filter((p) => p.staff_time_profiles?.pay_basis !== "fixed_weekly")
+    .filter((p) => p.staff_time_profiles?.pay_basis !== "fixed_weekly" && !p.staff_time_profiles?.exclude_from_timesheets)
     .map((p) => ({
       id: p.id,
       displayName: p.display_name,

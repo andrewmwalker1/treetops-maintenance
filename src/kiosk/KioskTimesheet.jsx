@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { colors } from "../lib/theme.js";
-import { Alert, Button, IconArrowLeft, Input, PageHeader, Textarea } from "../ui/index.js";
+import { Alert, Button, IconArrowLeft, Input, PageHeader, Pill, Textarea } from "../ui/index.js";
 import { useTimesheetEntry } from "../pages/timesheets/useTimesheetEntry.js";
 import { DAY_LABELS, isForecastEntry } from "../pages/timesheets/weekMath.js";
 
@@ -12,10 +12,10 @@ import { DAY_LABELS, isForecastEntry } from "../pages/timesheets/weekMath.js";
 // shared walk-up terminal with a 3-minute idle timeout isn't the place
 // for a considered "which day, how many hours, why" correction; that
 // stays a desktop/PWA action.
-function DayRow({ label, isForecast, initialMorning, initialAfternoon, disabled, onSave }) {
+function DayRow({ label, isForecast, holidayHours, initialMorning, initialAfternoon, disabled, onSave }) {
   const [morning, setMorning] = useState(initialMorning ?? "");
   const [afternoon, setAfternoon] = useState(initialAfternoon ?? "");
-  const total = (Number(morning) || 0) + (Number(afternoon) || 0);
+  const total = (Number(morning) || 0) + (Number(afternoon) || 0) + (Number(holidayHours) || 0);
   const commit = () => onSave(morning, afternoon);
   return (
     <div style={{ padding: "14px 0", borderBottom: `1px solid ${colors.line}` }}>
@@ -23,6 +23,7 @@ function DayRow({ label, isForecast, initialMorning, initialAfternoon, disabled,
         <span style={{ fontWeight: 600, fontSize: "var(--text-lg)" }}>
           {label}
           {isForecast && <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 400, color: colors.inkSoft }}>forecast</span>}
+          {holidayHours > 0 && <span style={{ display: "block" }}><Pill tone="ok">Holiday · {Number(holidayHours)} hrs</Pill></span>}
         </span>
         <Input
           type="number" step="0.25" min="0" placeholder="0" disabled={disabled}
@@ -91,6 +92,7 @@ export default function KioskTimesheet() {
               key={date}
               label={DAY_LABELS[i]}
               isForecast={entry ? isForecastEntry(entry) : false}
+              holidayHours={t.holidayByDate[date]}
               initialMorning={entry?.morning_hours}
               initialAfternoon={entry?.afternoon_hours}
               disabled={t.isFrozen || t.saving}
