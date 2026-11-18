@@ -1818,9 +1818,15 @@
     "semantic_hash": ""
   },
   "SECURITY-PLAN.md": {
-    "mtime": 1795016346.7419002,
-    "seen": 1795016355.3513157,
-    "ast_hash": "03771cce21fb87298ca3c1b51ad83872",
+    "mtime": 1795016586.2712688,
+    "seen": 1795017172.3474162,
+    "ast_hash": "62e8e2a21f7f68a05fa11e699729d343",
+    "semantic_hash": ""
+  },
+  "supabase/90-fix-holiday-accrued-hours-group-by.sql": {
+    "mtime": 1795017166.9085188,
+    "seen": 1795017172.347396,
+    "ast_hash": "ffa6a7c1692ad40070d3c2dc1c4215fd",
     "semantic_hash": ""
   },
   "package-lock.json": {
