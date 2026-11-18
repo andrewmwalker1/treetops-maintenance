@@ -70,9 +70,9 @@ station; her email login and the main system are unaffected.
 
 ## 2. Bank-holiday helpers callable by any user (medium)
 
-**Status (18 Nov 2026):** migration written —
-`supabase/89-revoke-bank-holiday-helpers.sql`. Not yet run against the
-live project (no SQL route from a cloud session); run it in the SQL Editor.
+**Status: done (18 Nov 2026)** — `supabase/89-revoke-bank-holiday-helpers.sql`,
+applied to the live project and verified (`authenticated` no longer has
+EXECUTE). Migrations 71–74 were confirmed live the same day.
 
 `apply_bank_holiday_for_profile` and `remove_bank_holiday_for_profile`
 (`70-holiday-accrual-and-booking.sql`) are `security definer` with no
