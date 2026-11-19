@@ -20,6 +20,7 @@ import { readFileSync } from "node:fs";
 const EXCLUDED = [
   /^src\/components\/Printable/,
   /^src\/lib\/printJobCards\.jsx$/,
+  /^src\/lib\/printCaravanSale\.jsx$/,
 ];
 
 function git(args) {

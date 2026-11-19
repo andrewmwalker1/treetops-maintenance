@@ -39,6 +39,8 @@ import { colors, pageStyle } from "./lib/theme.js";
 // -- that only the handful of people reading meters a few times a year
 // actually need. Eagerly importing any of these here would put that
 // weight on every page load for the whole team, every day.
+const NewSale = lazy(() => import("./pages/sales/NewSale.jsx"));
+const SaleDetail = lazy(() => import("./pages/sales/SaleDetail.jsx"));
 const ScanMeter = lazy(() => import("./pages/meters/ScanMeter.jsx"));
 const MeterProgress = lazy(() => import("./pages/meters/MeterProgress.jsx"));
 const UploadMeters = lazy(() => import("./pages/meters/UploadMeters.jsx"));
@@ -233,6 +235,8 @@ function AppShell() {
         <Route path="/holidays" element={<HolidayHome />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/office-hub" element={<OfficeHub />} />
+        <Route path="/office-hub/sales/new" element={<LazyRoute Component={NewSale} />} />
+        <Route path="/office-hub/sales/:id" element={<LazyRoute Component={SaleDetail} />} />
         <Route path="/safety" element={<HealthAndSafety />} />
         <Route path="/meter-reading" element={<MeterReadingHome />} />
         <Route path="/meter-reading/scan" element={<LazyRoute Component={ScanMeter} />} />

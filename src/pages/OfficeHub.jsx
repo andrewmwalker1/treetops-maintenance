@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -9,6 +9,7 @@ import { supabase } from "../lib/supabaseClient.js";
 import { queryJobs } from "../lib/jobsQuery.js";
 import { queryOpenKeyCheckouts } from "../lib/keysOutSummary.js";
 import { countMachinesCheckedOut } from "../lib/equipmentAvailability.js";
+import { countSalesInProgress, countSalesNeedingAttention } from "../lib/caravanSalesSummary.js";
 import { tileColorValue } from "../lib/officeHubTiles.js";
 import StatDial from "../components/StatDial.jsx";
 import { colors, space } from "../lib/theme.js";
@@ -21,6 +22,7 @@ import {
 // opens this tab, not everyone visiting Office Hub. Same reasoning as
 // App.jsx's meter-tools routes.
 const LicenseAgreement = lazy(() => import("./license-agreement/LicenseAgreement.jsx"));
+const SalesTab = lazy(() => import("./sales/SalesTab.jsx"));
 const TimesheetsGrid = lazy(() => import("./timesheets/TimesheetsGrid.jsx"));
 const TimesheetOverrides = lazy(() => import("./timesheets/TimesheetOverrides.jsx"));
 const ApprovalsInbox = lazy(() => import("./holidays/ApprovalsInbox.jsx"));
@@ -521,6 +523,17 @@ function SignalStrip({ counts, hub, onSeeAll }) {
           color={counts.overdue ? colors.immediate : colors.moss}
           onClick={counts.onOverdue}
         />
+        {counts.salesInProgress !== null && (
+          <StatDial label="Sales in progress" value={counts.salesInProgress} onClick={counts.onSales} />
+        )}
+        {counts.salesNeedingAttention !== null && (
+          <StatDial
+            label="Needs attention"
+            value={counts.salesNeedingAttention}
+            color={counts.salesNeedingAttention ? colors.immediate : colors.moss}
+            onClick={counts.onSales}
+          />
+        )}
         <StatDial label="Keys out" value={counts.keysOut} onClick={counts.onKeysOut} />
         <StatDial label="Kit out" value={counts.kitOut} onClick={counts.onKitOut} />
         <StatDial
@@ -623,8 +636,11 @@ export default function OfficeHub() {
   const navigate = useNavigate();
   const canOfficeHub = permissions.has("can_use_office_hub");
   const canLicenseAgreement = permissions.has("can_use_license_agreement");
+  const canSales = permissions.has("can_use_caravan_sales");
   const canManageTimesheets = permissions.has("can_manage_timesheets");
   const canApproveHoliday = canManageTimesheets || permissions.has("can_approve_holiday");
+  const [searchParams] = useSearchParams();
+  const initialTabParam = searchParams.get("tab");
   const [tab, setTab] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -645,6 +661,8 @@ export default function OfficeHub() {
   const [keysOutCount, setKeysOutCount] = useState(0);
   const [faultyCount, setFaultyCount] = useState(0);
   const [kitOutCount, setKitOutCount] = useState(0);
+  const [salesInProgressCount, setSalesInProgressCount] = useState(null);
+  const [salesNeedingAttentionCount, setSalesNeedingAttentionCount] = useState(null);
   const [directorySearch, setDirectorySearch] = useState("");
 
   // Hub's contractors/places -- loaded once here, up front, rather than
@@ -661,6 +679,7 @@ export default function OfficeHub() {
     canOfficeHub && "dashboard",
     canOfficeHub && "browse",
     canLicenseAgreement && "license-agreement",
+    canSales && "sales",
     canManageTimesheets && "timesheets",
     canManageTimesheets && "timesheet-overrides",
     canApproveHoliday && "holiday-approvals",
@@ -668,9 +687,13 @@ export default function OfficeHub() {
 
   // Lands on whichever tab this person can actually see, rather than
   // always defaulting to "dashboard" -- someone with only License
-  // Agreement access would otherwise land on a tab they can't use.
+  // Agreement access would otherwise land on a tab they can't use. A
+  // `?tab=` param (the Sales dials' own link target) wins over that
+  // default when it names a tab this person can actually see.
   useEffect(() => {
-    if (availableTabs.length && !availableTabs.includes(tab)) setTab(availableTabs[0]);
+    if (availableTabs.length && !availableTabs.includes(tab)) {
+      setTab(initialTabParam && availableTabs.includes(initialTabParam) ? initialTabParam : availableTabs[0]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [availableTabs.join(",")]);
 
@@ -741,6 +764,12 @@ export default function OfficeHub() {
   }, [org, canOfficeHub]);
 
   useEffect(() => {
+    if (!org || !canOfficeHub || !canSales) return;
+    countSalesInProgress(org.id).then(setSalesInProgressCount);
+    countSalesNeedingAttention(org.id).then(setSalesNeedingAttentionCount);
+  }, [org, canOfficeHub, canSales]);
+
+  useEffect(() => {
     if (!canOfficeHub) return;
     Promise.all([
       loadHubData("contractors", []),
@@ -788,7 +817,7 @@ export default function OfficeHub() {
     await supabase.from("office_hub_dashboard_items").delete().eq("id", row.id);
   }
 
-  if (!canOfficeHub && !canLicenseAgreement && !canManageTimesheets && !canApproveHoliday) {
+  if (!canOfficeHub && !canLicenseAgreement && !canSales && !canManageTimesheets && !canApproveHoliday) {
     return <EmptyState title="No access">You don't have permission to see Office Hub. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;
   }
 
@@ -813,6 +842,9 @@ export default function OfficeHub() {
             // the Jobs list doesn't support.
             overdue: overdueCount,
             onOverdue: () => navigate("/?overdue=1"),
+            salesInProgress: salesInProgressCount,
+            salesNeedingAttention: salesNeedingAttentionCount,
+            onSales: () => navigate("/office-hub?tab=sales"),
             keysOut: keysOutCount,
             onKeysOut: () => navigate("/dashboard"),
             kitOut: kitOutCount,
@@ -829,6 +861,7 @@ export default function OfficeHub() {
         {canOfficeHub && <Button variant={tab === "dashboard" ? "primary" : "secondary"} onClick={() => setTab("dashboard")}>My Dashboard</Button>}
         {canOfficeHub && <Button variant={tab === "browse" ? "primary" : "secondary"} onClick={() => setTab("browse")}>Browse</Button>}
         {canLicenseAgreement && <Button variant={tab === "license-agreement" ? "primary" : "secondary"} onClick={() => setTab("license-agreement")}>License Agreement</Button>}
+        {canSales && <Button variant={tab === "sales" ? "primary" : "secondary"} onClick={() => setTab("sales")}>Sales</Button>}
         {canManageTimesheets && <Button variant={tab === "timesheets" ? "primary" : "secondary"} onClick={() => setTab("timesheets")}>Timesheets</Button>}
         {canManageTimesheets && <Button variant={tab === "timesheet-overrides" ? "primary" : "secondary"} onClick={() => setTab("timesheet-overrides")}>Timesheet overrides</Button>}
         {canApproveHoliday && <Button variant={tab === "holiday-approvals" ? "primary" : "secondary"} onClick={() => setTab("holiday-approvals")}>Holiday approvals</Button>}
@@ -836,6 +869,10 @@ export default function OfficeHub() {
       {tab === "license-agreement" ? (
         <Suspense fallback={<SkeletonList rows={3} height={80} />}>
           <LicenseAgreement />
+        </Suspense>
+      ) : tab === "sales" ? (
+        <Suspense fallback={<SkeletonList rows={3} height={80} />}>
+          <SalesTab />
         </Suspense>
       ) : tab === "timesheets" ? (
         <Suspense fallback={<SkeletonList rows={3} height={80} />}>
