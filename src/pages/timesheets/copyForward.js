@@ -4,14 +4,19 @@
 // week" behaviour on her behalf rather than only on page load. One
 // implementation rather than two copies of the same logic.
 import { getWeekEntries, upsertDailyEntry } from "../../lib/timesheetQueries.js";
-import { addWeeks, weekDates } from "./weekMath.js";
+import { addWeeks, mondayOf, todayIso, weekDates } from "./weekMath.js";
 
 // Only fires for a week with zero daily rows so far -- never overwrites a
 // week someone's already started. Callers that can write to a frozen week
 // (only can_manage_timesheets holders can) get the usual audit-logged
 // insert for free from the existing before-insert trigger; this function
 // itself has no frozen-week awareness of its own.
+//
+// Only ever copies into the current week (Andy, 19 Nov 2026). It used to
+// fire for any empty week, so just paging forward with "Next week" filled
+// every future week with copied hours the office would read as real.
 export async function copyFromPreviousWeek(profileId, weekStart) {
+  if (weekStart !== mondayOf(todayIso())) return false;
   const prevWeekStart = addWeeks(weekStart, -1);
   const prevEntries = await getWeekEntries(profileId, prevWeekStart);
   const prevDaily = prevEntries.filter(
