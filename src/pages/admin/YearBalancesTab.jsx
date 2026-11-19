@@ -113,7 +113,7 @@ function PersonBalance({ person, yearStart, initial, orgId }) {
       {error && <Alert tone="danger" title="Couldn't save">{error}</Alert>}
       <div style={{ display: "flex", gap: "var(--space-4)", alignItems: "flex-end", flexWrap: "wrap" }}>
         <Field label="Start of year">
-          <Select value={direction} onChange={(e) => dirty(setDirection)(e.target.value)} style={{ width: 140 }}>
+          <Select value={direction} onChange={(e) => dirty(setDirection)(e.target.value)} style={{ width: 170 }}>
             <option value="carried">Carried over</option>
             <option value="owed">Owed</option>
           </Select>

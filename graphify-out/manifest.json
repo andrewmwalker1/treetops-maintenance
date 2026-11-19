@@ -24,9 +24,9 @@
     "semantic_hash": "841ec274bdb059b57a23eb2b0dc6d64d"
   },
   "package.json": {
-    "mtime": 1795088909.3172777,
-    "seen": 1795105781.5162594,
-    "ast_hash": "18431fd1521bc03e90d9926ff9f24fd0",
+    "mtime": 1795107962.0732777,
+    "seen": 1795107972.0332375,
+    "ast_hash": "3b6452d5429bb54b3a15b7d414db7615",
     "semantic_hash": ""
   },
   "scripts/check-styles.mjs": {
@@ -1866,9 +1866,9 @@
     "semantic_hash": ""
   },
   "src/pages/admin/YearBalancesTab.jsx": {
-    "mtime": 1795105730.7020118,
-    "seen": 1795105781.5164888,
-    "ast_hash": "4b941b27087e3c0a03663cec319f0fd3",
+    "mtime": 1795107961.0852776,
+    "seen": 1795107972.0334332,
+    "ast_hash": "4a2bb0b600c9fc9be73acad066995d76",
     "semantic_hash": ""
   },
   "supabase/94-holiday-year-balances.sql": {
@@ -1878,9 +1878,9 @@
     "semantic_hash": ""
   },
   "package-lock.json": {
-    "mtime": 1795088909.3212776,
-    "seen": 1795105781.5166852,
-    "ast_hash": "95fcfcf32f2c577e11dc7aa8bf5bc5d3",
+    "mtime": 1795107962.0772777,
+    "seen": 1795107972.0336206,
+    "ast_hash": "c9517c6e96bb80f60359963feb280cf4",
     "semantic_hash": ""
   }
 }
