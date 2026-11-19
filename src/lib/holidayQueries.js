@@ -237,3 +237,57 @@ export async function getTeamHolidayCalendar(monthStart, monthEnd) {
   }
   return data || [];
 }
+
+// First day of the holiday year containing `isoDate` -- same rule as the
+// database's holiday_year_bounds() (holiday_settings.holiday_year_start_month,
+// default April).
+export function holidayYearStart(isoDate, startMonth = 4) {
+  const [y, m] = isoDate.split("-").map(Number);
+  const year = m >= startMonth ? y : y - 1;
+  return `${year}-${String(startMonth).padStart(2, "0")}-01`;
+}
+
+// Agreed starting point per person per holiday year
+// (94-holiday-year-balances.sql) -- carried over/owed, holiday taken and
+// hours worked before the app. All hours.
+export async function getYearBalances(yearStart) {
+  const { data, error } = await supabase.from("holiday_year_balances").select("*").eq("year_start", yearStart);
+  if (error) {
+    console.error("getYearBalances failed", error);
+    throw error;
+  }
+  return Object.fromEntries((data || []).map((r) => [r.profile_id, r]));
+}
+
+export async function getMyYearBalance(profileId, yearStart) {
+  const { data, error } = await supabase
+    .from("holiday_year_balances")
+    .select("*")
+    .eq("profile_id", profileId)
+    .eq("year_start", yearStart)
+    .maybeSingle();
+  if (error) {
+    console.error("getMyYearBalance failed", error);
+    throw error;
+  }
+  return data;
+}
+
+export async function upsertYearBalance({ profileId, orgId, yearStart, carriedHours, takenBeforeHours, workedBeforeHours, note }) {
+  const { error } = await supabase.from("holiday_year_balances").upsert(
+    {
+      profile_id: profileId,
+      org_id: orgId,
+      year_start: yearStart,
+      carried_hours: carriedHours,
+      taken_before_hours: takenBeforeHours,
+      worked_before_hours: workedBeforeHours,
+      note: note?.trim() ? note.trim() : null,
+    },
+    { onConflict: "profile_id,year_start" }
+  );
+  if (error) {
+    console.error("upsertYearBalance failed", error);
+    throw error;
+  }
+}

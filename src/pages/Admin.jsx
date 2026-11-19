@@ -32,6 +32,7 @@ const LicenseAgreementSettingsTab = lazy(() => import("./admin/LicenseAgreementS
 const HolidaySettingsTab = lazy(() => import("./admin/HolidaySettingsTab.jsx"));
 const BankHolidaysTab = lazy(() => import("./admin/BankHolidaysTab.jsx"));
 const StaffTimeProfilesTab = lazy(() => import("./admin/StaffTimeProfilesTab.jsx"));
+const YearBalancesTab = lazy(() => import("./admin/YearBalancesTab.jsx"));
 import { EmptyState, PageHeader } from "../ui/primitives.jsx";
 import { IconChevronDown } from "../ui/icons.jsx";
 import "./Admin.css";
@@ -67,6 +68,7 @@ const ALL_TABS = [
   { key: "holidaySettings", label: "Holiday settings", Component: HolidaySettingsTab, permission: "can_manage_timesheets" },
   { key: "bankHolidays", label: "Bank holidays", Component: BankHolidaysTab, permission: "can_manage_timesheets" },
   { key: "workPatterns", label: "Work patterns", Component: StaffTimeProfilesTab, permission: "can_manage_timesheets" },
+  { key: "yearBalances", label: "Year start balances", Component: YearBalancesTab, permission: "can_manage_timesheets" },
 ];
 
 // Purely a display grouping -- doesn't affect ALL_TABS' permission gating
@@ -78,7 +80,7 @@ const GROUPS = [
   { name: "Equipment", keys: ["equipment", "equipmentTypes", "machineCompetencies", "serviceTemplates", "faultDescriptions", "checkoutLog"] },
   { name: "Keys", keys: ["keyTags", "keyActivity", "keyReports", "roleKeyReasons"] },
   { name: "People & access", keys: ["contractors", "groups", "users", "rfid", "roles", "roleVisibility", "jobAssignment"] },
-  { name: "Holiday", keys: ["holidaySettings", "bankHolidays", "workPatterns"] },
+  { name: "Holiday", keys: ["holidaySettings", "bankHolidays", "workPatterns", "yearBalances"] },
 ];
 
 export default function Admin() {

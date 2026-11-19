@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { getEnglandWalesBankHolidays } from "../../lib/ukBankHolidays.js";
+import { formatShortDate, todayIso } from "../timesheets/weekMath.js";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { supabase } from "../../lib/supabaseClient.js";
 import {
-  addBankHoliday, addBankHolidayOverride, deleteBankHoliday, getBankHolidayOverrides, getBankHolidays,
-  removeBankHolidayOverride,
+  addBankHoliday, addBankHolidayOverride, deleteBankHoliday, getBankHolidayOverrides, getBankHolidays, getHolidaySettings,
+  holidayYearStart, removeBankHolidayOverride,
 } from "../../lib/holidayQueries.js";
 import { colors } from "../../lib/theme.js";
 import { Alert, Button, Card, EmptyState, Field, IconClose, Input, PageHeader, Select } from "../../ui/index.js";
@@ -18,6 +20,13 @@ export default function BankHolidaysTab() {
   const [newLabel, setNewLabel] = useState("");
   const [overridePersonId, setOverridePersonId] = useState("");
   const [error, setError] = useState("");
+  // "Fill in" -- England & Wales dates for a chosen holiday year that aren't
+  // in the list yet. Includes dates already past: they book as taken, same
+  // as any other bank holiday (Andy, 19 Nov 2026 -- the 28 days include them).
+  const [startMonth, setStartMonth] = useState(4);
+  const [fillYearBy, setFillYearBy] = useState(0); // 0 = this holiday year, 1 = next
+  const [ukList, setUkList] = useState(null); // { source, events }
+  const [filling, setFilling] = useState(false);
 
   function refresh() {
     getBankHolidays().then(setDates).catch((err) => setError(err.message || String(err)));
@@ -26,6 +35,8 @@ export default function BankHolidaysTab() {
   useEffect(() => {
     if (!org) return;
     refresh();
+    getHolidaySettings().then((hs) => setStartMonth(hs?.holiday_year_start_month || 4)).catch(() => {});
+    getEnglandWalesBankHolidays().then(setUkList);
     supabase.from("profiles").select("id, display_name").eq("org_id", org.id).order("display_name").then(({ data }) => setPeople(data || []));
   }, [org]);
 
@@ -55,6 +66,32 @@ export default function BankHolidaysTab() {
       refresh();
     } catch (err) {
       setError(err.message || String(err));
+    }
+  }
+
+  const thisYearStart = holidayYearStart(todayIso(), startMonth);
+  const fillStart = `${Number(thisYearStart.slice(0, 4)) + fillYearBy}${thisYearStart.slice(4)}`;
+  const fillEnd = `${Number(fillStart.slice(0, 4)) + 1}${fillStart.slice(4)}`; // exclusive
+  const existingDates = new Set(dates.map((d) => d.holiday_date));
+  const missing = (ukList?.events || []).filter((e) => e.date >= fillStart && e.date < fillEnd && !existingDates.has(e.date));
+  const fillYearLabel = `${fillStart.slice(0, 4)}–${String((Number(fillStart.slice(0, 4)) + 1) % 100).padStart(2, "0")}`;
+
+  async function handleFill() {
+    const past = missing.filter((e) => e.date < todayIso()).length;
+    if (!window.confirm(
+      `Add ${missing.length} bank holiday${missing.length === 1 ? "" : "s"} for ${fillYearLabel}?` +
+      (past ? ` ${past} ${past === 1 ? "is" : "are"} already past — they'll be booked as holiday taken for Mon–Fri staff.` : "")
+    )) return;
+    setFilling(true);
+    setError("");
+    try {
+      // One at a time: each insert auto-books it for Mon-Fri staff.
+      for (const e of missing) await addBankHoliday(org.id, e.date, e.title);
+    } catch (err) {
+      setError(err.message || String(err));
+    } finally {
+      setFilling(false);
+      refresh();
     }
   }
 
@@ -96,13 +133,34 @@ export default function BankHolidaysTab() {
 
       {error && <Alert tone="danger" title="Something went wrong">{error}</Alert>}
 
+      <Card pad="md" style={{ maxWidth: 560, marginBottom: "var(--space-4)" }}>
+        <div style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>Fill in England &amp; Wales bank holidays</div>
+        <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center", flexWrap: "wrap" }}>
+          <Select value={fillYearBy} onChange={(e) => setFillYearBy(Number(e.target.value))} style={{ width: "auto" }} aria-label="Holiday year">
+            <option value={0}>This holiday year ({`${thisYearStart.slice(0, 4)}–${String((Number(thisYearStart.slice(0, 4)) + 1) % 100).padStart(2, "0")}`})</option>
+            <option value={1}>Next holiday year</option>
+          </Select>
+          <Button variant="primary" disabled={!ukList || missing.length === 0 || filling} onClick={handleFill}>
+            {filling ? "Adding…" : missing.length ? `Add ${missing.length} missing` : "All added"}
+          </Button>
+        </div>
+        {ukList && (
+          <p style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, margin: "var(--space-2) 0 0" }}>
+            {missing.length
+              ? `Missing for ${fillYearLabel}: ${missing.map((e) => `${formatShortDate(e.date)} ${e.date.slice(0, 4)}`).join(", ")}.`
+              : `Every ${fillYearLabel} date is already in the list.`}
+            {" "}Source: {ukList.source}.
+          </p>
+        )}
+      </Card>
+
       <Card pad="md" style={{ maxWidth: 560, marginBottom: 20 }}>
         {dates.length === 0 && <EmptyState title="No bank holidays added yet" />}
         {dates.map((d) => (
           <div key={d.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${colors.line}` }}>
             <div>
               <strong>{d.label}</strong>{" "}
-              <span style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>{d.holiday_date}</span>
+              <span style={{ color: colors.inkSoft, fontSize: "var(--text-sm)" }}>{formatShortDate(d.holiday_date)} {d.holiday_date.slice(0, 4)}</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <Button onClick={() => openOverrides(d.id)}>Exceptions</Button>

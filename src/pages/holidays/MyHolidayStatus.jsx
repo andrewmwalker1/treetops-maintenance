@@ -5,7 +5,8 @@
 // worked out (hours vary and the office hasn't set a typical day).
 import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
-import { getHolidayStatus, getStaffTimeProfile } from "../../lib/holidayQueries.js";
+import { getHolidaySettings, getHolidayStatus, getMyYearBalance, getStaffTimeProfile, holidayYearStart } from "../../lib/holidayQueries.js";
+import { todayIso } from "../timesheets/weekMath.js";
 import { formatDays, formatHours, workingDayHours } from "../../lib/dayLength.js";
 import { useIsMobile } from "../../lib/useIsMobile.js";
 import { colors } from "../../lib/theme.js";
@@ -29,15 +30,17 @@ export default function MyHolidayStatus() {
   const isMobile = useIsMobile();
   const [status, setStatus] = useState(null);
   const [timeProfile, setTimeProfile] = useState(null);
+  const [balance, setBalance] = useState(null); // this year's agreed start: carried/owed
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
     if (!profile) return;
-    Promise.all([getHolidayStatus(profile.id), getStaffTimeProfile(profile.id)])
-      .then(([s, tp]) => {
+    Promise.all([getHolidayStatus(profile.id), getStaffTimeProfile(profile.id), getHolidaySettings()])
+      .then(async ([s, tp, hs]) => {
         setStatus(s);
         setTimeProfile(tp);
+        setBalance(await getMyYearBalance(profile.id, holidayYearStart(todayIso(), hs?.holiday_year_start_month || 4)));
       })
       .catch((err) => setError(err.message || String(err)))
       .finally(() => setLoading(false));
@@ -65,6 +68,12 @@ export default function MyHolidayStatus() {
         <StatBlock label="Taken / booked" hours={status.taken_hours} dayHours={dayHours} />
         <StatBlock label="Left" hours={status.remaining_hours} dayHours={dayHours} />
       </div>
+      {Number(balance?.carried_hours) !== 0 && balance && (
+        <p style={{ textAlign: "center", fontSize: "var(--text-sm)", marginTop: "var(--space-3)", marginBottom: 0, color: Number(balance.carried_hours) > 0 ? colors.okInk : colors.warnInk }}>
+          Allowance includes {formatDays(Math.abs(balance.carried_hours), dayHours) || `${formatHours(Math.abs(balance.carried_hours))} hrs`}{" "}
+          {Number(balance.carried_hours) > 0 ? "carried over from last year" : "owed from last year (taken off)"}.
+        </p>
+      )}
       <p style={{ textAlign: "center", fontSize: "var(--text-xs)", color: colors.inkSoft, marginTop: "var(--space-3)", marginBottom: 0 }}>
         {dayHours
           ? `Days are your ${formatHours(dayHours)}-hour working day, to the nearest half day. Unpaid leave doesn't use your allowance.`
