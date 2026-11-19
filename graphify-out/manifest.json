@@ -1853,6 +1853,12 @@
     "ast_hash": "82b1f73ea0c7877563f91a820bc0d206",
     "semantic_hash": ""
   },
+  "supabase/93-approve-holiday-over-forecast-hours.sql": {
+    "mtime": 1795088603.3172593,
+    "seen": 1795088640.7924755,
+    "ast_hash": "b2ada814efd3c79612432f6e80c5f903",
+    "semantic_hash": ""
+  },
   "package-lock.json": {
     "mtime": 1795084484.7046254,
     "seen": 1795084490.8903742,
