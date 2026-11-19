@@ -146,8 +146,10 @@ export default function TimesheetsGrid() {
                 const personEntries = entriesByProfile[person.id] || [];
                 const dailyByDate = Object.fromEntries(personEntries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
                 const holidayByDate = {};
+                const unpaidByDate = {};
                 for (const e of personEntries) {
                   if (e.entry_kind === "holiday") holidayByDate[e.work_date] = (holidayByDate[e.work_date] || 0) + Number(e.daily_total || 0);
+                  if (e.entry_kind === "unpaid") unpaidByDate[e.work_date] = (unpaidByDate[e.work_date] || 0) + Number(e.holiday_hours || 0);
                 }
                 const adjustments = personEntries.filter((e) => e.entry_kind === "adjustment");
                 const adjustmentTotal = adjustments.reduce((sum, a) => sum + Number(a.adjustment_hours || 0), 0);
@@ -170,10 +172,12 @@ export default function TimesheetsGrid() {
                     {days.map((date) => {
                       const total = dailyByDate[date]?.daily_total;
                       const holiday = holidayByDate[date];
+                      const unpaid = unpaidByDate[date];
                       return (
                         <td key={date} className="tt-num" style={{ textAlign: "center", color: total ? colors.ink : colors.inkSoft }}>
-                          {total || (holiday ? "" : "—")}
+                          {total || (holiday || unpaid ? "" : "—")}
                           {holiday > 0 && <Pill tone="ok" title="Holiday">Hol {holiday}</Pill>}
+                          {unpaid > 0 && <Pill tone="warn" title="Unpaid leave — not paid">Unpaid {unpaid}</Pill>}
                         </td>
                       );
                     })}

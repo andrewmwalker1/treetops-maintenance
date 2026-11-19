@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../lib/AuthContext.jsx";
 import { getHolidaySettings, getProfilesForTimeProfileAdmin, upsertStaffTimeProfile } from "../../lib/holidayQueries.js";
 import { colors } from "../../lib/theme.js";
+import { formatDays, formatHours, patternDayHours, workingDayHours } from "../../lib/dayLength.js";
 import { Alert, Button, Field, Input, PageHeader, Pill, Select } from "../../ui/index.js";
 
 const DAYS = [
@@ -17,6 +18,7 @@ const DEFAULT_PATTERN = {
   works_saturday: false, works_sunday: false,
   has_fixed_entitlement: true,
   exclude_from_timesheets: false,
+  typical_day_hours: null,
 };
 
 function entitlementHours(pattern, settings) {
@@ -35,6 +37,10 @@ function PersonRow({ profileId, displayName, initial, settings, onSave }) {
     : pattern.works_monday && pattern.works_tuesday && pattern.works_wednesday && pattern.works_thursday && pattern.works_friday
       && !pattern.works_saturday && !pattern.works_sunday;
   const entHours = entitlementHours(pattern, settings);
+  // Typical day: blank = worked out from the pattern (shown as the
+  // placeholder); set it for people whose hours vary, or to override.
+  const autoDay = patternDayHours(pattern);
+  const dayHours = workingDayHours(pattern);
 
   async function persist(next) {
     setPattern(next);
@@ -104,6 +110,16 @@ function PersonRow({ profileId, displayName, initial, settings, onSave }) {
             style={{ width: 90 }}
           />
         </Field>
+        <Field label="Typical day (hrs)">
+          <Input
+            type="number" step="0.25" min="0"
+            value={pattern.typical_day_hours ?? ""}
+            placeholder={autoDay ? formatHours(autoDay) : "e.g. 6"}
+            onChange={(e) => persist({ ...pattern, typical_day_hours: e.target.value === "" ? null : Number(e.target.value) || null })}
+            style={{ width: 90 }}
+            title={autoDay ? `Leave blank to use ${formatHours(autoDay)} hrs (weekly hours ÷ working days)` : "Hours in a normal working day — needed to show holiday in days"}
+          />
+        </Field>
         <Field label="Pay basis">
           <Select
             value={pattern.pay_basis}
@@ -116,6 +132,7 @@ function PersonRow({ profileId, displayName, initial, settings, onSave }) {
         </Field>
         <div style={{ background: colors.surfaceHover, borderRadius: "var(--radius-sm)", padding: "8px 10px", fontSize: "var(--text-xs)" }}>
           Entitlement: <strong>{entHours != null ? `${entHours.toFixed(1)} hrs` : "—"}</strong>
+          {entHours != null && dayHours && ` · ${formatDays(entHours, dayHours)} of ${formatHours(dayHours)} hrs`}
         </div>
         <div style={{ background: isStandard ? colors.okSurface : colors.surfaceHover, color: isStandard ? colors.okInk : colors.inkSoft, borderRadius: "var(--radius-sm)", padding: "8px 10px", fontSize: "var(--text-xs)" }}>
           {isStandard ? "Bank holidays auto-booked" : "Bank holidays not auto-booked"}

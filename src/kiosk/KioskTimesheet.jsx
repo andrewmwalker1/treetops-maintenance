@@ -12,7 +12,7 @@ import { DAY_LABELS, isForecastEntry } from "../pages/timesheets/weekMath.js";
 // shared walk-up terminal with a 3-minute idle timeout isn't the place
 // for a considered "which day, how many hours, why" correction; that
 // stays a desktop/PWA action.
-function DayRow({ label, isForecast, holidayHours, initialMorning, initialAfternoon, disabled, onSave }) {
+function DayRow({ label, isForecast, holidayHours, unpaidHours, initialMorning, initialAfternoon, disabled, onSave }) {
   const [morning, setMorning] = useState(initialMorning ?? "");
   const [afternoon, setAfternoon] = useState(initialAfternoon ?? "");
   const total = (Number(morning) || 0) + (Number(afternoon) || 0) + (Number(holidayHours) || 0);
@@ -24,6 +24,7 @@ function DayRow({ label, isForecast, holidayHours, initialMorning, initialAftern
           {label}
           {isForecast && <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 400, color: colors.inkSoft }}>forecast</span>}
           {holidayHours > 0 && <span style={{ display: "block" }}><Pill tone="ok">Holiday · {Number(holidayHours)} hrs</Pill></span>}
+          {unpaidHours > 0 && <span style={{ display: "block" }}><Pill tone="warn">Unpaid leave · {Number(unpaidHours)} hrs</Pill></span>}
         </span>
         <Input
           type="number" step="0.25" min="0" placeholder="0" disabled={disabled}
@@ -93,6 +94,7 @@ export default function KioskTimesheet() {
               label={DAY_LABELS[i]}
               isForecast={entry ? isForecastEntry(entry) : false}
               holidayHours={t.holidayByDate[date]}
+              unpaidHours={t.unpaidByDate[date]}
               initialMorning={entry?.morning_hours}
               initialAfternoon={entry?.afternoon_hours}
               disabled={t.isFrozen || t.saving}

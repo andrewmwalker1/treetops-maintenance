@@ -24,11 +24,11 @@ export async function copyFromPreviousWeek(profileId, weekStart) {
   );
   if (prevDaily.length === 0) return false;
 
-  // A day already booked as holiday this week can't also take a worked
-  // row (timesheet_entries_one_daily_per_day covers both kinds) -- copying
-  // onto it failed the whole week's load.
+  // A day already booked as holiday or unpaid leave this week can't also
+  // take a worked row (timesheet_entries_one_daily_per_day covers all
+  // three kinds) -- copying onto it failed the whole week's load.
   const holidayDates = new Set(
-    (await getWeekEntries(profileId, weekStart)).filter((e) => e.entry_kind === "holiday").map((e) => e.work_date)
+    (await getWeekEntries(profileId, weekStart)).filter((e) => e.entry_kind === "holiday" || e.entry_kind === "unpaid").map((e) => e.work_date)
   );
 
   const prevDates = weekDates(prevWeekStart);

@@ -16,7 +16,7 @@ function CardTitle({ children }) {
 //
 // On a phone the day name sits on its own line above the inputs -- five
 // fixed columns side by side don't fit a 390px screen.
-function DayRow({ label, isForecast, holidayHours, initialMorning, initialAfternoon, disabled, onSave }) {
+function DayRow({ label, isForecast, holidayHours, unpaidHours, initialMorning, initialAfternoon, disabled, onSave }) {
   const isMobile = useIsMobile();
   const [morning, setMorning] = useState(initialMorning ?? "");
   const [afternoon, setAfternoon] = useState(initialAfternoon ?? "");
@@ -29,6 +29,7 @@ function DayRow({ label, isForecast, holidayHours, initialMorning, initialAftern
         {isForecast && <span style={{ display: "block", fontSize: "var(--text-xs)", fontWeight: 400, color: colors.inkSoft }}>forecast</span>}
       </span>
       {holidayHours > 0 && <Pill tone="ok">Holiday · {Number(holidayHours)} hrs</Pill>}
+      {unpaidHours > 0 && <Pill tone="warn">Unpaid leave · {Number(unpaidHours)} hrs</Pill>}
     </span>
   );
   const inputs = (
@@ -171,6 +172,7 @@ export default function Timesheet() {
                 label={DAY_LABELS[i]}
                 isForecast={entry ? isForecastEntry(entry) : false}
                 holidayHours={t.holidayByDate[date]}
+                unpaidHours={t.unpaidByDate[date]}
                 initialMorning={entry?.morning_hours}
                 initialAfternoon={entry?.afternoon_hours}
                 disabled={t.isFrozen || t.saving}

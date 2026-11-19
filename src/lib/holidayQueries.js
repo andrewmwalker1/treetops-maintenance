@@ -161,11 +161,12 @@ export async function getHolidayStatus(profileId) {
   return (Array.isArray(data) ? data[0] : data) || null;
 }
 
-// days: [{ work_date, hours, note }]
+// days: [{ workDate, hours, note, unpaid }] -- unpaid days skip the
+// allowance check and become entry_kind = 'unpaid' rows on approval.
 export async function submitHolidayRequest(profileId, days) {
   const { data, error } = await supabase.rpc("submit_holiday_request", {
     p_profile_id: profileId,
-    p_days: days.map((d) => ({ work_date: d.workDate, hours: Number(d.hours), note: d.note || null })),
+    p_days: days.map((d) => ({ work_date: d.workDate, hours: Number(d.hours), note: d.note || null, is_unpaid: !!d.unpaid })),
   });
   if (error) {
     console.error("submitHolidayRequest failed", error);

@@ -14,6 +14,7 @@ const STATUS_COLOR = { pending: colors.warnInk, approved: colors.okInk, declined
 function RequestCard({ request, onWithdraw, withdrawing }) {
   const days = [...request.days].sort((a, b) => a.work_date.localeCompare(b.work_date));
   const totalHours = days.reduce((sum, d) => sum + Number(d.requested_hours || 0), 0);
+  const unpaidCount = days.filter((d) => d.is_unpaid).length;
   const dateRange = days.length
     ? days.length === 1
       ? formatShortDate(days[0].work_date)
@@ -27,6 +28,7 @@ function RequestCard({ request, onWithdraw, withdrawing }) {
           <div style={{ fontWeight: 600 }}>{dateRange}</div>
           <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft }}>
             {days.length} day{days.length === 1 ? "" : "s"} — {totalHours} hrs
+            {unpaidCount > 0 && (unpaidCount === days.length ? " — unpaid" : ` — ${unpaidCount} unpaid`)}
           </div>
           {request.status === "declined" && request.decline_reason && (
             <div style={{ fontSize: "var(--text-xs)", color: colors.dangerInk, marginTop: 4 }}>{request.decline_reason}</div>

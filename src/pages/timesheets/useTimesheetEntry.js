@@ -92,9 +92,13 @@ export function useTimesheetEntry() {
   const dailyByDate = Object.fromEntries(entries.filter((e) => e.entry_kind === "daily").map((e) => [e.work_date, e]));
   // Approved holiday and auto-booked bank holidays are their own
   // entry_kind = 'holiday' rows -- summed per date so the day can say so.
+  // Unpaid leave is entry_kind = 'unpaid': 0 paid hours (daily_total),
+  // with the hours off in holiday_hours -- shown, never added to totals.
   const holidayByDate = {};
+  const unpaidByDate = {};
   for (const e of entries) {
     if (e.entry_kind === "holiday") holidayByDate[e.work_date] = (holidayByDate[e.work_date] || 0) + Number(e.daily_total || 0);
+    if (e.entry_kind === "unpaid") unpaidByDate[e.work_date] = (unpaidByDate[e.work_date] || 0) + Number(e.holiday_hours || 0);
   }
   const adjustments = entries.filter((e) => e.entry_kind === "adjustment");
   const weekTotal = entries.reduce((sum, e) => sum + Number(e.daily_total || 0), 0);
@@ -143,7 +147,7 @@ export function useTimesheetEntry() {
   return {
     weekStart, setWeekStart,
     days: weekDates(weekStart),
-    dailyByDate, holidayByDate, adjustments, weekTotal, weekNote, loadedWeek,
+    dailyByDate, holidayByDate, unpaidByDate, adjustments, weekTotal, weekNote, loadedWeek,
     isFrozen, frozenByName: freeze?.frozen_by_profile?.display_name,
     copiedFromLastWeek,
     recentEntries,

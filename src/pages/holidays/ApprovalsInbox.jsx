@@ -9,23 +9,26 @@ import { useEffect, useState } from "react";
 import { approveHolidayRequest, declineHolidayRequest, getPendingApprovals } from "../../lib/holidayQueries.js";
 import { formatShortDate } from "../timesheets/weekMath.js";
 import { colors } from "../../lib/theme.js";
-import { Alert, Button, Card, EmptyState, Input, PageHeader, SkeletonList } from "../../ui/index.js";
+import { Alert, Button, Card, EmptyState, Input, PageHeader, Pill, SkeletonList } from "../../ui/index.js";
 
 function ApprovalCard({ request, onApprove, onDecline, busy }) {
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState("");
   const days = [...request.days].sort((a, b) => a.work_date.localeCompare(b.work_date));
   const totalHours = days.reduce((sum, d) => sum + Number(d.requested_hours || 0), 0);
+  const unpaidCount = days.filter((d) => d.is_unpaid).length;
 
   return (
     <Card pad="sm" style={{ marginBottom: "var(--space-2)" }}>
       <div style={{ fontWeight: 600 }}>{request.requester?.display_name}</div>
       <div style={{ fontSize: "var(--text-xs)", color: colors.inkSoft, marginBottom: 8 }}>
         {days.length} day{days.length === 1 ? "" : "s"} — {totalHours} hrs
+        {unpaidCount > 0 && ` (${unpaidCount} unpaid)`}
       </div>
       {days.map((d) => (
         <div key={d.id} style={{ fontSize: "var(--text-sm)", padding: "2px 0" }}>
           {formatShortDate(d.work_date)} — {d.requested_hours} hrs{d.note ? ` — ${d.note}` : ""}
+          {d.is_unpaid && <> <Pill tone="warn">Unpaid</Pill></>}
         </div>
       ))}
       {declining ? (

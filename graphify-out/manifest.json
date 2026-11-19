@@ -282,9 +282,9 @@
     "semantic_hash": "46ac0c0dcaecd4a25dc9457ef9bf1083"
   },
   "src/kiosk/KioskTimesheet.jsx": {
-    "mtime": 1795021179.0480018,
-    "seen": 1795021545.5731914,
-    "ast_hash": "44adc98879fe09dc547a4daa8c7579c2",
+    "mtime": 1795087824.0946898,
+    "seen": 1795087885.1780133,
+    "ast_hash": "22a7ef16ff26358584be7131ece3f0eb",
     "semantic_hash": ""
   },
   "src/kiosk/ReportIssueForm.jsx": {
@@ -354,9 +354,9 @@
     "semantic_hash": "84ac9fa14a80f27195cc21297c9309d9"
   },
   "src/lib/holidayQueries.js": {
-    "mtime": 1795021197.7933354,
-    "seen": 1795021545.5732048,
-    "ast_hash": "bbbe1da719ecf2b7b3f6a7ec707e7730",
+    "mtime": 1795087793.1357753,
+    "seen": 1795087885.1780362,
+    "ast_hash": "ded90ddf0bc54bb76b68eee73a89d145",
     "semantic_hash": ""
   },
   "src/lib/jobAssignmentNotify.js": {
@@ -834,9 +834,9 @@
     "semantic_hash": "41fc1cbad0694b5b65e3972ebc406536"
   },
   "src/pages/admin/StaffTimeProfilesTab.jsx": {
-    "mtime": 1795021224.6534069,
-    "seen": 1795021545.5733027,
-    "ast_hash": "3f5226e9b0d3bb432cd15c0564c73983",
+    "mtime": 1795087836.0155134,
+    "seen": 1795087885.1781754,
+    "ast_hash": "157145b3621e79e3c1f7d94657d52f21",
     "semantic_hash": ""
   },
   "src/pages/admin/UsersTab.jsx": {
@@ -846,10 +846,10 @@
     "semantic_hash": "d6417ee6ceb68eba41954f435b9bd644"
   },
   "src/pages/holidays/ApprovalsInbox.jsx": {
-    "mtime": 1795008177.3966508,
-    "seen": 1795016355.3510618,
-    "ast_hash": "0d64be8a5eb0dcfb80708ed5cdec37a3",
-    "semantic_hash": "0d64be8a5eb0dcfb80708ed5cdec37a3"
+    "mtime": 1795087807.0242703,
+    "seen": 1795087885.178178,
+    "ast_hash": "d8ba622ec9a7027047b4d14ac302153e",
+    "semantic_hash": ""
   },
   "src/pages/holidays/BookHoliday.jsx": {
     "mtime": 1795021207.434908,
@@ -864,10 +864,10 @@
     "semantic_hash": "2e58d3f37dd725a5238df2a11bf89050"
   },
   "src/pages/holidays/BookingReview.jsx": {
-    "mtime": 1795008177.3992908,
-    "seen": 1795016355.3510668,
-    "ast_hash": "edd359818600f0d92c52db406b6b3023",
-    "semantic_hash": "edd359818600f0d92c52db406b6b3023"
+    "mtime": 1795087799.0215418,
+    "seen": 1795087885.178182,
+    "ast_hash": "0c73132dbeacc7d1e1094848bffd59db",
+    "semantic_hash": ""
   },
   "src/pages/holidays/HolidayHome.jsx": {
     "mtime": 1795021227.655248,
@@ -876,16 +876,16 @@
     "semantic_hash": ""
   },
   "src/pages/holidays/MyHolidayStatus.jsx": {
-    "mtime": 1795008177.3992908,
-    "seen": 1795016355.3510702,
-    "ast_hash": "2b29da993166bbde1f72f97df6097ce3",
-    "semantic_hash": "2b29da993166bbde1f72f97df6097ce3"
+    "mtime": 1795087774.3816378,
+    "seen": 1795087885.178189,
+    "ast_hash": "a208e9b901025ef32278a59fa804a671",
+    "semantic_hash": ""
   },
   "src/pages/holidays/MyRequests.jsx": {
-    "mtime": 1795008177.3992908,
-    "seen": 1795016355.3510725,
-    "ast_hash": "8791f99d9918dbdefc0971c0505e4d52",
-    "semantic_hash": "8791f99d9918dbdefc0971c0505e4d52"
+    "mtime": 1795087807.024781,
+    "seen": 1795087885.1781902,
+    "ast_hash": "f89c5d3cc980844b9ae870c1021ab461",
+    "semantic_hash": ""
   },
   "src/pages/holidays/TeamHolidayCalendar.jsx": {
     "mtime": 1795008177.3992908,
@@ -984,9 +984,9 @@
     "semantic_hash": "5749c373bb66a0f76187846e5008b113"
   },
   "src/pages/timesheets/Timesheet.jsx": {
-    "mtime": 1795021173.0820026,
-    "seen": 1795021545.5733328,
-    "ast_hash": "3349b797db8c4545ea573b5581a765c9",
+    "mtime": 1795087824.094232,
+    "seen": 1795087885.1782103,
+    "ast_hash": "3c8723e8af28f5826c5d9da94335025c",
     "semantic_hash": ""
   },
   "src/pages/timesheets/TimesheetOverrides.jsx": {
@@ -996,21 +996,21 @@
     "semantic_hash": "fdc3a26632fed8ca337971e82d461cd2"
   },
   "src/pages/timesheets/TimesheetsGrid.jsx": {
-    "mtime": 1795021460.6820197,
-    "seen": 1795021545.5733347,
-    "ast_hash": "eeb7ac72bb5a3a71ec08b283a1ab1eb0",
+    "mtime": 1795087824.0955825,
+    "seen": 1795087885.1782174,
+    "ast_hash": "2a3355e28693f36a8fbf88718a7d54ea",
     "semantic_hash": ""
   },
   "src/pages/timesheets/copyForward.js": {
-    "mtime": 1795084380.8214524,
-    "seen": 1795084490.890209,
-    "ast_hash": "06f2bd96c147809920ba328c7142a220",
+    "mtime": 1795087824.0959737,
+    "seen": 1795087885.1782186,
+    "ast_hash": "35ce2cf4694d6ec045985bd29fa66411",
     "semantic_hash": ""
   },
   "src/pages/timesheets/useTimesheetEntry.js": {
-    "mtime": 1795021446.3259823,
-    "seen": 1795021545.5733368,
-    "ast_hash": "46ec8d34c7cbb85feefda859c8397369",
+    "mtime": 1795087824.0915868,
+    "seen": 1795087885.1782196,
+    "ast_hash": "bfda88349128e18af1f6be29fea1a55e",
     "semantic_hash": ""
   },
   "src/pages/timesheets/weekMath.js": {
@@ -1839,6 +1839,18 @@
     "mtime": 1795021252.5500073,
     "seen": 1795021545.5734477,
     "ast_hash": "c88bbb0f17f54cb079e70fb162f29fc8",
+    "semantic_hash": ""
+  },
+  "src/lib/dayLength.js": {
+    "mtime": 1795087755.8881495,
+    "seen": 1795087885.1780245,
+    "ast_hash": "ce7b379b76b2949bb953277216282349",
+    "semantic_hash": ""
+  },
+  "supabase/92-unpaid-leave-and-day-length.sql": {
+    "mtime": 1795087737.547222,
+    "seen": 1795087885.1783597,
+    "ast_hash": "82b1f73ea0c7877563f91a820bc0d206",
     "semantic_hash": ""
   },
   "package-lock.json": {
