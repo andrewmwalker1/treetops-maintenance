@@ -93,6 +93,10 @@ export default function PrintableSaleOfficeCopy({ sale }) {
           <CheckLine key={j.id} label={j.description} checked={Boolean(j.job_status?.is_completed)} detail={j.job_status?.name} />
         ))
       )}
+      <CheckLine label="Electric test booked" checked={Boolean(sale.electric_test_booked_date)} detail={sale.electric_test_booked_date} />
+      <CheckLine label="Electric test completed" checked={Boolean(sale.electric_test_completed_date)} detail={sale.electric_test_completed_date} />
+      <CheckLine label="Gas test booked" checked={Boolean(sale.gas_test_booked_date)} detail={sale.gas_test_booked_date} />
+      <CheckLine label="Gas test completed" checked={Boolean(sale.gas_test_completed_date)} detail={sale.gas_test_completed_date} />
       <CheckLine label="Meter reading -- gas" checked={Boolean(sale.meter_reading_gas)} detail={sale.meter_reading_gas} />
       <CheckLine label="Meter reading -- electric" checked={Boolean(sale.meter_reading_electric)} detail={sale.meter_reading_electric} />
 

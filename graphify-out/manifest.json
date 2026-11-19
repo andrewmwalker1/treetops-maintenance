@@ -900,10 +900,10 @@
     "semantic_hash": "5f636d199b00affdbc04e8797837ea43"
   },
   "src/pages/license-agreement/LicenseAgreement.jsx": {
-    "mtime": 1795008177.4612892,
-    "seen": 1795127870.8123562,
-    "ast_hash": "b563bd9ba2efd62cbc133fd0991571d3",
-    "semantic_hash": "b563bd9ba2efd62cbc133fd0991571d3"
+    "mtime": 1795131044.2827775,
+    "seen": 1795131182.8222659,
+    "ast_hash": "49f9b322fc99856a0d84f2f25411652f",
+    "semantic_hash": ""
   },
   "src/pages/license-agreement/StandardInstructionsModal.jsx": {
     "mtime": 1795008177.4615743,
@@ -924,10 +924,10 @@
     "semantic_hash": "02afbd32f32bef6b50f1fa10ab0cf679"
   },
   "src/pages/license-agreement/steps.jsx": {
-    "mtime": 1795008177.4615743,
-    "seen": 1795127870.8123608,
-    "ast_hash": "6e855bcbd277dfb976cf2646f75cc284",
-    "semantic_hash": "6e855bcbd277dfb976cf2646f75cc284"
+    "mtime": 1795131024.7107763,
+    "seen": 1795131182.8222713,
+    "ast_hash": "67b80552e80faa53e278643bad23ad95",
+    "semantic_hash": ""
   },
   "src/pages/license-agreement/templateConverter.js": {
     "mtime": 1795008177.4615743,
@@ -1890,9 +1890,9 @@
     "semantic_hash": ""
   },
   "src/components/PrintableSaleOfficeCopy.jsx": {
-    "mtime": 1795127464.2889526,
-    "seen": 1795127870.8121583,
-    "ast_hash": "634b026896d0fe6a27a27c550177b5e8",
+    "mtime": 1795131112.0267816,
+    "seen": 1795131182.822076,
+    "ast_hash": "e2e2edb4f4bf24212f910f0e051f6f8f",
     "semantic_hash": ""
   },
   "src/lib/caravanSalesQuery.js": {
@@ -1926,9 +1926,9 @@
     "semantic_hash": ""
   },
   "src/pages/sales/SaleDetail.jsx": {
-    "mtime": 1795127663.3329644,
-    "seen": 1795127870.8123698,
-    "ast_hash": "8ad8b7f54afd92863cc6f1da1908ec0c",
+    "mtime": 1795131154.8787842,
+    "seen": 1795131182.8222823,
+    "ast_hash": "ad72d258bb254af382aade67b0fa929e",
     "semantic_hash": ""
   },
   "src/pages/sales/SalesTab.jsx": {
@@ -1941,6 +1941,24 @@
     "mtime": 1795127508.596955,
     "seen": 1795127870.812497,
     "ast_hash": "4a5a7ca4c93dc833f858e407eef79328",
+    "semantic_hash": ""
+  },
+  "src/lib/caravanSaleToLicenseRow.js": {
+    "mtime": 1795131032.0267768,
+    "seen": 1795131182.8221235,
+    "ast_hash": "643b9a8fd680af4a5a4afdb3d665579b",
+    "semantic_hash": ""
+  },
+  "supabase/96-caravan-sale-tracker-simplify-tests.sql": {
+    "mtime": 1795131118.998782,
+    "seen": 1795131182.8224325,
+    "ast_hash": "655dafa73fd6e7355e6d46a3ca902a7c",
+    "semantic_hash": ""
+  },
+  "supabase/97-grant-caravan-sales-nic-jayne.sql": {
+    "mtime": 1795131125.6587825,
+    "seen": 1795131182.822434,
+    "ast_hash": "917bbd6439242b0cf4b84f24ba9affe9",
     "semantic_hash": ""
   },
   "package-lock.json": {

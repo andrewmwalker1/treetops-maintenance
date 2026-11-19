@@ -57,7 +57,7 @@ const grandTotalRowStyle = { ...totalRowStyle, background: colors.okSurface, bor
 // Step 1 — Import & contact details
 // ---------------------------------------------------------------------
 
-function newSaleFromRow(row, areaSeasonMap) {
+export function newSaleFromRow(row, areaSeasonMap) {
   const customer = {};
   for (const key in CUSTOMER_FIELD_MAP) customer[key] = row[CUSTOMER_FIELD_MAP[key]] || "";
   const { people } = derivePeopleFromRow(row);
@@ -79,7 +79,7 @@ function newSaleFromRow(row, areaSeasonMap) {
   };
 }
 
-function newPriceForSale(unit, seasonLength, ratesFullYearDefault, selectedRow) {
+export function newPriceForSale(unit, seasonLength, ratesFullYearDefault, selectedRow) {
   const caravanDescription = ["Caravan -", selectedRow?.["Unit Make"], selectedRow?.["Unit Model"]].filter(Boolean).join(" ");
   return {
     windowPrice: "",

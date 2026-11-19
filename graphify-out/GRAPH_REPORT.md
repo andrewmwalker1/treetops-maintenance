@@ -1,17 +1,17 @@
 # Graph Report - treetops-maintenance  (2026-11-19)
 
 ## Corpus Check
-- 315 files · ~247,712 words
+- 318 files · ~248,791 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 9 file(s) not represented in the graph (top: .css 4, (none) 3, .example 1)
 
 ## Summary
-- 2256 nodes · 7504 edges · 128 communities (90 shown, 38 thin omitted)
+- 2274 nodes · 7455 edges · 133 communities (93 shown, 40 thin omitted)
 - Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 191 edges (avg confidence: 0.85)
 - Token cost: 401,249 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6c4cffe9`
+- Built from commit: `099b5199`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,29 +20,29 @@
 - Alert
 - SaleDetail.jsx
 - License Agreement Calculations
-- OfficeHub.jsx
-- public.profiles
 - Card
+- public.profiles
+- PageHeader
 - TimesheetsGrid.jsx
 - Ponytail Skills & Sage Tool
 - Button
-- Gallery.jsx
+- primitives.jsx
 - public.holiday_accrued_hours
 - Job Detail Page
 - Data model
 - Supabase Consolidation & Roles
 - jobs table
-- deploy.yml
+- steps
 - KeyTagsTab
-- syncQueue.js
-- App.jsx
+- csvExport.js
+- OfficeHub.jsx
 - holidayQueries.js
 - Holiday Accrual Schema
-- Pitches, Meters & Key Tags Schema
+- public.key_checkouts
 - public.jobs
 - JobsList
 - Meter Scanning & Cache
-- Build Brief
+- role_visibility
 - Runtime Dependencies
 - EquipmentTypesTab.jsx
 - public.generate_due_service_jobs_for_equipment
@@ -51,72 +51,75 @@
 - JobDetail.jsx
 - AuthProvider
 - public.organisations
-- useEquipmentCheckout
+- MachineCompetenciesTab
 - License Agreement Settings
 - Equipment Types & Competencies Schema
 - TeamHolidayCalendar.jsx
 - public.equipment
-- KeyActivityLogTab.jsx
+- EmptyState
 - Equipment Documents
-- public.contractors
+- deploy.yml
 - Layout.jsx
 - ContractorDocumentsModal.jsx
-- role_visibility
+- IconArrowDown
 - Customer Onboarding Script
-- Textarea
+- SafetyLibraryTab
 - HTML Entry & PWA Shell
 - devDependencies
-- profiles table
+- can_see_job
 - check-styles.mjs
 - Push Notification Functions
 - Meter CSV Import
-- Permission keys
-- UsersTab
-- PhotoThumb.jsx
+- deploy
+- DirectoriesPanel
+- KioskJobs.jsx
 - Equipment Doc Reminders Fn
 - public.jobs
 - GroupsTab
 - Contractor Doc Reminders Fn
 - Contractor Job Email Fn
-- OfficeHubTab.jsx
+- DashboardTab
 - Manage Users Fn
 - Scheduled Jobs Generator Fn
 - Meter CSV Export
 - public.timesheet_entries
 - UI Redesign Plan
 - Security plan (review of 17 Nov 2026)
-- HolidaySettingsTab.jsx
+- useIsMobile.js
 - vite.config.js
-- icons.jsx
-- Runbook
+- OfficeHubTab.jsx
+- Claude Code Instructions
 - main.jsx
 - Terminal Session Fn
 - RFID Login Fn
 - npm Scripts
-- main.jsx
-- System Specification
+- ActivityTypesTab
+- Build Brief
 - Migration src/components/KeyReasonsModal.jsx
 - Admiralty visual direction
 - seed-users.mjs
-- RfidTagsTab
-- 06-activity-types-and-safety-library.sql
+- RfidScanListener
+- refresh
 - src/ui components
-- newJobReferenceData.js
+- public.equipment_type_repair_assignees
 - key_tags table
 - CommonFaultDescriptionsTab
-- RolesPermissionsTab
-- JobTemplatesTab
+- useKeyCheckout
+- useKeyForceCheckIn
 - Priority Is a Solid Colour Bar, Never an Icon
-- DocumentRow
+- EquipmentDocumentsModal
+- useKeyHandover
+- useKeyRelocate
+- manage-users Edge Function
 
 ## God Nodes (most connected - your core abstractions)
-1. `Button` - 202 edges
-2. `Card` - 177 edges
-3. `PageHeader()` - 176 edges
-4. `Alert()` - 162 edges
+1. `Button` - 185 edges
+2. `PageHeader()` - 172 edges
+3. `Card` - 164 edges
+4. `Alert()` - 153 edges
 5. `useAuth()` - 149 edges
-6. `Input` - 120 edges
-7. `EmptyState()` - 116 edges
+6. `EmptyState()` - 112 edges
+7. `Input` - 111 edges
 8. `react` - 108 edges
 9. `colors` - 107 edges
 10. `JobDetail()` - 96 edges
@@ -147,151 +150,151 @@
 - **CampManager CSV to Sage CSV Pipeline** — public_tools_campmanager_to_sage_parsecsv, public_tools_campmanager_to_sage_detectkind, public_tools_campmanager_to_sage_buildexport, public_tools_campmanager_to_sage_tosagecsv, public_tools_campmanager_to_sage_downloadblob [INFERRED 0.85]
 - **Per-App Namespace Isolation in One Supabase Project** — supabase_consolidation_plan_schema_per_app, supabase_consolidation_plan_edge_function_prefixing, supabase_consolidation_plan_secret_prefixing, supabase_consolidation_plan_db_schema_client_option, supabase_consolidation_plan_accept_content_profile_headers [INFERRED 0.85]
 
-## Communities (128 total, 38 thin omitted)
+## Communities (133 total, 40 thin omitted)
 
 ### Community 0 - "useAuth"
 Cohesion: 0.09
-Nodes (48): react, checklistVersionSavedLine(), ChecklistVersionView(), searchStyle, typeLabel, useViewAsCandidates(), AuthContext, useAuth() (+40 more)
+Nodes (47): react, NewSale, searchStyle, typeLabel, useViewAsCandidates(), ViewAsPicker(), AuthContext, useAuth() (+39 more)
 
 ### Community 1 - "Alert"
-Cohesion: 0.12
-Nodes (37): react-router-dom, formatKeyLocation(), KeySelector(), locationLabel(), KeyStationActivityLog(), KeyStationApp(), KeyStationCheckIn(), KeyStationCheckOut() (+29 more)
+Cohesion: 0.13
+Nodes (44): react-router-dom, App(), AppShell(), LazyRoute(), MeterLabels, MeterProgress, MeterSettings, KeysGate() (+36 more)
 
 ### Community 2 - "SaleDetail.jsx"
-Cohesion: 0.06
-Nodes (64): SaleDetail, AssigneePicker(), balanceDue(), caravanAmount(), CaravanSalePriceBreakdown(), formatMoney(), grandTotal(), rowStyle (+56 more)
+Cohesion: 0.05
+Nodes (61): SaleDetail, balanceDue(), caravanAmount(), CaravanSalePriceBreakdown(), formatMoney(), grandTotal(), rowStyle, sectionLabelStyle (+53 more)
 
 ### Community 3 - "License Agreement Calculations"
-Cohesion: 0.06
-Nodes (70): applyStandardInstructionTokens(), autoCorrectTitlePairing(), buildMergeData(), computeCaravanAmount(), computeMonthsToCharge(), computePitchFeeProrataAmount(), DEFAULT_AREA_SEASON_MAP, derivePeopleFromRow() (+62 more)
+Cohesion: 0.07
+Nodes (65): applyStandardInstructionTokens(), autoCorrectTitlePairing(), buildMergeData(), computeCaravanAmount(), computeMonthsToCharge(), computePitchFeeProrataAmount(), DEFAULT_AREA_SEASON_MAP, derivePeopleFromRow() (+57 more)
 
-### Community 4 - "OfficeHub.jsx"
-Cohesion: 0.06
-Nodes (49): CSV export with export_logs, Office Hub tile palette, RfidScanListener(), dialArcPath(), polarPoint(), StatDial(), KeyStationMenu(), downloadCsv() (+41 more)
+### Community 4 - "Card"
+Cohesion: 0.16
+Nodes (21): dialArcPath(), polarPoint(), StatDial(), KeyStationMenu(), getLatestChecklistVersions(), getEquipmentTypeAvailabilityCounts(), queryEquipmentSignals(), KEY_GROUPS (+13 more)
 
 ### Community 5 - "public.profiles"
-Cohesion: 0.08
-Nodes (30): public.group_members, public.groups, public.permissions, public.platform_admins, public.profiles, public.role_permissions, public.role_visibility, public.roles (+22 more)
+Cohesion: 0.06
+Nodes (46): SQL run order, job_activity_forbid_delete, job_activity_job_idx, notifications_recipient_idx, public.admin_access_log, public.areas, public.equipment_checks, public.export_logs (+38 more)
 
-### Community 6 - "Card"
-Cohesion: 0.10
-Nodes (31): DownloadMeters, KeyStationLookup(), exportEquipmentCheckoutsCsv(), fetchHandoverHistory(), summarizeKeyEvent(), useKeyLookup(), EquipmentCheckoutLogTab(), handleExport() (+23 more)
+### Community 6 - "PageHeader"
+Cohesion: 0.09
+Nodes (18): DownloadMeters, UploadMeters, fetchMeterCandidatesForGroup(), resolveDuplicateGroup(), JobTemplatesTab(), handleDelete(), handleSave(), refresh() (+10 more)
 
 ### Community 7 - "TimesheetsGrid.jsx"
-Cohesion: 0.13
-Nodes (46): getFixedHoursProfiles(), freezeWeek(), getRecentDailyEntries(), getSubmittableProfiles(), getWeekEntries(), getWeekEntriesForProfiles(), getWeekFreezeStatus(), getWeekNote() (+38 more)
+Cohesion: 0.12
+Nodes (50): DayRow(), KioskTimesheet(), WeekNote(), getFixedHoursProfiles(), freezeWeek(), getRecentDailyEntries(), getSubmittableProfiles(), getWeekEntries() (+42 more)
 
 ### Community 8 - "Ponytail Skills & Sage Tool"
 Cohesion: 0.07
 Nodes (44): Ponytail Audit Skill, Ponytail Debt Ledger, Ponytail Debt Skill, Benchmark Median Scoreboard, Ponytail Gain Skill, Default Mode Config (PONYTAIL_DEFAULT_MODE / config.json), Ponytail Help Skill, Finding Tags (delete/stdlib/native/yagni/shrink) (+36 more)
 
 ### Community 9 - "Button"
-Cohesion: 0.16
-Nodes (22): DocumentPicker(), EquipmentLabel(), equipmentMakeModel(), buttonVariants, SafetyDocumentLink(), KioskApp(), KioskCheckIn(), KioskCheckOut() (+14 more)
-
-### Community 10 - "Gallery.jsx"
 Cohesion: 0.13
-Nodes (31): Gallery, ActivityTypePicker(), ChecklistBuilder(), MeterReadingHome(), STEPS, DraggableTile(), DEMO_ACTIVITY_TYPES, Gallery() (+23 more)
+Nodes (21): ChecklistBuilder(), EquipmentLabel(), equipmentMakeModel(), buttonVariants, SafetyDocumentLink(), KioskCheckIn(), KioskCheckOut(), ReportIssueForm() (+13 more)
+
+### Community 10 - "primitives.jsx"
+Cohesion: 0.18
+Nodes (16): RolesPermissionsTab(), addRole(), deleteRole(), refresh(), saveRename(), toggle(), DraggableTile(), IconClose() (+8 more)
 
 ### Community 11 - "public.holiday_accrued_hours"
-Cohesion: 0.21
-Nodes (7): public.holiday_accrued_hours(), holiday_year_balances_before_upsert, public.holiday_accrued_hours(), public.holiday_entitlement_hours(), public.holiday_taken_hours(), public.holiday_year_balances, public.holiday_year_balances_before_upsert()
+Cohesion: 0.15
+Nodes (10): public.holiday_accrued_hours(), public.holiday_taken_hours(), public.holiday_taken_hours(), public.holiday_accrued_hours(), holiday_year_balances_before_upsert, public.holiday_accrued_hours(), public.holiday_entitlement_hours(), public.holiday_taken_hours() (+2 more)
 
 ### Community 12 - "Job Detail Page"
 Cohesion: 0.06
-Nodes (36): handleAddPhoto(), newLinkedJobPath(), assigneeName(), buildDefaultContractorEmailBody(), JobDetail(), allSectionNames(), changeSubtaskSection(), checklistAsTemplateSchema() (+28 more)
+Nodes (33): handleAddPhoto(), assigneeName(), buildDefaultContractorEmailBody(), JobDetail(), allSectionNames(), changeSubtaskSection(), checklistAsTemplateSchema(), confirmComplete() (+25 more)
 
 ### Community 13 - "Data model"
-Cohesion: 0.14
-Nodes (28): activity_type_documents table, areas table, common_fault_descriptions table, Data model, equipment table, equipment_checkouts table, equipment_checks table, equipment_type_checklist_versions table (+20 more)
+Cohesion: 0.10
+Nodes (40): activity_type_documents table, areas table, common_fault_descriptions table, contractor_reasons table, contractors table, Data model, equipment table, equipment_checkouts table (+32 more)
 
 ### Community 14 - "Supabase Consolidation & Roles"
 Cohesion: 0.06
 Nodes (32): public.custom_access_token_hook(), public.terminal_sessions, Supabase Consolidation Plan, Accept-Profile / Content-Profile Headers, Auth Hooks Are Project-Wide, Auth Identity / UID Reconciliation, AZURE-SQL-MIGRATION-PLAN.md, Cloud Session Egress Block to Supabase (+24 more)
 
 ### Community 15 - "jobs table"
-Cohesion: 0.17
-Nodes (23): contractor_documents table, contractor_reasons table, contractors table, can_see_job(), delete_job, enforce_checklist_item_photo_requirement, enforce_checklist_requires_photo_permission, enforce_job_completion_photo_requirement (+15 more)
+Cohesion: 0.10
+Nodes (35): admin_force_check_in, delete_job, enforce_checklist_item_photo_requirement, enforce_checklist_requires_photo_permission, enforce_job_completion_photo_requirement, enforce_job_reallocation_permission, enforce_job_reopen_permission, enforce_job_subtask_edit_permission (+27 more)
 
-### Community 16 - "deploy.yml"
-Cohesion: 0.06
-Nodes (37): runs-on, steps, concurrency, cancel-in-progress, group, environment, needs, runs-on (+29 more)
+### Community 16 - "steps"
+Cohesion: 0.13
+Nodes (16): steps, steps, CHECK_STYLES_BASE, VITE_SUPABASE_ANON_KEY, VITE_SUPABASE_URL, VITE_VAPID_PUBLIC_KEY, env, id (+8 more)
 
 ### Community 17 - "KeyTagsTab"
 Cohesion: 0.06
-Nodes (41): highlightMatch(), SearchPicker(), handleKeyDown(), selectItem(), createSale(), radius, shadow, highlightMatch() (+33 more)
+Nodes (40): highlightMatch(), SearchPicker(), handleKeyDown(), selectItem(), createSale(), upsertHolidaySettings(), handleSave(), highlightMatch() (+32 more)
 
-### Community 18 - "syncQueue.js"
-Cohesion: 0.25
-Nodes (14): handleOnline(), refreshStatus(), flushQueue(), flushReadingQueue(), flushStore(), getQueueStatus(), getReadingQueueStatus(), openDB() (+6 more)
+### Community 18 - "csvExport.js"
+Cohesion: 0.16
+Nodes (18): CSV export with export_logs, getChecklistVersionsByIds(), downloadCsv(), exportEquipmentCheckoutsCsv(), exportJobsCsv(), exportSelectedJobsCsv(), JOBS_CSV_COLUMNS, jobsToCsvRows() (+10 more)
 
-### Community 19 - "App.jsx"
-Cohesion: 0.09
-Nodes (21): AppShell(), LazyRoute(), MeterLabels, MeterProgress, MeterSettings, NewSale, UploadMeters, KeysGate() (+13 more)
+### Community 19 - "OfficeHub.jsx"
+Cohesion: 0.20
+Nodes (13): isSaleOverdueWithoutCover(), countSalesInProgress(), countSalesNeedingAttention(), countMachinesCheckedOut(), ApprovalsInbox, BrowseTab(), LicenseAgreement, loadHubData() (+5 more)
 
 ### Community 20 - "holidayQueries.js"
-Cohesion: 0.07
-Nodes (67): DAY_KEYS, formatDays(), formatHours(), patternDayHours(), workingDayHours(), addBankHoliday(), addBankHolidayOverride(), approveHolidayRequest() (+59 more)
+Cohesion: 0.06
+Nodes (71): DAY_KEYS, formatDays(), formatHours(), patternDayHours(), workingDayHours(), addBankHoliday(), addBankHolidayOverride(), approveHolidayRequest() (+63 more)
 
 ### Community 21 - "Holiday Accrual Schema"
-Cohesion: 0.10
-Nodes (23): holiday_bank_holiday_overrides_sync, holiday_bank_holidays_after_insert, public.apply_bank_holiday_for_profile(), public.approve_holiday_request(), public.decline_holiday_request(), public.holiday_accrual_ratio(), public.holiday_bank_holiday_overrides, public.holiday_bank_holidays (+15 more)
+Cohesion: 0.09
+Nodes (25): holiday_bank_holiday_overrides_sync, holiday_bank_holidays_after_insert, public.apply_bank_holiday_for_profile(), public.approve_holiday_request(), public.decline_holiday_request(), public.holiday_accrual_ratio(), public.holiday_bank_holiday_overrides, public.holiday_bank_holidays (+17 more)
 
-### Community 22 - "Pitches, Meters & Key Tags Schema"
-Cohesion: 0.11
-Nodes (24): key_tag_events_key_tag_idx, key_tags_log_event, key_tags_pitch_idx, key_tags_special_location_idx, public.key_special_locations, public.key_tag_events, public.key_tags, public.log_key_tag_event() (+16 more)
+### Community 22 - "public.key_checkouts"
+Cohesion: 0.20
+Nodes (16): public.contractors, contractor_documents_contractor_idx, contractor_documents_pending_reminder_idx, contractor_documents_reset_reminder, public.can_manage_contractor_document(), public.contractor_documents, public.reset_contractor_document_reminder(), contractor_reasons_contractor_idx (+8 more)
 
 ### Community 23 - "public.jobs"
-Cohesion: 0.06
-Nodes (39): job_activity_forbid_delete, job_activity_job_idx, jobs_assignee_group_idx, jobs_assignee_profile_idx, jobs_org_site_idx, jobs_status_idx, notifications_recipient_idx, public.areas (+31 more)
+Cohesion: 0.07
+Nodes (31): jobs_assignee_group_idx, jobs_assignee_profile_idx, jobs_org_site_idx, jobs_status_idx, public.job_photos, public.job_subtasks, public.jobs, public.delete_job() (+23 more)
 
 ### Community 24 - "JobsList"
 Cohesion: 0.14
-Nodes (12): writeAndPrintJobBundles(), handlePrint(), initialFilters(), initialSelectedIds(), JobsList(), handleExportCsv(), handlePrintSelected(), loadStoredFilters() (+4 more)
+Nodes (21): PrintableJobsChecklist(), tdStyle, thStyle, loadJobForPrint(), openPrintWindow(), writeAndPrintJobBundles(), writeAndPrintJobsChecklist(), useViewAsJobFilter() (+13 more)
 
 ### Community 25 - "Meter Scanning & Cache"
-Cohesion: 0.16
-Nodes (25): ScanMeter, getCurrentLocation(), fetchActiveMeters(), fetchOutstandingMeters(), fetchProgress(), findTodaysReadingForMeter(), refreshMetersCache(), resolveMeterByQrCode() (+17 more)
+Cohesion: 0.09
+Nodes (40): ScanMeter, handleOnline(), refreshStatus(), getCurrentLocation(), fetchActiveMeters(), fetchOutstandingMeters(), fetchProgress(), findTodaysReadingForMeter() (+32 more)
 
-### Community 26 - "Build Brief"
-Cohesion: 0.07
-Nodes (22): graphify skill instructions, graphify, Build Brief, Data model, inviteUserByEmail auth flow, Job lifecycle logic, Organisation boundary, Reallocation (+14 more)
+### Community 26 - "role_visibility"
+Cohesion: 0.09
+Nodes (19): admin_access_log, Backup/DR tier, Data model, equipment_type_repair_assignees fallback, inviteUserByEmail auth flow, Job lifecycle logic, Open questions, Organisation boundary (+11 more)
 
 ### Community 27 - "Runtime Dependencies"
 Cohesion: 0.10
 Nodes (27): dependencies, @dnd-kit/core@^6.3.1, @dnd-kit/sortable@^10.0.0, @dnd-kit/utilities@^3.2.2, docxtemplater@^3.69.3, html5-qrcode@^2.3.8, pizzip@^3.2.0, qrcode@^1.5.4 (+19 more)
 
 ### Community 28 - "EquipmentTypesTab.jsx"
-Cohesion: 0.09
-Nodes (28): assigneeKindAndIdFromRow(), assigneeLabel(), fieldStyle, getChecklistVersionsByIds(), getChecklistVersionsForType(), applyCommonFilters(), queryCheckoutEvents(), queryEquipmentHistory() (+20 more)
+Cohesion: 0.08
+Nodes (29): assigneeKindAndIdFromRow(), assigneeLabel(), AssigneePicker(), fieldStyle, checklistVersionSavedLine(), ChecklistVersionView(), DocumentPicker(), getChecklistVersionsForType() (+21 more)
 
 ### Community 29 - "public.generate_due_service_jobs_for_equipment"
-Cohesion: 0.10
-Nodes (27): public.equipment, public.fault_photos, public.fault_reports, public.job_statuses, public.repair_records, equipment_type_repair_assignees_default_uidx, equipment_type_repair_assignees_type_uidx, fault_reports_job_id_idx (+19 more)
+Cohesion: 0.14
+Nodes (19): public.equipment, public.job_statuses, public.report_equipment_fault(), public.equipment_monitor_events, public.apply_service_template(), public.equipment_service_schedules, public.equipment_service_tier_state, public.generate_due_service_jobs() (+11 more)
 
 ### Community 30 - "public.sites"
-Cohesion: 0.19
-Nodes (19): public.pitches, public.sites, meter_readings_meter_id_idx, meter_readings_pending_export_idx, meters_qr_code_current_key, public.can_see_meter(), public.import_meters(), public.mark_readings_exported() (+11 more)
+Cohesion: 0.10
+Nodes (31): public.pitches, public.sites, key_tag_events_key_tag_idx, key_tags_log_event, key_tags_pitch_idx, key_tags_special_location_idx, public.key_special_locations, public.key_tag_events (+23 more)
 
 ### Community 31 - "NewJob"
-Cohesion: 0.15
-Nodes (9): notifyJobAssigned(), handleReportIssue(), handleReportFault(), handleReallocate(), NewJob(), goToStep(), handleContinueFromWhat(), handleSubmit() (+1 more)
+Cohesion: 0.20
+Nodes (5): NewJob(), goToStep(), handleContinueFromWhat(), handleSubmit(), uploadPhotoForJob()
 
 ### Community 32 - "JobDetail.jsx"
-Cohesion: 0.11
-Nodes (29): JobCard(), JobRow(), KioskJobs(), handleComplete(), openJob(), today(), resolveLinkedEquipment(), writeJobCompletion() (+21 more)
+Cohesion: 0.10
+Nodes (31): ActivityTypePicker(), JobCard(), resolveLinkedEquipment(), writeJobCompletion(), formatDueDate(), notifyJobAssigned(), resolveAssigneeRecipientIds(), resolveContractorEmployeeIds() (+23 more)
 
 ### Community 33 - "AuthProvider"
 Cohesion: 0.17
 Nodes (9): Branding overrides, AuthProvider(), consumePendingTerminalLogin(), loadOfflineProfileCache(), loadStoredViewingAs(), saveOfflineProfileCache(), storedSessionWhileOffline(), loadTerminology() (+1 more)
 
 ### Community 34 - "public.organisations"
-Cohesion: 0.15
-Nodes (16): public.admin_access_log, public.organisations, public.office_hub_dashboard_items, public.office_hub_doc_categories, public.office_hub_documents, public.office_hub_link_categories, public.office_hub_links, public.license_agreement_area_seasons (+8 more)
+Cohesion: 0.08
+Nodes (30): public.job_types, public.organisations, public.schedules, public.task_types, public.training_videos, job_subtasks_enforce_edit, public.activity_type_documents, public.can_see_document() (+22 more)
 
-### Community 35 - "useEquipmentCheckout"
-Cohesion: 0.15
-Nodes (18): getLatestChecklistVersions(), getAvailableUnits(), getEquipmentTypeAvailabilityCounts(), getCompetentTypeIds(), getCurrentCompetencies(), saveCompetencies(), useEquipmentCheckout(), backToCategories() (+10 more)
+### Community 35 - "MachineCompetenciesTab"
+Cohesion: 0.43
+Nodes (7): getCurrentCompetencies(), saveCompetencies(), MachineCompetenciesTab(), competenciesFor(), handleSave(), openPerson(), refresh()
 
 ### Community 36 - "License Agreement Settings"
 Cohesion: 0.14
@@ -309,37 +312,37 @@ Nodes (18): getTeamHolidayCalendar(), BookingCalendar(), isNonWorkingDay(), isSe
 Cohesion: 0.17
 Nodes (17): common_fault_descriptions_type_idx, equipment_checkouts_enforce_immutable, equipment_checkouts_equipment_idx, equipment_checkouts_open_unique, equipment_checkouts_profile_idx, public.admin_force_check_in(), public.common_fault_descriptions, public.enforce_equipment_checkout_immutable_fields() (+9 more)
 
-### Community 40 - "KeyActivityLogTab.jsx"
-Cohesion: 0.17
-Nodes (14): queryKeyCheckouts(), queryTimesheetAuditLog(), formatDateTime(), issuedToLabel(), KeyActivityLogTab(), locationLabel(), STATUS_CHIPS, KeyReportsTab() (+6 more)
+### Community 40 - "EmptyState"
+Cohesion: 0.07
+Nodes (41): KioskSafety(), querySales(), withdrawHolidayRequest(), queryKeyCheckouts(), queryTimesheetAuditLog(), JobAssignmentTab(), refresh(), toggle() (+33 more)
 
 ### Community 41 - "Equipment Documents"
-Cohesion: 0.20
-Nodes (13): EquipmentDocumentsModal(), handleAdd(), handleDelete(), refresh(), EquipmentTab(), handleDecommission(), handleForceCheckIn(), handleSave() (+5 more)
+Cohesion: 0.27
+Nodes (9): EquipmentTab(), handleDecommission(), handleForceCheckIn(), handleSave(), openDecommission(), refresh(), resolveHoursRequired(), resolveTracksHours() (+1 more)
 
-### Community 42 - "public.contractors"
-Cohesion: 0.43
-Nodes (7): public.contractors, contractor_documents_contractor_idx, contractor_documents_pending_reminder_idx, contractor_documents_reset_reminder, public.can_manage_contractor_document(), public.contractor_documents, public.reset_contractor_document_reminder()
+### Community 42 - "deploy.yml"
+Cohesion: 0.15
+Nodes (12): concurrency, cancel-in-progress, group, name, on, push, workflow_dispatch, permissions (+4 more)
 
 ### Community 43 - "Layout.jsx"
 Cohesion: 0.10
-Nodes (37): AccountMenu(), handleLayoutToggle(), initials(), Layout(), handleDndToggle(), handleEnablePush(), readSidebarCollapsed(), Sidebar() (+29 more)
+Nodes (57): Gallery, AccountMenu(), handleLayoutToggle(), initials(), Layout(), handleDndToggle(), readSidebarCollapsed(), Sidebar() (+49 more)
 
 ### Community 44 - "ContractorDocumentsModal.jsx"
-Cohesion: 0.18
-Nodes (15): ContractorDocumentsModal(), handleAdd(), handleDelete(), refresh(), daysUntil(), DocumentRow(), formatDate(), ContractorsTab() (+7 more)
+Cohesion: 0.16
+Nodes (16): ContractorDocumentsModal(), handleAdd(), handleDelete(), refresh(), daysUntil(), DocumentRow(), formatDate(), ContractorsTab() (+8 more)
 
-### Community 45 - "role_visibility"
-Cohesion: 0.17
-Nodes (10): Backup/DR tier, equipment_type_repair_assignees fallback, Open questions, role_visibility, Andy, role_visibility pending confirmation, SQL run order, role_can_see_role() (+2 more)
+### Community 45 - "IconArrowDown"
+Cohesion: 0.27
+Nodes (9): sortIndicator(), historySortIndicator(), StandardInstructionsModal(), addItem(), commit(), moveItem(), removeItem(), IconArrowDown() (+1 more)
 
 ### Community 46 - "Customer Onboarding Script"
-Cohesion: 0.17
-Nodes (11): papaparse@^5.7.0, papaparse, __dirname, escapeSqlLiteral(), listSqlFilesInOrder(), main(), prompt(), promptList() (+3 more)
+Cohesion: 0.20
+Nodes (9): __dirname, escapeSqlLiteral(), listSqlFilesInOrder(), main(), prompt(), promptList(), runFile(), SKIP_FILES (+1 more)
 
-### Community 47 - "Textarea"
-Cohesion: 0.11
-Nodes (16): DayRow(), KioskTimesheet(), WeekNote(), SafetyLibraryTab(), handleDelete(), handleSave(), refresh(), ariaSort() (+8 more)
+### Community 47 - "SafetyLibraryTab"
+Cohesion: 0.60
+Nodes (4): SafetyLibraryTab(), handleDelete(), handleSave(), refresh()
 
 ### Community 48 - "HTML Entry & PWA Shell"
 Cohesion: 0.19
@@ -349,9 +352,9 @@ Nodes (14): Minimal Pre-paint Reset, PWA Manifest (/manifest.webmanifest), index
 Cohesion: 0.16
 Nodes (13): devDependencies, pg@^8.13.1, supabase@^2.111.0, workbox-core@^7.3.0, workbox-precaching@^7.3.0, workbox-routing@^7.3.0, workbox-strategies@^7.3.0, pg (+5 more)
 
-### Community 50 - "profiles table"
-Cohesion: 0.08
-Nodes (21): admin_access_log, admin_access_log table, export_logs table, forbid_role_delete_if_in_use, has_permission(), has_site_scope(), is_in_group(), is_platform_admin() (+13 more)
+### Community 50 - "can_see_job"
+Cohesion: 0.22
+Nodes (7): can_see_job(), has_permission(), has_site_scope(), is_in_group(), is_platform_admin(), job_is_assigned_to_me(), role_can_see_role()
 
 ### Community 51 - "check-styles.mjs"
 Cohesion: 0.26
@@ -362,28 +365,28 @@ Cohesion: 0.17
 Nodes (4): corsHeaders, supabase, corsHeaders, supabase
 
 ### Community 53 - "Meter CSV Import"
-Cohesion: 0.28
-Nodes (12): csvRowsToImportRows(), fetchDuplicateGroups(), fetchMeterCandidatesForGroup(), importMeterCsvFiles(), parseCsvFile(), resolveDuplicateGroup(), toIsoDate(), DuplicateGroupCard() (+4 more)
+Cohesion: 0.29
+Nodes (9): papaparse@^5.7.0, papaparse, csvRowsToImportRows(), fetchDuplicateGroups(), importMeterCsvFiles(), parseCsvFile(), toIsoDate(), handleGroupResolved() (+1 more)
 
-### Community 54 - "Permission keys"
-Cohesion: 0.11
-Nodes (18): admin_force_check_in, can_check_off_item_without_photo, can_complete_job_without_photo, can_delete_jobs, can_edit_job_checklist, can_export_jobs, can_manage_contractors, can_manage_equipment_status (+10 more)
+### Community 54 - "deploy"
+Cohesion: 0.22
+Nodes (9): runs-on, environment, needs, runs-on, name, url, jobs, build (+1 more)
 
-### Community 55 - "UsersTab"
-Cohesion: 0.33
-Nodes (6): UsersTab(), handleDeactivate(), handleInvite(), handleReactivate(), handleSaveEdit(), refresh()
+### Community 55 - "DirectoriesPanel"
+Cohesion: 0.31
+Nodes (5): categoryName(), DirectoriesPanel(), matchesQuery(), SignalStrip(), IconSearch()
 
-### Community 56 - "PhotoThumb.jsx"
-Cohesion: 0.33
-Nodes (8): PhotoThumb(), PrintableJobCard(), PrintRow(), printSectionHeading, SignOffField(), minimumPeopleFor(), minimumPeopleMessage(), minimumPeopleTitle()
+### Community 56 - "KioskJobs.jsx"
+Cohesion: 0.16
+Nodes (17): PhotoThumb(), PrintableJobCard(), PrintRow(), printSectionHeading, SignOffField(), KioskApp(), JobRow(), KioskJobs() (+9 more)
 
 ### Community 57 - "Equipment Doc Reminders Fn"
 Cohesion: 0.22
 Nodes (4): officeGroupEmails(), officeGroupId(), resend, supabase
 
 ### Community 58 - "public.jobs"
-Cohesion: 0.10
-Nodes (19): public.job_photos, public.job_subtasks, jobs_enforce_reopen, public.enforce_job_reopen_permission(), public.forbid_role_delete_if_in_use(), roles_forbid_delete_if_in_use, jobs_enforce_completion_photo, public.enforce_job_completion_photo_requirement() (+11 more)
+Cohesion: 0.19
+Nodes (9): jobs_enforce_reopen, public.enforce_job_reopen_permission(), public.forbid_role_delete_if_in_use(), roles_forbid_delete_if_in_use, jobs_enforce_completion_photo, public.enforce_job_completion_photo_requirement(), jobs_enforce_details_edit, public.enforce_job_details_edit_permission() (+1 more)
 
 ### Community 59 - "GroupsTab"
 Cohesion: 0.38
@@ -393,9 +396,9 @@ Nodes (4): GroupsTab(), handleDelete(), handleSave(), refresh()
 Cohesion: 0.22
 Nodes (3): corsHeaders, resend, supabaseAdmin
 
-### Community 62 - "OfficeHubTab.jsx"
-Cohesion: 0.22
-Nodes (6): ATTACHMENT_TYPES, blankCategory, blankDoc, blankLink, CategoriesPanel(), OfficeHubTab()
+### Community 62 - "DashboardTab"
+Cohesion: 0.33
+Nodes (5): tileColorValue(), DashboardTab(), resolveTile(), StaticTile(), useSignedDocUrl()
 
 ### Community 63 - "Manage Users Fn"
 Cohesion: 0.25
@@ -410,32 +413,32 @@ Cohesion: 0.39
 Nodes (7): buildExportRows(), COLUMNS, downloadCsv(), exportMeterReadingsCsvs(), quoted(), toDdMmYyyy(), handleExport()
 
 ### Community 66 - "public.timesheet_entries"
-Cohesion: 0.11
-Nodes (25): public.freeze_timesheet_week(), public.timesheet_audit_log, public.timesheet_entries, public.timesheet_entries_before_delete(), public.timesheet_entries_before_insert(), public.timesheet_entries_before_update(), public.timesheet_weeks, public.unfreeze_timesheet_week() (+17 more)
+Cohesion: 0.15
+Nodes (21): public.freeze_timesheet_week(), public.timesheet_audit_log, public.timesheet_entries, public.timesheet_entries_before_delete(), public.timesheet_entries_before_insert(), public.timesheet_entries_before_update(), public.timesheet_person_order, public.timesheet_weeks (+13 more)
 
 ### Community 67 - "UI Redesign Plan"
-Cohesion: 0.32
-Nodes (8): UI Redesign Plan, Admin Tabs as Real Routes (/admin/:tab), Admiralty Navy Palette, Decisions D1-D6, Five Navigation Idioms Problem, Mobile Bottom Tab Bar, Palette Drift (Field Journal vs Admiralty), Phase 3 - Navigation and Chrome Rebuild
+Cohesion: 0.18
+Nodes (13): src/styles/base.css, UI Redesign Plan, ActionGrid / ActionList (unified hub pages), Admin Tabs as Real Routes (/admin/:tab), Admiralty Navy Palette, Decisions D1-D6, Five Navigation Idioms Problem, Global :focus-visible Ring (+5 more)
 
 ### Community 68 - "Security plan (review of 17 Nov 2026)"
 Cohesion: 0.22
 Nodes (8): 1. Fob sign-in can be used from anywhere (serious), 2. Bank-holiday helpers callable by any user (medium), 3. Push notices accept anything (lower), 4. Cron functions callable with the public key (low), 5. Housekeeping (low), Doing it, Security plan (review of 17 Nov 2026), What's already in good shape (checked 17 Nov 2026)
 
-### Community 69 - "HolidaySettingsTab.jsx"
-Cohesion: 0.47
-Nodes (5): upsertHolidaySettings(), HolidaySettingsTab(), handleSave(), MONTH_NAMES, HolidaySettingsTab
+### Community 69 - "useIsMobile.js"
+Cohesion: 0.52
+Nodes (6): detectIsMobile(), detectIsPhoneDevice(), detectIsTabletDevice(), getTabletUsesDesktopLayout(), useIsMobile(), handler()
 
 ### Community 70 - "vite.config.js"
 Cohesion: 0.17
 Nodes (8): vite@^5.2.0, vite-plugin-pwa@^0.20.5, @vitejs/plugin-react@^4.2.1, vite, vite-plugin-pwa, @vitejs/plugin-react, BUILD_LABEL, { version }
 
-### Community 71 - "icons.jsx"
-Cohesion: 0.10
-Nodes (24): sortIndicator(), DocumentsPanel(), handleFileChosen(), LinksPanel(), TileStyleFields(), uploadFile(), historySortIndicator(), IconArrowDown() (+16 more)
+### Community 71 - "OfficeHubTab.jsx"
+Cohesion: 0.12
+Nodes (13): TILE_COLORS, TILE_ICONS, ATTACHMENT_TYPES, blankCategory, blankDoc, blankLink, DocumentsPanel(), handleFileChosen() (+5 more)
 
-### Community 72 - "Runbook"
-Cohesion: 0.14
-Nodes (19): Runbook, .env client variables, Resend, VAPID keys, What's NOT done yet, clear-login-context Edge Function, contractor-document-reminders Edge Function, equipment-document-reminders Edge Function (+11 more)
+### Community 72 - "Claude Code Instructions"
+Cohesion: 0.07
+Nodes (31): graphify skill instructions, graphify, Aeroplane mode offline test, Suggested build order, Claude Code Instructions, Shared Supabase project ozhwgrzlpvfdemmogmav, SUPABASE-CONSOLIDATION-PLAN.md, Runbook (+23 more)
 
 ### Community 73 - "main.jsx"
 Cohesion: 0.28
@@ -453,37 +456,37 @@ Nodes (3): ALLOWED_CONTEXTS, corsHeaders, supabaseAdmin
 Cohesion: 0.40
 Nodes (5): scripts, build, dev, onboard, preview
 
-### Community 77 - "main.jsx"
-Cohesion: 0.25
-Nodes (5): App(), src/styles/base.css, Global :focus-visible Ring, No Stylesheet Finding (1,425 inline styles), Phase 1 - CSS Foundation and Token Layer
+### Community 77 - "ActivityTypesTab"
+Cohesion: 0.47
+Nodes (4): ActivityTypesTab(), handleDelete(), handleSave(), refresh()
 
-### Community 78 - "System Specification"
-Cohesion: 0.14
-Nodes (12): Aeroplane mode offline test, Suggested build order, GitHub Pages deploy pipeline, index.html, public/404.html, pg_stat_activity diagnostic, System Specification, GitHub Pages hosting (+4 more)
+### Community 78 - "Build Brief"
+Cohesion: 0.10
+Nodes (20): Build Brief, Supabase backend, Tree Tops Caravan Park Ltd, Tree Tops seed data, treetops-maintenance.jsx prototype, GitHub Pages deploy pipeline, index.html, public/404.html (+12 more)
 
 ### Community 114 - "Admiralty visual direction"
-Cohesion: 0.22
-Nodes (6): Admiralty visual direction, Field Journal palette, Typography (Lora, Work Sans, IBM Plex Mono), src/kiosk/kioskTheme.js, Field Journal design system, ActionGrid / ActionList (unified hub pages)
+Cohesion: 0.20
+Nodes (6): Admiralty visual direction, Field Journal palette, Office Hub tile palette, Typography (Lora, Work Sans, IBM Plex Mono), src/kiosk/kioskTheme.js, Field Journal design system
 
 ### Community 115 - "seed-users.mjs"
 Cohesion: 0.29
 Nodes (4): @supabase/supabase-js@^2.45.4, @supabase/supabase-js, SEED_USERS, supabase
 
-### Community 117 - "RfidTagsTab"
-Cohesion: 0.60
-Nodes (4): RfidTagsTab(), handleAssign(), handleRevoke(), refresh()
+### Community 117 - "RfidScanListener"
+Cohesion: 0.21
+Nodes (7): RfidScanListener(), KeyStationSignIn(), KioskSignIn(), RfidTagsTab(), handleAssign(), handleRevoke(), refresh()
 
-### Community 118 - "06-activity-types-and-safety-library.sql"
-Cohesion: 0.36
-Nodes (6): job_subtasks_enforce_edit, public.activity_type_documents, public.can_see_document(), public.enforce_job_subtask_edit_permission(), public.ra_ms_documents, public.equipment_type_documents
+### Community 118 - "refresh"
+Cohesion: 0.40
+Nodes (6): handleDelete(), handleSave(), handleSaveDefaultAssignee(), moveType(), refresh(), saveAssigneeRow()
 
 ### Community 119 - "src/ui components"
 Cohesion: 0.25
 Nodes (6): src/ui components, Empty-State Sweep, Permission Matrix Sticky Column / Card View, Phase 2 - UI Primitives, Phase 4 - Screen-by-Screen Pass, /ui-gallery Dev Route
 
-### Community 120 - "newJobReferenceData.js"
-Cohesion: 0.52
-Nodes (5): getAssignableTargets(), cacheKey(), fetchFresh(), loadNewJobReferenceData(), readCache()
+### Community 120 - "public.equipment_type_repair_assignees"
+Cohesion: 0.47
+Nodes (5): equipment_type_repair_assignees_default_uidx, equipment_type_repair_assignees_type_uidx, fault_reports_job_id_idx, jobs_equipment_id_idx, public.equipment_type_repair_assignees
 
 ### Community 121 - "key_tags table"
 Cohesion: 0.33
@@ -493,49 +496,61 @@ Nodes (7): admin_force_check_in_key, log_key_tag_event, key_checkouts table, key
 Cohesion: 0.43
 Nodes (5): CommonFaultDescriptionsTab(), addFault(), moveFault(), refreshFaults(), removeFault()
 
-### Community 123 - "RolesPermissionsTab"
-Cohesion: 0.48
-Nodes (6): RolesPermissionsTab(), addRole(), deleteRole(), refresh(), saveRename(), toggle()
+### Community 123 - "useKeyCheckout"
+Cohesion: 0.50
+Nodes (3): useKeyCheckout(), backToSelect(), refresh()
 
-### Community 124 - "JobTemplatesTab"
-Cohesion: 0.47
-Nodes (4): JobTemplatesTab(), handleDelete(), handleSave(), refresh()
+### Community 124 - "useKeyForceCheckIn"
+Cohesion: 0.50
+Nodes (3): useKeyForceCheckIn(), backToSelect(), refresh()
 
 ### Community 125 - "Priority Is a Solid Colour Bar, Never an Icon"
 Cohesion: 0.40
 Nodes (3): Overdue Pill, Phase 5 - Polish, Redesign Constraints (must not break)
 
-### Community 126 - "DocumentRow"
-Cohesion: 0.67
-Nodes (3): daysUntil(), DocumentRow(), formatDate()
+### Community 126 - "EquipmentDocumentsModal"
+Cohesion: 0.38
+Nodes (7): daysUntil(), DocumentRow(), EquipmentDocumentsModal(), handleAdd(), handleDelete(), refresh(), formatDate()
+
+### Community 128 - "useKeyHandover"
+Cohesion: 0.50
+Nodes (3): useKeyHandover(), backToSelect(), refresh()
+
+### Community 129 - "useKeyRelocate"
+Cohesion: 0.50
+Nodes (3): useKeyRelocate(), backToSelect(), refresh()
+
+### Community 130 - "manage-users Edge Function"
+Cohesion: 0.50
+Nodes (3): manage-users Edge Function, list_org_users, can_manage_users
 
 ## Ambiguous Edges - Review These
-- `Pro plan + Micro compute` → `GitHub Pages deploy pipeline`  [AMBIGUOUS]
+- `GitHub Pages deploy pipeline` → `Pro plan + Micro compute`  [AMBIGUOUS]
   RUNBOOK.md · relation: conceptually_related_to
 
 ## Knowledge Gaps
 - **53 isolated node(s):** `theme.js Rewritten to Read Tokens (hinge)`, `Typography (Lora, Work Sans, IBM Plex Mono)`, `Empty-State Sweep`, `Permission Matrix Sticky Column / Card View`, `/ui-gallery Dev Route` (+48 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 516 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 521 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **40 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `Runbook` connect `Runbook` to `Build Brief`, `seed-users.mjs`, `role_visibility`, `System Specification`?**
-  _High betweenness centrality (0.191) - this node is a cross-community bridge._
+- **Why does `Runbook` connect `Claude Code Instructions` to `manage-users Edge Function`, `seed-users.mjs`, `public.profiles`, `Build Brief`?**
+  _High betweenness centrality (0.194) - this node is a cross-community bridge._
 - **What connects `theme.js Rewritten to Read Tokens (hinge)`, `Typography (Lora, Work Sans, IBM Plex Mono)`, `Empty-State Sweep` to the rest of the system?**
   _53 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `useAuth` be split into smaller, more focused modules?**
-  _Cohesion score 0.09342783505154639 - nodes in this community are weakly interconnected._
-- **Why does `SQL run order` connect `role_visibility` to `Runbook`, `public.profiles`, `public.jobs`?**
-  _High betweenness centrality (0.185) - this node is a cross-community bridge._
+  _Cohesion score 0.09029066171923315 - nodes in this community are weakly interconnected._
+- **Why does `SQL run order` connect `public.profiles` to `Claude Code Instructions`, `role_visibility`?**
+  _High betweenness centrality (0.187) - this node is a cross-community bridge._
 - **Should `Alert` be split into smaller, more focused modules?**
-  _Cohesion score 0.1195436507936508 - nodes in this community are weakly interconnected._
-- **Why does `public.profiles` connect `public.profiles` to `public.organisations`, `public.timesheet_entries`, `Equipment Types & Competencies Schema`, `public.equipment`, `public.contractors`, `public.holiday_accrued_hours`, `Supabase Consolidation & Roles`, `Holiday Accrual Schema`, `Pitches, Meters & Key Tags Schema`, `public.jobs`, `public.jobs`, `public.generate_due_service_jobs_for_equipment`, `public.sites`?**
-  _High betweenness centrality (0.115) - this node is a cross-community bridge._
+  _Cohesion score 0.1272072072072072 - nodes in this community are weakly interconnected._
+- **Why does `public.profiles` connect `public.profiles` to `public.organisations`, `public.timesheet_entries`, `Equipment Types & Competencies Schema`, `public.equipment`, `public.holiday_accrued_hours`, `Supabase Consolidation & Roles`, `Holiday Accrual Schema`, `public.key_checkouts`, `public.jobs`, `public.equipment_type_repair_assignees`, `public.jobs`, `public.generate_due_service_jobs_for_equipment`, `public.sites`?**
+  _High betweenness centrality (0.082) - this node is a cross-community bridge._
 
 ### Low-confidence Hints
 _AMBIGUOUS edges — the extractor was unsure. Verify before acting on these._
 
-- **What is the exact relationship between `Pro plan + Micro compute` and `GitHub Pages deploy pipeline`?**
+- **What is the exact relationship between `GitHub Pages deploy pipeline` and `Pro plan + Micro compute`?**
   _Edge tagged AMBIGUOUS (relation: conceptually_related_to) - confidence is low._

@@ -6,7 +6,12 @@ import { colors } from "../../lib/theme.js";
 import { Button, Card, EmptyState, PageHeader, SkeletonList } from "../../ui/index.js";
 import { DEFAULT_AREA_SEASON_MAP, personFullName } from "./calculations.js";
 import { generateDocument } from "./generateDocument.js";
-import { CardTitle, Step1Import, Step2Price, Step3Instructions, Step4Generate } from "./steps.jsx";
+import { CardTitle, Step1Import, Step2Price, Step3Instructions, Step4Generate, newSaleFromRow, newPriceForSale } from "./steps.jsx";
+
+// Session-storage handoff key the Sale Tracker's "Open in License
+// Agreement tool" button writes to (src/pages/sales/SaleDetail.jsx)
+// before navigating here -- read once below, then cleared.
+const PREFILL_KEY = "licenseAgreementPrefillRow";
 
 const STEPS = [
   { key: 1, label: "1. Import & contact details" },
@@ -109,6 +114,27 @@ export default function LicenseAgreement() {
     document.querySelector(".tt-main")?.scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
   }, [step]);
+
+  // Prefill from the Sale Tracker -- same row shape a CampManager CSV
+  // row gives Step1Import's own selectRow, so this reuses that path's
+  // logic rather than a second import mechanism. Waits for `loading` so
+  // areaSeasonMap/ratesFullYearDefault are the real, loaded values, not
+  // their initial defaults; consumes the key immediately so switching
+  // tabs and back doesn't re-trigger it.
+  useEffect(() => {
+    if (loading) return;
+    const raw = sessionStorage.getItem(PREFILL_KEY);
+    if (!raw) return;
+    sessionStorage.removeItem(PREFILL_KEY);
+    try {
+      const row = JSON.parse(raw);
+      const sale = newSaleFromRow(row, areaSeasonMap);
+      setWizard((w) => ({ ...w, ...sale, price: newPriceForSale(sale.unit, sale.seasonLength, ratesFullYearDefault, row) }));
+    } catch (err) {
+      console.error("Failed to prefill the License Agreement tool from a sale", err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   if (!permissions.has("can_use_license_agreement")) {
     return <EmptyState title="No access">You don't have permission to use the License Agreement Builder. Ask an admin to grant it in Roles &amp; Permissions.</EmptyState>;

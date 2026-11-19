@@ -6,17 +6,18 @@ import { createJob, getDefaultOpenStatusId } from "../../lib/createJob.js";
 import { loadNewJobReferenceData } from "../../lib/newJobReferenceData.js";
 import { openPrintWindow } from "../../lib/printJobCards.jsx";
 import { writeAndPrintSaleCustomerCopy, writeAndPrintSaleOfficeCopy } from "../../lib/printCaravanSale.jsx";
+import { buildLicenseAgreementRow } from "../../lib/caravanSaleToLicenseRow.js";
 import CaravanSalePriceBreakdown, { grandTotal } from "../../components/CaravanSalePriceBreakdown.jsx";
 import SearchPicker from "../../components/SearchPicker.jsx";
 import AssigneePicker from "../../components/AssigneePicker.jsx";
 import { colors } from "../../lib/theme.js";
 import { Alert, Button, Card, EmptyState, Field, Input, PageHeader, Pill, Select, SkeletonList, Switch, Textarea } from "../../ui/index.js";
 
-const JOB_SLOTS = [
-  { role: "prep", title: "Prep caravan — clean & repairs", needsContractor: false },
-  { role: "gas_test", title: "Gas test", needsContractor: true },
-  { role: "electric_test", title: "Electric test", needsContractor: true },
-];
+// Gas/electric test used to be real linked Jobs needing a Contractor
+// assignee -- simplified to plain booked/completed date fields on the
+// sale itself (below, in JobsCard), since office just needs the dates
+// on file, not a job to assign. Prep caravan stays a real linked Job.
+const JOB_SLOTS = [{ role: "prep", title: "Prep caravan — clean & repairs", needsContractor: false }];
 
 function customerName(sale) {
   return [sale.title, sale.forename, sale.surname].filter(Boolean).join(" ");
@@ -209,6 +210,14 @@ function JobsCard({ sale, jobTypes, contractors, onRefresh }) {
   const [readingDate, setReadingDate] = useState(sale.meter_reading_date || "");
   const [saving, setSaving] = useState(false);
 
+  // Gas/electric test dates -- plain fields, not linked Jobs (simplified
+  // from the earlier Contractor-assignee version).
+  const [electricBooked, setElectricBooked] = useState(sale.electric_test_booked_date || "");
+  const [electricCompleted, setElectricCompleted] = useState(sale.electric_test_completed_date || "");
+  const [gasBooked, setGasBooked] = useState(sale.gas_test_booked_date || "");
+  const [gasCompleted, setGasCompleted] = useState(sale.gas_test_completed_date || "");
+  const [savingTests, setSavingTests] = useState(false);
+
   async function saveReadings() {
     setSaving(true);
     try {
@@ -223,12 +232,40 @@ function JobsCard({ sale, jobTypes, contractors, onRefresh }) {
     }
   }
 
+  async function saveTestDates() {
+    setSavingTests(true);
+    try {
+      const updated = await updateSale(sale.id, {
+        electric_test_booked_date: electricBooked || null,
+        electric_test_completed_date: electricCompleted || null,
+        gas_test_booked_date: gasBooked || null,
+        gas_test_completed_date: gasCompleted || null,
+      });
+      onRefresh(updated);
+    } finally {
+      setSavingTests(false);
+    }
+  }
+
   return (
     <Card pad="md">
       <h2 style={{ marginTop: 0 }}>Jobs</h2>
       {JOB_SLOTS.map((slot) => (
         <JobSlot key={slot.role} slot={slot} sale={sale} jobTypes={jobTypes} contractors={contractors} onCreated={onRefresh} />
       ))}
+      <div style={{ padding: "var(--space-3) 0", borderTop: `1px solid ${colors.line}` }}>
+        <div style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>Electric test</div>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "flex-end", marginBottom: "var(--space-3)" }}>
+          <Field label="Booked">{({ id }) => <Input id={id} type="date" value={electricBooked} onChange={(e) => setElectricBooked(e.target.value)} />}</Field>
+          <Field label="Completed">{({ id }) => <Input id={id} type="date" value={electricCompleted} onChange={(e) => setElectricCompleted(e.target.value)} />}</Field>
+        </div>
+        <div style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>Gas test</div>
+        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "flex-end" }}>
+          <Field label="Booked">{({ id }) => <Input id={id} type="date" value={gasBooked} onChange={(e) => setGasBooked(e.target.value)} />}</Field>
+          <Field label="Completed">{({ id }) => <Input id={id} type="date" value={gasCompleted} onChange={(e) => setGasCompleted(e.target.value)} />}</Field>
+          <Button size="sm" loading={savingTests} onClick={saveTestDates}>Save</Button>
+        </div>
+      </div>
       <div style={{ padding: "var(--space-3) 0", borderTop: `1px solid ${colors.line}` }}>
         <div style={{ fontWeight: 600, marginBottom: "var(--space-2)" }}>Meter readings</div>
         <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap", alignItems: "flex-end" }}>
@@ -253,10 +290,22 @@ function CheckRow({ label, checked, onChange, hint }) {
 }
 
 function SystemsDocsCard({ sale, onSaved }) {
+  const navigate = useNavigate();
+
   async function toggle(field, extra = {}) {
     const updated = await updateSale(sale.id, { [field]: !sale[field], ...extra });
     onSaved(updated);
   }
+
+  // Hands the sale's data to the License Agreement tool via the same
+  // row shape its own CampManager-CSV import already expects (see
+  // caravanSaleToLicenseRow.js) -- a sessionStorage handoff, read once
+  // and cleared by LicenseAgreement.jsx.
+  function openInLicenseAgreement() {
+    sessionStorage.setItem("licenseAgreementPrefillRow", JSON.stringify(buildLicenseAgreementRow(sale)));
+    navigate("/office-hub?tab=license-agreement");
+  }
+
   return (
     <Card pad="md">
       <h2 style={{ marginTop: 0 }}>Systems &amp; docs</h2>
@@ -274,7 +323,7 @@ function SystemsDocsCard({ sale, onSaved }) {
         hint="One combined document — generate it in the License Agreement tool."
       />
       <div style={{ padding: "0 0 var(--space-2) calc(var(--space-6) + var(--space-1))" }}>
-        <a href="/office-hub?tab=license-agreement">Open in License Agreement tool →</a>
+        <Button size="sm" onClick={openInLicenseAgreement}>Open in License Agreement tool (pre-filled) →</Button>
       </div>
       <CheckRow label="Purchase & licence agreement — signed & filed" checked={sale.agreement_signed_filed} onChange={() => toggle("agreement_signed_filed")} />
     </Card>
